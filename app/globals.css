@@ -1,0 +1,187 @@
+@import "tailwindcss";
+
+:root {
+  --bg: radial-gradient(circle at 50% 0%, #1a1a1a 0, #000000 70%);
+  --glass-bg: rgba(20, 20, 20, 0.85);
+  --glass-highlight: rgba(255, 215, 0, 0.08);
+  --accent: #FFD700;
+  --accent-soft: rgba(255, 215, 0, 0.2);
+  --accent-2: #C0C0C0;
+  --accent-3: #B8860B;
+  --text: #ffffff;
+  --muted: #a3a3a3;
+  --danger: #ef4444;
+  --income: #FFD700;
+  --expense: #ffffff;
+
+  --radius-lg: 20px;
+  --radius-xl: 26px;
+  --radius-pill: 999px;
+
+  --blur-strong: 26px;
+  --blur-soft: 18px;
+
+  --background: #000;
+  --foreground: #f8fafc;
+}
+
+/* Hide Spinners */
+/* Chrome, Safari, Edge, Opera */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Theme Configuration for Tailwind v4 */
+@theme {
+  --color-bg-layer: var(--bg);
+  --color-glass-bg: var(--glass-bg);
+  --color-glass-highlight: var(--glass-highlight);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-2: var(--accent-2);
+  --color-accent-3: var(--accent-3);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-danger: var(--danger);
+  --color-income: var(--income);
+  --color-expense: var(--expense);
+
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-pill: var(--radius-pill);
+}
+
+/* NEW: remove any browser margins & stretch to full height */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  padding-top: max(0px, env(safe-area-inset-top));
+}
+
+body {
+  color: var(--text);
+  background: #000;
+  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom Utilities for Glassmorphism - Native CSS to avoid @apply issues in v4 */
+.glass {
+  background-color: var(--glass-bg);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(var(--blur-strong)) saturate(1.6);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-lg);
+}
+
+.glass-soft {
+  background-color: rgba(8, 8, 22, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(var(--blur-soft)) saturate(1.4);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.01);
+  border-radius: var(--radius-lg);
+}
+
+.btn-core {
+  border-radius: var(--radius-pill);
+  padding: 12px 10px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
+  color: #f9fafb;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.8);
+  transition: all 0.15s ease;
+  backdrop-filter: blur(18px);
+  white-space: nowrap;
+}
+
+.btn-core:active {
+  transform: translateY(1px) scale(0.99);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.9);
+  opacity: 0.95;
+}
+
+/* Background gradient & glow */
+.bg-layer {
+  position: fixed;
+  inset: 0;
+  top: 0;
+  z-index: -2;
+  background: var(--bg);
+  height: 100vh;
+  width: 100vw;
+}
+
+.bg-orb {
+  position: fixed;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.orb-1 {
+  background: var(--accent);
+  top: -100px;
+  right: -80px;
+  opacity: 0.15;
+}
+
+.orb-2 {
+  background: var(--accent-2);
+  bottom: -120px;
+  left: -40px;
+  opacity: 0.1;
+}
+
+.orb-3 {
+  background: var(--accent-3);
+  top: 40%;
+  left: 60%;
+  opacity: 0.1;
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
