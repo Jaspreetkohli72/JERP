@@ -19,7 +19,7 @@ interface Contact {
 
 export default function PendingPage() {
     // @ts-ignore
-    const { contacts, loading, addContact, settleContact } = useFinance();
+    const { contacts, loading, addContact, settleContact, openAddTxModal } = useFinance();
     const [searchTerm, setSearchTerm] = useState("");
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -77,8 +77,16 @@ export default function PendingPage() {
                         />
                     </div>
                     <button
+                        onClick={() => openAddTxModal("expense", { is_debt: true, title: "Add Pending Payment" })}
+                        className="bg-white/10 text-white w-10 h-10 rounded-full font-semibold flex items-center justify-center hover:bg-white/20 transition-all"
+                        title="Add Pending Transaction"
+                    >
+                        <ArrowUpRight size={20} />
+                    </button>
+                    <button
                         onClick={() => setIsAddModalOpen(true)}
                         className="bg-[var(--accent)] text-black w-10 h-10 rounded-full font-semibold flex items-center justify-center hover:opacity-90 transition-all shadow-[0_0_15px_rgba(255,215,0,0.3)]"
+                        title="Add Contact"
                     >
                         <Plus size={20} />
                     </button>

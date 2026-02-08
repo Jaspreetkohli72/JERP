@@ -6,13 +6,13 @@ import { useFinance } from "../context/FinanceContext";
 
 export default function AddTransactionForm({ type, onClose, title, initialData }) {
     const { addTransaction, updateTransaction, wallets, contacts, addContact, projects, addProject } = useFinance();
-    const [amount, setAmount] = useState(initialData ? initialData.amount : "");
+    const [amount, setAmount] = useState(initialData?.amount ?? "");
     const [contactId, setContactId] = useState(initialData?.contact_id || "");
     const [projectId, setProjectId] = useState(initialData?.project_id || "");
     const [walletId, setWalletId] = useState(initialData?.wallet_id || "");
     const [description, setDescription] = useState(initialData?.description || "");
     // Default isDebt to true. If editing, use existing value (with fallback to true if undefined)
-    const [isDebt, setIsDebt] = useState(initialData ? (initialData.is_debt !== undefined ? initialData.is_debt : true) : true);
+    const [isDebt, setIsDebt] = useState(initialData ? (initialData.is_debt !== undefined ? initialData.is_debt : false) : false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Dropdown & New Contact State
@@ -98,9 +98,11 @@ export default function AddTransactionForm({ type, onClose, title, initialData }
         // Format description to Title Case
         const formattedDescription = toTitleCase(description.trim());
 
+        const isEditing = initialData && initialData.id;
+
         const txData = {
             amount: parseFloat(amount),
-            type: initialData ? initialData.type : type, // Use existing type if editing
+            type: initialData?.type || type, // Use existing type if editing, else prop default
             category_id: null, // Categories removed
             wallet_id: walletId,
             description: formattedDescription,
@@ -108,11 +110,11 @@ export default function AddTransactionForm({ type, onClose, title, initialData }
             project_id: projectId || null,
             is_debt: isDebt,
             // Keep original date if editing, else new date
-            transaction_date: initialData ? initialData.transaction_date : new Date().toISOString()
+            transaction_date: (isEditing && initialData.transaction_date) ? initialData.transaction_date : new Date().toISOString()
         };
 
         let result;
-        if (initialData) {
+        if (isEditing) {
             result = await updateTransaction(initialData.id, txData);
         } else {
             result = await addTransaction(txData);
@@ -393,6 +395,22 @@ export default function AddTransactionForm({ type, onClose, title, initialData }
                         </div>
                     )}
                 </div>
+
+                {/* Balance Update Toggle (Only if Contact selected) */}
+                {contactId && (
+                    <div className="flex items-center gap-2 px-1">
+                        <button
+                            type="button"
+                            onClick={() => setIsDebt(!isDebt)}
+                            className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isDebt ? "bg-accent border-accent" : "border-muted bg-transparent"}`}
+                        >
+                            {isDebt && <Check size={14} className="text-white" />}
+                        </button>
+                        <span className="text-sm text-muted" onClick={() => setIsDebt(!isDebt)}>
+                            Update Contact Balance (Loan/Credit)
+                        </span>
+                    </div>
+                )}
 
                 {/* Description */}
                 <div>

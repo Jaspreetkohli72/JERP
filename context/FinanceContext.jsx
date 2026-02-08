@@ -731,6 +731,7 @@ export function FinanceProvider({ children }) {
     // Modal State
     const [isAddTxModalOpen, setIsAddTxModalOpen] = useState(false);
     const [addTxInitialType, setAddTxInitialType] = useState("expense");
+    const [addTxInitialData, setAddTxInitialData] = useState(null);
 
     // --- Operations Module Helpers ---
 
@@ -1377,12 +1378,14 @@ export function FinanceProvider({ children }) {
                 addCategory,
                 deleteCategory,
                 isAddTxModalOpen,
-                openAddTxModal: (type) => {
+                openAddTxModal: (type, data) => {
                     setAddTxInitialType(type || "expense");
+                    setAddTxInitialData(data || null);
                     setIsAddTxModalOpen(true);
                 },
                 closeAddTxModal: () => setIsAddTxModalOpen(false),
                 addTxInitialType,
+                addTxInitialData,
                 getFinancials,
                 financials: currentFinancials,
                 // Operations
