@@ -14,10 +14,25 @@ const formatCurrency = (amount) => {
 };
 
 export default function BalanceCard() {
-    const { financials, loading } = useFinance();
+    const { financials, totalLiquidAssets, loading } = useFinance();
     const [activeForm, setActiveForm] = useState(null); // 'income' | 'expense' | null
 
-    if (loading) return <div className="glass-soft p-4 h-48 animate-pulse rounded-[26px]" />;
+    if (loading) return (
+        <div className="glass-soft p-4 h-[220px] animate-pulse rounded-[26px] bg-black/20 border border-white/5 relative overflow-hidden">
+            <div className="space-y-4">
+                <div className="h-4 w-32 bg-white/10 rounded-full" />
+                <div className="h-10 w-48 bg-white/10 rounded-lg" />
+                <div className="flex gap-4 pt-2">
+                    <div className="h-4 w-24 bg-white/5 rounded" />
+                    <div className="h-4 w-24 bg-white/5 rounded" />
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div className="h-12 bg-white/5 rounded-xl" />
+                    <div className="h-12 bg-white/5 rounded-xl" />
+                </div>
+            </div>
+        </div>
+    );
 
     return (
         <>
@@ -31,8 +46,8 @@ export default function BalanceCard() {
                             <div className="text-[0.82rem] uppercase tracking-[0.14em] text-[rgba(226,232,240,0.9)]">
                                 Net balance
                             </div>
-                            <div className={`text-[1.6rem] font-semibold tracking-wide ${financials.balance >= 0 ? "text-white" : "text-red-300"}`}>
-                                {formatCurrency(financials.balance)}
+                            <div className={`text-[1.6rem] font-semibold tracking-wide ${totalLiquidAssets >= 0 ? "text-white" : "text-red-300"}`}>
+                                {formatCurrency(totalLiquidAssets)}
                             </div>
                         </div>
                     </div>

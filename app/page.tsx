@@ -1,7 +1,7 @@
 import TopBar from "@/components/TopBar";
 import BalanceCard from "@/components/Dashboard/BalanceCard";
 import BudgetCard from "@/components/Dashboard/BudgetCard";
-import Analytics from "@/components/Dashboard/Analytics";
+import AnalyticsWrapper from "@/components/Dashboard/AnalyticsWrapper";
 
 export default function Home() {
   return (
@@ -14,13 +14,13 @@ export default function Home() {
             {/* Mobile Budget Card View */}
             <BudgetCard />
           </div>
-          <Analytics part="left" />
+          <AnalyticsWrapper part="left" />
         </div>
         <div className="flex flex-col gap-3.5">
           <div className="hidden md:block">
             <BudgetCard />
           </div>
-          <Analytics part="right" />
+          <AnalyticsWrapper part="right" />
         </div>
       </section>
     </>

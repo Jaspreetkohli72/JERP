@@ -8,6 +8,7 @@ export function FinanceProvider({ children }) {
     const [transactions, setTransactions] = useState([]);
     const [categories, setCategories] = useState([]);
     const [contacts, setContacts] = useState([]);
+    const [projects, setProjects] = useState([]);
     const [allGlobalBudgets, setAllGlobalBudgets] = useState([]);
     const [allCategoryBudgets, setAllCategoryBudgets] = useState([]);
     const [wallets, setWallets] = useState([]);
@@ -28,6 +29,7 @@ export function FinanceProvider({ children }) {
         TRANSACTIONS: 'transactions',
         CATEGORIES: 'categories',
         CONTACTS: 'contacts',
+        PROJECTS: 'projects',
         GLOBAL_BUDGETS: 'global_budgets',
         BUDGETS: 'budgets',
         WALLETS: 'wallets',
@@ -98,6 +100,7 @@ export function FinanceProvider({ children }) {
                 supabase.from(TABLES.STICKY_NOTES).select('*').order('created_at', { ascending: false }),
                 supabase.from(TABLES.CLIENT_QUERIES).select('*').order('created_at', { ascending: false }),
                 supabase.from(TABLES.STAFF).select('*').order('created_at', { ascending: false }),
+                supabase.from(TABLES.PROJECTS).select(`*, contacts(name)`).order('created_at', { ascending: false }),
                 supabase.from('staff_advances').select('*').order('date', { ascending: false }),
                 supabase.from('bills').select('*').order('bill_date', { ascending: false }),
                 supabase.from('purchases').select('*, suppliers(name)').order('date', { ascending: false }),
@@ -107,7 +110,7 @@ export function FinanceProvider({ children }) {
             const [
                 catsRes, contsRes, txsRes, gbRes, cbRes, walletsRes,
                 workLogsRes, stickyNotesRes, clientQueriesRes, staffRes,
-                advRes, billsRes, purRes, settingsRes
+                projectsRes, advRes, billsRes, purRes, settingsRes
             ] = results;
 
             // Log any errors
@@ -133,6 +136,7 @@ export function FinanceProvider({ children }) {
             setStickyNotes(getData(stickyNotesRes));
             setClientQueries(getData(clientQueriesRes));
             setStaffList(getData(staffRes));
+            setProjects(getData(projectsRes));
             setAllStaffAdvances(getData(advRes));
             setBills(getData(billsRes));
             setPurchases(getData(purRes));
@@ -152,7 +156,7 @@ export function FinanceProvider({ children }) {
     // Add Transaction
     const addTransaction = async (newTx) => {
         try {
-            const { amount, type, category_id, description, transaction_date, contact_id } = newTx;
+            const { amount, type, category_id, description, transaction_date, contact_id, wallet_id } = newTx;
 
             const payload = {
                 amount,
@@ -160,7 +164,9 @@ export function FinanceProvider({ children }) {
                 category_id: category_id || null,
                 description,
                 transaction_date: transaction_date || new Date().toISOString().split('T')[0],
-                contact_id: contact_id || null
+                contact_id: contact_id || null,
+                is_debt: newTx.is_debt !== undefined ? newTx.is_debt : true, // Default to true if missing
+                wallet_id: wallet_id || null, // Ensure wallet_id is stored for edit/delete balance reversal
             };
 
             const { data, error } = await supabase
@@ -172,6 +178,19 @@ export function FinanceProvider({ children }) {
             if (error) throw error;
 
             setTransactions((prev) => [data, ...prev]);
+
+            // Update Wallet Balance if a wallet was selected
+            if (wallet_id) {
+                const wallet = wallets.find(w => w.id === wallet_id);
+                if (wallet) {
+                    const newBalance = type === 'income'
+                        ? Number(wallet.balance) + Number(amount)
+                        : Number(wallet.balance) - Number(amount);
+
+                    await updateWallet(wallet_id, newBalance);
+                }
+            }
+
             return { success: true };
         } catch (error) {
             console.error("Error adding transaction:", error);
@@ -202,6 +221,8 @@ export function FinanceProvider({ children }) {
             return { success: false, error };
         }
     };
+
+
 
     // Delete Contact
     const deleteContact = async (id) => {
@@ -276,12 +297,111 @@ export function FinanceProvider({ children }) {
     // Delete Transaction
     const deleteTransaction = async (id) => {
         try {
+            const tx = transactions.find(t => t.id === id);
+            if (!tx) throw new Error("Transaction not found");
+
+            // Reverse wallet balance if applicable
+            if (tx.wallet_id) {
+                const wallet = wallets.find(w => w.id === tx.wallet_id);
+                if (wallet) {
+                    const reversalAmount = tx.type === 'income' ? -Number(tx.amount) : Number(tx.amount);
+                    await updateWallet(tx.wallet_id, Number(wallet.balance) + reversalAmount);
+                }
+            }
+
             const { error } = await supabase.from(TABLES.TRANSACTIONS).delete().eq('id', id);
             if (error) throw error;
             setTransactions((prev) => prev.filter((t) => t.id !== id));
             return { success: true };
         } catch (error) {
             console.error("Error deleting transaction:", error);
+            return { success: false, error };
+        }
+    };
+
+    // Update Transaction
+    const updateTransaction = async (id, updates) => {
+        try {
+            const oldTx = transactions.find(t => t.id === id);
+            if (!oldTx) throw new Error("Transaction not found");
+
+            // 1. Revert Old Wallet Impact
+            if (oldTx.wallet_id) {
+                const oldWallet = wallets.find(w => w.id === oldTx.wallet_id);
+                if (oldWallet) {
+                    const reversal = oldTx.type === 'income' ? -Number(oldTx.amount) : Number(oldTx.amount);
+                    await updateWallet(oldTx.wallet_id, Number(oldWallet.balance) + reversal);
+                }
+            }
+
+            // 2. Prepare Update Payload
+            const payload = {
+                ...updates,
+                transaction_date: updates.transaction_date || oldTx.transaction_date, // Keep old date if not changed
+            };
+
+            // 3. Update in DB
+            const { data, error } = await supabase
+                .from(TABLES.TRANSACTIONS)
+                .update(payload)
+                .eq('id', id)
+                .select(`*, categories (name, icon, type), contacts (name)`)
+                .single();
+
+            if (error) throw error;
+
+            // 4. Apply New Wallet Impact
+            // Note: We need to re-fetch wallets state to get latest balance after revert? 
+            // Actually, updateWallet updates local state immediately, so 'wallets' might be stale in this closure 
+            // but updateWallet uses prev state setter, so it's fine. 
+            // However, finding 'newWallet' here might get stale balance if we don't wait or use functional updates.
+            // Be careful: updateWallet is async and updates state.
+
+            // To be safe, let's just re-read the wallet from the Updated State or trust the flow.
+            // Better: updateWallet handles the DB update.
+
+            const newWalletId = updates.wallet_id || oldTx.wallet_id;
+            const newAmount = updates.amount !== undefined ? updates.amount : oldTx.amount;
+            const newType = updates.type || oldTx.type;
+
+            if (newWalletId) {
+                // We need to fetch the *latest* balance because the revert above might have changed it.
+                // But since we can't await state updates easily here without a refetch, 
+                // we can calculate the net change if it's the same wallet, or just do two updates.
+                // Simplest robust way: Fetch the specific wallet from DB to get current balance? No, too slow.
+                // Let's rely on the fact that updateWallet updates the local 'wallets' state.
+                // BUT 'wallets' in this scope is closed over. 
+
+                // Let's do a trick: Pass a callback or just do it optimistically based on what we know.
+                // We reversed the old effect. Now we apply the new effect.
+
+                // If same wallet:
+                // Balance = (Balance - OldEffect) + NewEffect
+
+                // If different wallet:
+                // OldWallet = Balance - OldEffect
+                // NewWallet = Balance + NewEffect
+
+                // Since updateWallet writes to DB, we can just call it again.
+                // The issue is knowing the "current" balance to add/subtract from.
+
+                // Let's refetch the wallet to be safe? Or just use the local state update logic carefully.
+                // For now, let's assume sequential execution is fast enough or use a fresh fetch for the wallet balance 
+                // if we really want to be consistent. 
+                // OR: just do the math locally.
+
+                const { data: currentWallet } = await supabase.from(TABLES.WALLETS).select('balance').eq('id', newWalletId).single();
+
+                if (currentWallet) {
+                    const impact = newType === 'income' ? Number(newAmount) : -Number(newAmount);
+                    await updateWallet(newWalletId, Number(currentWallet.balance) + impact);
+                }
+            }
+
+            setTransactions((prev) => prev.map((t) => t.id === id ? data : t));
+            return { success: true };
+        } catch (error) {
+            console.error("Error updating transaction:", error);
             return { success: false, error };
         }
     };
@@ -463,7 +583,7 @@ export function FinanceProvider({ children }) {
     };
 
     // Helper: Get Financials for a Specific Month
-    const getFinancials = (monthStr) => {
+    const getFinancials = React.useCallback((monthStr) => {
         const targetMonth = monthStr || new Date().toISOString().slice(0, 7);
 
         // Filter transactions for this month
@@ -588,19 +708,25 @@ export function FinanceProvider({ children }) {
             topCategory: { name: topCategoryName, amount: topCategoryAmount },
             categoryMetrics
         };
-    };
+    }, [transactions, bills, purchases, allStaffAdvances, allGlobalBudgets, allCategoryBudgets, categories]);
 
     // Derived State for Current Month (Backwards Compatibility)
     const currentMonthStr = new Date().toISOString().slice(0, 7);
-    const currentFinancials = getFinancials(currentMonthStr);
+
+    // Memoize currentFinancials to prevent re-render loop
+    const currentFinancials = React.useMemo(() => getFinancials(currentMonthStr), [getFinancials, currentMonthStr]);
 
     // Contact Balances Calculation (Global)
-    const contactsWithBalances = contacts.map(contact => {
+    const contactsWithBalances = React.useMemo(() => contacts.map(contact => {
         const contactTxs = transactions.filter(t => t.contact_id === contact.id);
-        const debtValue = contactTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
-        const creditValue = contactTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
+        // Only count transactions where is_debt is TRUE (default)
+        // If is_debt is FALSE, it's a direct settlement/payment that doesn't affect the "Loan/Debt" balance tracking
+        const debtTxs = contactTxs.filter(t => t.is_debt !== false);
+
+        const debtValue = debtTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
+        const creditValue = debtTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
         return { ...contact, balance: debtValue - creditValue };
-    });
+    }), [contacts, transactions]);
 
     // Modal State
     const [isAddTxModalOpen, setIsAddTxModalOpen] = useState(false);
@@ -1185,18 +1311,62 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    // 7. Projects
+    const addProject = async (projectData) => {
+        try {
+            const { data, error } = await supabase.from(TABLES.PROJECTS).insert([projectData]).select().single();
+            if (error) throw error;
+            setProjects(prev => [data, ...prev]);
+            return { success: true, id: data.id };
+        } catch (error) {
+            console.error("Error adding project:", error);
+            return { success: false, error };
+        }
+    };
+
+    const updateProject = async (id, updates) => {
+        try {
+            const { data, error } = await supabase.from(TABLES.PROJECTS).update(updates).eq('id', id).select(`*, clients(name)`).single();
+            if (error) throw error;
+            setProjects(prev => prev.map(p => p.id === id ? data : p));
+            return { success: true };
+        } catch (error) {
+            console.error("Error updating project:", error);
+            return { success: false, error };
+        }
+    };
+
+    const deleteProject = async (id) => {
+        try {
+            const { error } = await supabase.from(TABLES.PROJECTS).delete().eq('id', id);
+            if (error) throw error;
+            setProjects(prev => prev.filter(p => p.id !== id));
+            return { success: true };
+        } catch (error) {
+            console.error("Error deleting project:", error);
+            return { success: false, error };
+        }
+    };
+
     return (
         <FinanceContext.Provider
             value={{
                 transactions,
                 categories,
                 contacts: contactsWithBalances,
+                projects,
+                addProject,
+                updateProject,
+                deleteProject,
+                totalLiquidAssets: wallets.reduce((sum, w) => sum + Number(w.balance || 0), 0),
                 addContact,
+                updateWallet,
                 updateContact,
                 deleteContact,
                 settleContact,
                 loading,
                 addTransaction,
+                updateTransaction,
                 deleteTransaction,
                 updateGlobalBudget,
                 updateCategoryBudget,

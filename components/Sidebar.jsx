@@ -7,6 +7,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useFinance } from "../context/FinanceContext";
 
+import Image from "next/image";
+
 export default function Sidebar() {
     const pathname = usePathname();
     const { financials, loading, contacts } = useFinance();
@@ -24,6 +26,8 @@ export default function Sidebar() {
         { name: "Marketing", icon: Target, href: "/marketing" },
         { name: "Reports", icon: BarChart2, href: "/reports" },
         { name: "Pending", icon: CreditCard, href: "/pending" },
+        { name: "Contacts", icon: Users, href: "/contacts" },
+        { name: "Transactions", icon: CreditCard, href: "/transactions" },
         { name: "Settings", icon: Settings, href: "/contracting/settings" },
     ];
 
@@ -33,7 +37,7 @@ export default function Sidebar() {
                 {/* Logo */}
                 <div className="flex items-center gap-3 mb-[18px]">
                     <div className="relative w-9 h-9 rounded-xl overflow-hidden shadow-[0_0_12px_rgba(91,141,255,0.5)]">
-                        <img src="/logo.png" alt="Jasper Logo" className="w-full h-full object-cover" />
+                        <Image src="/logo.png" alt="Jasper Logo" width={36} height={36} className="object-cover" />
                     </div>
                     <div className="font-semibold tracking-wide text-[1.1rem] text-text">GFE ERP</div>
                 </div>
