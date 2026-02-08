@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Plus, Search, Filter, Briefcase, Edit2, Trash2, ChevronRight, X } from 'lucide-react';
 // @ts-ignore
-import { useFinance } from '../../../context/FinanceContext';
+import { useFinance } from '@/context/FinanceContext';
 
 export default function ProjectsPage() {
     // @ts-ignore

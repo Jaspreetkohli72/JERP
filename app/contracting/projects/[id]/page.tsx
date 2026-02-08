@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Edit2, Wallet, TrendingUp, TrendingDown, Calendar, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 // @ts-ignore
-import { useFinance } from '../../../context/FinanceContext';
+import { useFinance } from '@/context/FinanceContext';
 
 export default function ProjectDetailsPage() {
     const params = useParams();
