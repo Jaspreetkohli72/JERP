@@ -2,10 +2,11 @@
 import React, { useState } from "react";
 import { Check, X, Settings } from "lucide-react";
 import { useFinance } from "../context/FinanceContext";
+import { addTransaction as addTransactionServer } from "@/app/actions/transaction";
 
 
 export default function AddTransactionForm({ type, onClose, title, initialData }) {
-    const { addTransaction, updateTransaction, wallets, contacts, addContact, projects, addProject } = useFinance();
+    const { addTransaction, updateTransaction, refreshData, wallets, contacts, addContact, projects, addProject } = useFinance();
     const [amount, setAmount] = useState(initialData?.amount ?? "");
     const [contactId, setContactId] = useState(initialData?.contact_id || "");
     const [projectId, setProjectId] = useState(initialData?.project_id || "");
@@ -77,47 +78,64 @@ export default function AddTransactionForm({ type, onClose, title, initialData }
         });
     };
 
+    // ... (inside component)
+
+    // ...
+
+    // ...
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        // ... validation logic ...
         const newErrors = {
             wallet: !walletId,
-            description: !description.trim() // Description is now MANDATORY
+            description: !description.trim()
         };
 
         if (newErrors.wallet || newErrors.description) {
             setErrors(newErrors);
             return;
         }
-
-        // Clear errors if valid
         setErrors({ wallet: false, description: false });
 
         setIsSubmitting(true);
-
-        // Format description to Title Case
         const formattedDescription = toTitleCase(description.trim());
-
         const isEditing = initialData && initialData.id;
 
+        // Common Data
         const txData = {
             amount: parseFloat(amount),
-            type: initialData?.type || type, // Use existing type if editing, else prop default
-            category_id: null, // Categories removed
+            type: initialData?.type || type,
+            category_id: null,
             wallet_id: walletId,
             description: formattedDescription,
             contact_id: contactId || null,
             project_id: projectId || null,
             is_debt: isDebt,
-            // Keep original date if editing, else new date
-            transaction_date: (isEditing && initialData.transaction_date) ? initialData.transaction_date : new Date().toISOString()
+            transaction_date: (isEditing && initialData.transaction_date) ? initialData.transaction_date : new Date().toISOString().split('T')[0]
         };
 
         let result;
         if (isEditing) {
             result = await updateTransaction(initialData.id, txData);
         } else {
-            result = await addTransaction(txData);
+            // Use Server Action for ADD
+            const formData = new FormData();
+            Object.entries(txData).forEach(([key, value]) => {
+                if (value !== null && value !== undefined) {
+                    formData.append(key, String(value));
+                }
+            });
+
+            // Server Action
+            // We pass an empty state as first arg because the action signature is (prevState, formData)
+            result = await addTransactionServer({}, formData);
+
+            if (result.success) {
+                // Trigger Context Refresh to update UI list
+                if (refreshData) await refreshData();
+            }
         }
 
         setIsSubmitting(false);
@@ -131,7 +149,7 @@ export default function AddTransactionForm({ type, onClose, title, initialData }
                 setErrors({ wallet: false, description: false });
             }
         } else {
-            alert("Failed to save transaction");
+            alert(`Failed to save transaction: ${result.error || "Unknown error"}`);
         }
     };
 

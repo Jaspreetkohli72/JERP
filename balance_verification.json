@@ -1,0 +1,18 @@
+[
+  {
+    "id": "2455ba8b-0e46-4bec-976e-c3952f31e40e",
+    "name": "JK Bank",
+    "currentBalance": 0,
+    "calculatedBalance": 0,
+    "difference": 0,
+    "isCorrect": true
+  },
+  {
+    "id": "74b01862-1086-4c06-9df8-e41327f265ee",
+    "name": "Drawer Cash",
+    "currentBalance": -8546,
+    "calculatedBalance": -19473,
+    "difference": 10927,
+    "isCorrect": false
+  }
+]

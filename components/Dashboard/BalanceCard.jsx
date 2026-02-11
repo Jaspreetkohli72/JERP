@@ -13,22 +13,30 @@ const formatCurrency = (amount) => {
     }).format(amount);
 };
 
-export default function BalanceCard() {
-    const { financials, totalLiquidAssets, loading } = useFinance();
+export default function BalanceCard({ stats }) {
+    const { financials, totalLiquidAssets: contextTotal, loading } = useFinance();
     const [activeForm, setActiveForm] = useState(null); // 'income' | 'expense' | null
 
-    if (loading) return (
+    // Prefer Server Stats -> Context Stats
+    const displayTotal = stats ? stats.totalLiquidAssets : contextTotal;
+    const displayIncome = stats ? stats.income : financials?.income || 0;
+    const displayExpense = stats ? stats.expense : financials?.expense || 0;
+
+    // Only show loading skeletal if NO data is available (neither server nor client)
+    const isLoading = loading && !stats;
+
+    if (isLoading) return (
         <div className="glass-soft p-4 h-[220px] animate-pulse rounded-[26px] bg-black/20 border border-white/5 relative overflow-hidden">
             <div className="space-y-4">
-                <div className="h-4 w-32 bg-white/10 rounded-full" />
-                <div className="h-10 w-48 bg-white/10 rounded-lg" />
+                <div className="h-4 w-32 bg-white/20 rounded-full" />
+                <div className="h-10 w-48 bg-white/15 rounded-lg" />
                 <div className="flex gap-4 pt-2">
-                    <div className="h-4 w-24 bg-white/5 rounded" />
-                    <div className="h-4 w-24 bg-white/5 rounded" />
+                    <div className="h-4 w-24 bg-white/10 rounded" />
+                    <div className="h-4 w-24 bg-white/10 rounded" />
                 </div>
                 <div className="grid grid-cols-2 gap-3 pt-2">
-                    <div className="h-12 bg-white/5 rounded-xl" />
-                    <div className="h-12 bg-white/5 rounded-xl" />
+                    <div className="h-12 bg-white/10 rounded-xl" />
+                    <div className="h-12 bg-white/10 rounded-xl" />
                 </div>
             </div>
         </div>
@@ -46,8 +54,8 @@ export default function BalanceCard() {
                             <div className="text-[0.82rem] uppercase tracking-[0.14em] text-[rgba(226,232,240,0.9)]">
                                 Net balance
                             </div>
-                            <div className={`text-[1.6rem] font-semibold tracking-wide ${totalLiquidAssets >= 0 ? "text-white" : "text-red-300"}`}>
-                                {formatCurrency(totalLiquidAssets)}
+                            <div className={`text-[1.6rem] font-semibold tracking-wide ${displayTotal >= 0 ? "text-white" : "text-red-300"}`}>
+                                {formatCurrency(displayTotal || 0)}
                             </div>
                         </div>
                     </div>
@@ -55,10 +63,10 @@ export default function BalanceCard() {
                     {/* Simple Text Metrics as requested */}
                     <div className="flex gap-3 text-[0.78rem] text-muted">
                         <span>
-                            Income: <strong className="text-[var(--accent)]">{formatCurrency(financials.income)}</strong>
+                            Income: <strong className="text-[var(--accent)]">{formatCurrency(displayIncome)}</strong>
                         </span>
                         <span>
-                            Expenses: <strong className="text-white">{formatCurrency(financials.expense)}</strong>
+                            Expenses: <strong className="text-white">{formatCurrency(displayExpense)}</strong>
                         </span>
                     </div>
 

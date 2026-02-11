@@ -10,7 +10,7 @@ export default function StaffDetailsPage() {
     const { id } = useParams();
     const router = useRouter();
     // @ts-ignore
-    const { staffList, getStaffDetails, addStaffAdvance, deleteStaff, updateStaff, settings } = useFinance();
+    const { staffList, getStaffDetails, addStaffAdvance, deleteStaff, updateStaff, settings, wallets } = useFinance();
 
     // State
     const [staff, setStaff] = useState<any>(null);
@@ -21,7 +21,7 @@ export default function StaffDetailsPage() {
 
     // Modal State
     const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
-    const [advanceForm, setAdvanceForm] = useState({ amount: '', date: new Date().toISOString().split('T')[0], notes: '' });
+    const [advanceForm, setAdvanceForm] = useState({ amount: '', date: new Date().toISOString().split('T')[0], notes: '', walletId: '' });
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editForm, setEditForm] = useState({ name: '', role: '', phone: '', salary: '' });
@@ -37,18 +37,8 @@ export default function StaffDetailsPage() {
             rate = settings.helper_rate;
         }
 
-        // Only auto-fill if the role CHANGED to one of these types? 
-        // Or if it matches? 
-        // Logic: If I select Welder, suggest 800.
-        // But if I already have a custom salary, maybe I don't want to overwrite?
-        // The user said: "default rate applies UNLESS I override".
-        // So overwriting on role switch is acceptable behavior for "Applying default".
         if (rate > 0) {
             setEditForm(prev => {
-                // Determine if we should overwrite. 
-                // If the current salary aligns with the OLD role's default, we definitely overwrite.
-                // If it's custom, maybe we still overwrite because Role changed? Yes usually.
-                // To avoid infinite loop or overwriting manual edits, we check if rate differs.
                 if (prev.salary !== String(rate)) return { ...prev, salary: String(rate) };
                 return prev;
             });
@@ -64,7 +54,7 @@ export default function StaffDetailsPage() {
         if (success) {
             setIsEditModalOpen(false);
             // Refresh local staff object
-            setStaff(prev => ({ ...prev, ...editForm, salary: Number(editForm.salary) || 0 }));
+            setStaff((prev: any) => ({ ...prev, ...editForm, salary: Number(editForm.salary) || 0 }));
         }
     };
 
@@ -103,11 +93,11 @@ export default function StaffDetailsPage() {
             amount: Number(advanceForm.amount),
             date: advanceForm.date,
             notes: advanceForm.notes
-        });
+        }, advanceForm.walletId);
 
         if (success) {
             setIsAdvanceModalOpen(false);
-            setAdvanceForm({ amount: '', date: new Date().toISOString().split('T')[0], notes: '' });
+            setAdvanceForm({ amount: '', date: new Date().toISOString().split('T')[0], notes: '', walletId: '' });
             loadData();
         }
     };
@@ -209,7 +199,7 @@ export default function StaffDetailsPage() {
                         {data.attendance.length > 0 ? (
                             data.attendance.map((rec: any) => (
                                 <div key={rec.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg text-sm">
-                                    <span>{new Date(rec.date).toLocaleDateString()}</span>
+                                    <span>{new Date(rec.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')}</span>
                                     <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.status === 'Present' ? 'bg-green-500/20 text-green-400' :
                                         rec.status === 'Absent' ? 'bg-red-500/20 text-red-400' :
                                             'bg-yellow-500/20 text-yellow-400'
@@ -237,7 +227,7 @@ export default function StaffDetailsPage() {
                                 <div key={rec.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg text-sm">
                                     <div>
                                         <div className="font-bold text-red-400">₹{rec.amount}</div>
-                                        <div className="text-xs text-gray-500">{new Date(rec.date).toLocaleDateString()}</div>
+                                        <div className="text-xs text-gray-500">{new Date(rec.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')}</div>
                                     </div>
                                     <div className="text-xs text-gray-400 max-w-[100px] truncate">{rec.notes || '-'}</div>
                                 </div>
@@ -254,6 +244,22 @@ export default function StaffDetailsPage() {
                         <h2 className="text-xl font-bold mb-4">Record Payment / Advance</h2>
                         <form onSubmit={handleAddAdvance} className="flex flex-col gap-4">
                             <input autoFocus type="number" placeholder="Amount (₹)" className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3" value={advanceForm.amount} onChange={e => setAdvanceForm({ ...advanceForm, amount: e.target.value })} required />
+
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs text-gray-400 uppercase">Paid From (Optional)</label>
+                                <select
+                                    className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 bg-[#1a1a1a] text-white"
+                                    value={advanceForm.walletId}
+                                    onChange={e => setAdvanceForm({ ...advanceForm, walletId: e.target.value })}
+                                >
+                                    <option value="" className="bg-[#1a1a1a] text-gray-400">Select Wallet (for auto-deduction)</option>
+                                    {wallets?.map((w: any) => (
+                                        <option key={w.id} value={w.id} className="bg-[#1a1a1a] text-white">
+                                            {w.name} (₹{w.balance})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
 
                             <input type="date" className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 [color-scheme:dark]" value={advanceForm.date} onChange={e => setAdvanceForm({ ...advanceForm, date: e.target.value })} />
 

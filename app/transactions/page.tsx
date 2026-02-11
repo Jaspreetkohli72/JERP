@@ -64,7 +64,7 @@ export default function TransactionsPage() {
                 </div>
             )}
 
-            <div className="px-4 max-w-4xl mx-auto space-y-6">
+            <div className="px-4 w-full max-w-5xl mx-auto space-y-6">
                 <div className="flex flex-col gap-2">
                     <h1 className="text-2xl font-bold text-white">Transactions</h1>
                     <p className="text-muted text-sm">Review your income and expenses.</p>

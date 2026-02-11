@@ -26,20 +26,31 @@ const categoryTypeMap = {
     'Salary': 'income'
 };
 
-export default function Analytics(props) {
-    const { transactions, loading } = useFinance();
+export default function Analytics({ stats, ...props }) {
+    const { transactions: contextTransactions, loading: contextLoading } = useFinance();
+
+    // Prefer Server Stats -> Context Transactions
+    const transactions = stats?.monthTxs || contextTransactions || [];
+    const loading = !stats && contextLoading;
 
     // --- Derived Statistics ---
-    const stats = useMemo(() => {
+    const derivedStats = useMemo(() => {
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
 
-        // Filter current month transactions
-        const currentMonthTxs = transactions.filter(t => {
-            const d = new Date(t.transaction_date);
-            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-        });
+        // If using server stats (monthTxs), they are already filtered by date from DB query logic (>= 1st of month).
+        // But for safety/consistency with context, we can re-filter or just use. 
+        // If from context, we MUST filter.
+
+        let currentMonthTxs = transactions;
+        if (!stats) {
+            currentMonthTxs = transactions.filter(t => {
+                const d = new Date(t.transaction_date);
+                return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+            });
+        }
+
 
         const currentMonthExpenses = currentMonthTxs.filter(t => t.type === 'expense');
 
@@ -160,7 +171,7 @@ export default function Analytics(props) {
                 </div>
 
                 <div className="flex items-end gap-1.5 h-[120px] mt-2">
-                    {stats.sortedCategories.length > 0 ? stats.sortedCategories.map((bar, i) => (
+                    {derivedStats.sortedCategories.length > 0 ? derivedStats.sortedCategories.map((bar, i) => (
                         <div
                             key={i}
                             className="flex-1 h-full rounded-full bg-gradient-to-b from-[rgba(148,163,184,0.18)] to-[rgba(15,23,42,0.95)] relative overflow-hidden group"
@@ -177,7 +188,7 @@ export default function Analytics(props) {
                 </div>
 
                 <div className="flex justify-between mt-1.5 text-[0.68rem] text-muted truncate gap-1">
-                    {stats.sortedCategories.map((bar, i) => (
+                    {derivedStats.sortedCategories.map((bar, i) => (
                         <span key={i} className="truncate w-full text-center">{bar.label}</span>
                     ))}
                 </div>
@@ -191,7 +202,7 @@ export default function Analytics(props) {
                     </div>
                     <div className="flex justify-between">
                         <span>Most volatile</span>
-                        <span>{stats.sortedCategories[0]?.label || 'None'}</span>
+                        <span>{derivedStats.sortedCategories[0]?.label || 'None'}</span>
                     </div>
                 </div>
             </div>
@@ -212,7 +223,7 @@ export default function Analytics(props) {
                     <div className="relative w-20 h-20 rounded-full bg-[conic-gradient(#5b8dff_0_120deg,#22c55e_120deg_210deg,#f97316_210deg_300deg,#e11d48_300deg_360deg)] flex items-center justify-center shadow-[0_14px_35px_rgba(15,23,42,0.9)] flex-shrink-0">
                         <div className="w-[54px] h-[54px] rounded-full bg-[radial-gradient(circle_at_0_0,rgba(248,250,252,0.18),rgba(15,23,42,0.98))]" />
                         <div className="absolute text-[0.72rem] text-center text-[rgba(226,232,240,0.95)]">
-                            {stats.needsPct}%
+                            {derivedStats.needsPct}%
                             <br />
                             needs
                         </div>
@@ -235,7 +246,7 @@ export default function Analytics(props) {
                     <div className="flex justify-between">
                         <span>Impulse (Shop)</span>
                         <span className="text-[0.7rem] px-2 py-0.5 rounded-full border border-[rgba(248,113,113,0.85)] text-[#fecaca] bg-[rgba(15,23,42,0.9)]">
-                            {formatCurrency(stats.impulse)}
+                            {formatCurrency(derivedStats.impulse)}
                         </span>
                     </div>
                     <div className="flex justify-between">
@@ -267,7 +278,7 @@ export default function Analytics(props) {
                 <div className="mt-2 h-11 rounded-xl bg-[linear-gradient(180deg,rgba(15,23,42,0.7),rgba(15,23,42,0.98)),repeating-linear-gradient(to_right,rgba(148,163,184,0.12)_0px,rgba(148,163,184,0.12)_1px,transparent_1px,transparent_10px)] relative overflow-hidden">
                     {/* Placeholder for real sparkline visualization - simplified for now */}
                     <div className="absolute inset-0 flex items-end justify-between px-2 pb-1">
-                        {stats.monthlyCashflow.map((m, i) => (
+                        {derivedStats.monthlyCashflow.map((m, i) => (
                             <div key={i} className={`w-2 rounded-t-sm ${m.surplus >= 0 ? 'bg-emerald-500/50' : 'bg-red-500/50'}`}
                                 style={{ height: `${Math.min(Math.abs(m.surplus) / 20000 * 100, 100)}%` }} />
                         ))}
@@ -278,19 +289,19 @@ export default function Analytics(props) {
                     <div className="flex justify-between items-center">
                         <span>Average monthly surplus</span>
                         <span className="text-[0.7rem] px-1.5 py-0.5 rounded-full border border-[rgba(148,163,184,0.5)] text-gray-200">
-                            {formatCurrency(stats.avgSurplus)}
+                            {formatCurrency(derivedStats.avgSurplus)}
                         </span>
                     </div>
                     <div className="flex justify-between items-center">
                         <span>Worst month</span>
                         <span className="text-[0.7rem] px-2 py-0.5 rounded-full border border-[rgba(248,113,113,0.85)] text-[#fecaca] bg-[rgba(15,23,42,0.9)]">
-                            {formatCurrency(stats.worstMonth)}
+                            {formatCurrency(derivedStats.worstMonth)}
                         </span>
                     </div>
                     <div className="flex justify-between items-center">
                         <span>Savings rate (curr)</span>
                         <span className="text-[0.7rem] px-2 py-0.5 rounded-full border border-[rgba(148,163,184,0.45)] text-gray-200 bg-[rgba(15,23,42,0.9)]">
-                            {stats.savingsRate}%
+                            {derivedStats.savingsRate}%
                         </span>
                     </div>
                 </div>

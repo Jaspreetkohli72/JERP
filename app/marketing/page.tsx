@@ -72,7 +72,7 @@ export default function MarketingPage() {
     };
 
     return (
-        <div className="flex flex-col gap-6 p-4 md:p-8 text-white max-w-[1200px] mx-auto mb-20">
+        <div className="flex flex-col gap-6 p-4 md:p-8 text-white w-full mb-20">
             {/* Header */}
             <div>
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-[var(--accent)] to-[var(--accent-3)] bg-clip-text text-transparent">Marketing & Purchasing</h1>

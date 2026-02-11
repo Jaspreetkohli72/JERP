@@ -65,9 +65,11 @@ export default function ProjectDetailsPage() {
     // BUT the new requirements implies a stronger link. 
     // For now, I'll filter by description text containing the project name.
 
-    const relevantTransactions = transactions.filter((t: any) =>
-        t.description && t.description.includes(`Project: ${project.name}`)
-    );
+    const relevantTransactions = transactions.filter((t: any) => {
+        const matchesId = t.project_id === project.id;
+        const matchesDesc = t.description && t.description.includes(`Project: ${project.name}`);
+        return matchesId || matchesDesc;
+    });
 
     const totalIncome = relevantTransactions.filter((t: any) => t.type === 'income').reduce((sum: number, t: any) => sum + Number(t.amount), 0);
     const totalExpense = relevantTransactions.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + Number(t.amount), 0);

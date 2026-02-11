@@ -154,8 +154,8 @@ CREATE TABLE public.project_types (
 );
 CREATE TABLE public.projects (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
-  client_id bigint NOT NULL,
-  project_type_id bigint NOT NULL,
+  client_id bigint,
+  project_type_id bigint,
   measurements text,
   site_photos jsonb DEFAULT '[]'::jsonb,
   internal_estimate jsonb,
@@ -165,9 +165,13 @@ CREATE TABLE public.projects (
   created_at timestamp with time zone DEFAULT now(),
   visit_date date DEFAULT CURRENT_DATE,
   assigned_staff jsonb DEFAULT '[]'::jsonb,
+  name text,
+  contact_id uuid,
+  start_date date DEFAULT CURRENT_DATE,
   CONSTRAINT projects_pkey PRIMARY KEY (id),
   CONSTRAINT projects_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
-  CONSTRAINT projects_project_type_id_fkey FOREIGN KEY (project_type_id) REFERENCES public.project_types(id)
+  CONSTRAINT projects_project_type_id_fkey FOREIGN KEY (project_type_id) REFERENCES public.project_types(id),
+  CONSTRAINT projects_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.contacts(id)
 );
 CREATE TABLE public.purchase_items (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -294,10 +298,13 @@ CREATE TABLE public.transactions (
   category_id uuid,
   contact_id uuid,
   wallet_id uuid,
+  is_debt boolean DEFAULT true,
+  project_id bigint,
   CONSTRAINT transactions_pkey PRIMARY KEY (id),
   CONSTRAINT transactions_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id),
   CONSTRAINT transactions_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.contacts(id),
-  CONSTRAINT transactions_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.wallets(id)
+  CONSTRAINT transactions_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.wallets(id),
+  CONSTRAINT transactions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id)
 );
 CREATE TABLE public.users (
   username text NOT NULL,

@@ -15,15 +15,15 @@ const AnalyticsSkeleton = ({ part }) => {
             <div className="flex flex-col gap-3 animate-pulse">
                 {/* Header */}
                 <div className="flex justify-between items-center px-4 pt-4 mb-1">
-                    <div className="h-3 w-32 bg-white/10 rounded-full" />
-                    <div className="h-3 w-40 bg-white/5 rounded-full" />
+                    <div className="h-3 w-32 bg-white/15 rounded-full" />
+                    <div className="h-3 w-40 bg-white/10 rounded-full" />
                 </div>
 
                 {/* Bar Chart Card Skeleton */}
-                <div className="glass-soft p-3 rounded-[26px] h-[220px] bg-white/5" />
+                <div className="glass-soft p-3 rounded-[26px] h-[220px] bg-white/10" />
 
                 {/* Donut Chart Card Skeleton */}
-                <div className="glass-soft p-3 rounded-[26px] h-[180px] bg-white/5" />
+                <div className="glass-soft p-3 rounded-[26px] h-[180px] bg-white/10" />
             </div>
         );
     }
@@ -36,7 +36,7 @@ const AnalyticsSkeleton = ({ part }) => {
                 <div className="h-0 md:h-[3.2rem]" />
 
                 {/* Cashflow Trend Skeleton */}
-                <div className="glass-soft p-3 rounded-[26px] h-[200px] bg-white/5" />
+                <div className="glass-soft p-3 rounded-[26px] h-[200px] bg-white/10" />
             </div>
         );
     }

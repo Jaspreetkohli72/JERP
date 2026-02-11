@@ -5,13 +5,13 @@ import { FileText, Ruler, Receipt, Briefcase } from 'lucide-react';
 
 export default function ContractingPage() {
     return (
-        <div className="flex flex-col gap-6 p-4 md:p-8 text-white max-w-[1200px] mx-auto mb-20 animate-in fade-in duration-500">
+        <div className="flex flex-col gap-6 p-4 md:p-8 text-white w-full mb-20 animate-in fade-in duration-500">
             <div>
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-[var(--accent)] to-[var(--accent-3)] bg-clip-text text-transparent">Contracting</h1>
                 <p className="text-muted text-sm mt-1">Manage Estimates, Measurements, and Billing.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* Projects Card (New) */}
                 <Link href="/contracting/projects" className="glass p-6 rounded-xl flex flex-col gap-4 group hover:bg-white/5 transition-colors border border-white/5 hover:border-[var(--accent)]/50">
                     <div className="p-3 bg-purple-500/20 w-fit rounded-lg text-purple-400 group-hover:scale-110 transition-transform">

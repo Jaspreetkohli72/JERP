@@ -25,7 +25,7 @@ export default function ReportsPage() {
     const COLORS = ['#4ade80', '#f87171', '#60a5fa', '#facc15'];
 
     return (
-        <div className="flex flex-col gap-6 p-4 md:p-8 text-white max-w-[1200px] mx-auto mb-20">
+        <div className="flex flex-col gap-6 p-4 md:p-8 text-white w-full mb-20">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>

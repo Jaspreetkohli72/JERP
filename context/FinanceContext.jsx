@@ -24,6 +24,7 @@ export function FinanceProvider({ children }) {
     const [shoppingList, setShoppingList] = useState([]);
     const [settings, setSettings] = useState({});
     const [loading, setLoading] = useState(true);
+    const [attendance, setAttendance] = useState([]);
 
     const TABLES = {
         TRANSACTIONS: 'transactions',
@@ -36,10 +37,125 @@ export function FinanceProvider({ children }) {
         WORK_LOGS: 'work_logs',
         STICKY_NOTES: 'sticky_notes',
         CLIENT_QUERIES: 'client_queries',
-        CLIENT_QUERIES: 'client_queries',
         STAFF: 'staff',
+        ATTENDANCE: 'staff_attendance',
         SETTINGS: 'settings'
     };
+
+    // ... (useEffect and other state in between) ...
+
+    const fetchData = async () => {
+        try {
+            // Fetch All Data concurrently
+            const results = await Promise.allSettled([
+                supabase.from(TABLES.CATEGORIES).select('*'),
+                supabase.from(TABLES.CONTACTS).select('*'),
+                supabase.from(TABLES.TRANSACTIONS).select(`*, categories (name, icon, type), contacts (name)`).order('transaction_date', { ascending: false }),
+                supabase.from(TABLES.GLOBAL_BUDGETS).select('*'),
+                supabase.from(TABLES.BUDGETS).select('*'),
+                supabase.from(TABLES.WALLETS).select('*'),
+                supabase.from(TABLES.WORK_LOGS).select('*').order('created_at', { ascending: false }),
+                supabase.from(TABLES.STICKY_NOTES).select('*').order('created_at', { ascending: false }),
+                supabase.from(TABLES.CLIENT_QUERIES).select('*').order('created_at', { ascending: false }),
+                supabase.from(TABLES.STAFF).select('*').order('created_at', { ascending: false }),
+                supabase.from(TABLES.PROJECTS).select(`*, contacts(name)`).order('created_at', { ascending: false }),
+                supabase.from('staff_advances').select('*').order('date', { ascending: false }),
+                supabase.from('bills').select('*').order('bill_date', { ascending: false }),
+                supabase.from('purchases').select('*, suppliers(name)').order('date', { ascending: false }),
+                supabase.from(TABLES.SETTINGS).select('*').limit(1),
+                supabase.from('staff_attendance').select('*').order('date', { ascending: false })
+            ]);
+
+            const [
+                catsRes, contsRes, txsRes, gbRes, cbRes, walletsRes,
+                workLogsRes, stickyNotesRes, clientQueriesRes, staffRes,
+                projectsRes, advRes, billsRes, purRes, settingsRes, attendanceRes
+            ] = results;
+
+            // ... (error logging) ...
+
+            const getData = (res) => (res.status === 'fulfilled' && !res.value.error ? res.value.data : []);
+
+            setCategories(getData(catsRes));
+            setContacts(getData(contsRes));
+            setTransactions(getData(txsRes));
+            setAllGlobalBudgets(getData(gbRes));
+            setAllCategoryBudgets(getData(cbRes));
+            setWallets(getData(walletsRes));
+            setWorkLogs(getData(workLogsRes));
+            setStickyNotes(getData(stickyNotesRes));
+            setClientQueries(getData(clientQueriesRes));
+            setStaffList(getData(staffRes));
+            setProjects(getData(projectsRes));
+            setAllStaffAdvances(getData(advRes));
+            setBills(getData(billsRes));
+            setPurchases(getData(purRes));
+            setAttendance(getData(attendanceRes));
+
+            const settingsData = getData(settingsRes);
+            setSettings(settingsData && settingsData.length > 0 ? settingsData[0] : {});
+
+            setLoading(false);
+
+        } catch (error) {
+            // ...
+        }
+    };
+
+    // ... (Existing Helpers) ...
+
+
+
+    // Derived Staff with Pay Logic
+    const staffWithPay = React.useMemo(() => {
+        const today = new Date();
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+        return staffList.map(staff => {
+            // 1. Calculate Attendance Accrual for Current Month
+            // 1. Calculate Attendance Accrual for Current Month
+            // Use ISO string prefix for 100% timezone-safe filtering (YYYY-MM)
+            const currentMonthPrefix = today.toISOString().slice(0, 7);
+
+            const monthAttendance = (attendance || []).filter(a => {
+                return String(a.staff_id) === String(staff.id) &&
+                    (a.date && a.date.startsWith(currentMonthPrefix));
+            });
+
+            const daysPresent = monthAttendance.filter(a => a.status === 'Present').length;
+            const halfDays = monthAttendance.filter(a => a.status === 'Half-Day').length;
+
+            const totalDays = daysPresent + (halfDays * 0.5);
+            const salaryAccrued = totalDays * (Number(staff.salary) || 0);
+
+            // 2. Calculate Advances Taken in Current Month
+            // 2. Calculate Advances Taken in Current Month
+            const monthAdvances = allStaffAdvances.filter(adv => {
+                return String(adv.staff_id) === String(staff.id) &&
+                    (adv.date && adv.date.startsWith(currentMonthPrefix));
+            });
+
+            const totalAdvances = monthAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0);
+            const netPayable = salaryAccrued - totalAdvances;
+
+            return {
+                ...staff,
+                attendanceStats: {
+                    daysPresent,
+                    halfDays,
+                    totalDays
+                },
+                financials: {
+                    salaryAccrued,
+                    totalAdvances,
+                    netPayable
+                }
+            };
+        });
+    }, [staffList, attendance, allStaffAdvances]);
+
+
+
 
     // Load from LocalStorage on mount
     useEffect(() => {
@@ -86,72 +202,7 @@ export function FinanceProvider({ children }) {
         }
     }, [transactions, categories, contacts, allGlobalBudgets, allCategoryBudgets, wallets, loading]);
 
-    const fetchData = async () => {
-        try {
-            // Fetch All Data concurrently
-            const results = await Promise.allSettled([
-                supabase.from(TABLES.CATEGORIES).select('*'),
-                supabase.from(TABLES.CONTACTS).select('*'),
-                supabase.from(TABLES.TRANSACTIONS).select(`*, categories (name, icon, type), contacts (name)`).order('transaction_date', { ascending: false }),
-                supabase.from(TABLES.GLOBAL_BUDGETS).select('*'),
-                supabase.from(TABLES.BUDGETS).select('*'),
-                supabase.from(TABLES.WALLETS).select('*'),
-                supabase.from(TABLES.WORK_LOGS).select('*').order('created_at', { ascending: false }),
-                supabase.from(TABLES.STICKY_NOTES).select('*').order('created_at', { ascending: false }),
-                supabase.from(TABLES.CLIENT_QUERIES).select('*').order('created_at', { ascending: false }),
-                supabase.from(TABLES.STAFF).select('*').order('created_at', { ascending: false }),
-                supabase.from(TABLES.PROJECTS).select(`*, contacts(name)`).order('created_at', { ascending: false }),
-                supabase.from('staff_advances').select('*').order('date', { ascending: false }),
-                supabase.from('bills').select('*').order('bill_date', { ascending: false }),
-                supabase.from('purchases').select('*, suppliers(name)').order('date', { ascending: false }),
-                supabase.from(TABLES.SETTINGS).select('*').limit(1)
-            ]);
 
-            const [
-                catsRes, contsRes, txsRes, gbRes, cbRes, walletsRes,
-                workLogsRes, stickyNotesRes, clientQueriesRes, staffRes,
-                projectsRes, advRes, billsRes, purRes, settingsRes
-            ] = results;
-
-            // Log any errors
-            results.forEach((res, index) => {
-                if (res.status === 'rejected') {
-                    console.error(`Request ${index} failed:`, res.reason);
-                } else if (res.value.error) {
-                    console.error(`Request ${index} error:`, res.value.error);
-                }
-            });
-
-            // If any critical request failed, we might want to throw or handle partially
-            // For now, let's map data safely
-            const getData = (res) => (res.status === 'fulfilled' && !res.value.error ? res.value.data : []);
-
-            setCategories(getData(catsRes));
-            setContacts(getData(contsRes));
-            setTransactions(getData(txsRes));
-            setAllGlobalBudgets(getData(gbRes));
-            setAllCategoryBudgets(getData(cbRes));
-            setWallets(getData(walletsRes));
-            setWorkLogs(getData(workLogsRes));
-            setStickyNotes(getData(stickyNotesRes));
-            setClientQueries(getData(clientQueriesRes));
-            setStaffList(getData(staffRes));
-            setProjects(getData(projectsRes));
-            setAllStaffAdvances(getData(advRes));
-            setBills(getData(billsRes));
-            setPurchases(getData(purRes));
-
-            const settingsData = getData(settingsRes);
-            setSettings(settingsData && settingsData.length > 0 ? settingsData[0] : {});
-
-            setLoading(false);
-
-        } catch (error) {
-            console.error("Error fetching data from Supabase:", error);
-            console.warn("If tables are missing, please run the SQL schema script in your Supabase Dashboard.");
-            setLoading(false);
-        }
-    };
 
     // Add Transaction
     const addTransaction = async (newTx) => {
@@ -165,6 +216,7 @@ export function FinanceProvider({ children }) {
                 description,
                 transaction_date: transaction_date || new Date().toISOString().split('T')[0],
                 contact_id: contact_id || null,
+                project_id: newTx.project_id || null,
                 is_debt: newTx.is_debt !== undefined ? newTx.is_debt : true, // Default to true if missing
                 wallet_id: wallet_id || null, // Ensure wallet_id is stored for edit/delete balance reversal
             };
@@ -181,11 +233,13 @@ export function FinanceProvider({ children }) {
 
             // Update Wallet Balance if a wallet was selected
             if (wallet_id) {
-                const wallet = wallets.find(w => w.id === wallet_id);
-                if (wallet) {
+                // Fetch fresh wallet to avoid stale state race conditions
+                const { data: freshWallet } = await supabase.from(TABLES.WALLETS).select('balance').eq('id', wallet_id).single();
+
+                if (freshWallet) {
                     const newBalance = type === 'income'
-                        ? Number(wallet.balance) + Number(amount)
-                        : Number(wallet.balance) - Number(amount);
+                        ? Number(freshWallet.balance) + Number(amount)
+                        : Number(freshWallet.balance) - Number(amount);
 
                     await updateWallet(wallet_id, newBalance);
                 }
@@ -258,7 +312,8 @@ export function FinanceProvider({ children }) {
     };
 
     // Settle Contact
-    const settleContact = async (contactId) => {
+    // Settle Contact
+    const settleContact = async (contactId, walletId) => {
         try {
             const contact = contactsWithBalances.find(c => c.id === contactId);
             if (!contact) throw new Error("Contact not found");
@@ -266,27 +321,29 @@ export function FinanceProvider({ children }) {
             const balance = contact.balance || 0;
             if (balance === 0) return { success: true, message: "Already settled" };
 
+            // Determine if we are paying (expense) or receiving (income)
+            // If balance > 0, they owe us -> Income when settled? 
+            // Wait, previous logic: "type = balance > 0 ? 'income' : 'expense'".
+            // If contact.balance is POSITIVE, it usually means "They owe us" (Receivable). So Settle = Income.
+            // If contact.balance is NEGATIVE, it usually means "We owe them" (Payable). So Settle = Expense.
+
             const type = balance > 0 ? "income" : "expense";
             const amount = Math.abs(balance);
 
-            const payload = {
-                contact_id: contactId,
-                amount: amount,
-                type: type,
+            const result = await addTransaction({
+                amount,
+                type,
+                category_id: null,
                 description: "Account Settled",
                 transaction_date: new Date().toISOString().split('T')[0],
-                category_id: null
-            };
+                contact_id: contactId,
+                wallet_id: walletId, // Now correctly passed
+                is_debt: false // Settlement is NOT a debt record, it's a payment
+            });
 
-            const { data, error } = await supabase
-                .from(TABLES.TRANSACTIONS)
-                .insert([payload])
-                .select(`*, categories (name, icon, type), contacts (name)`)
-                .single();
+            if (!result.success) throw result.error;
 
-            if (error) throw error;
-
-            setTransactions(prev => [data, ...prev]);
+            // setTransactions is handled by addTransaction
             return { success: true };
         } catch (error) {
             console.error("Error settling account:", error);
@@ -302,10 +359,10 @@ export function FinanceProvider({ children }) {
 
             // Reverse wallet balance if applicable
             if (tx.wallet_id) {
-                const wallet = wallets.find(w => w.id === tx.wallet_id);
-                if (wallet) {
+                const { data: freshWallet } = await supabase.from(TABLES.WALLETS).select('balance').eq('id', tx.wallet_id).single();
+                if (freshWallet) {
                     const reversalAmount = tx.type === 'income' ? -Number(tx.amount) : Number(tx.amount);
-                    await updateWallet(tx.wallet_id, Number(wallet.balance) + reversalAmount);
+                    await updateWallet(tx.wallet_id, Number(freshWallet.balance) + reversalAmount);
                 }
             }
 
@@ -327,7 +384,8 @@ export function FinanceProvider({ children }) {
 
             // 1. Revert Old Wallet Impact
             if (oldTx.wallet_id) {
-                const oldWallet = wallets.find(w => w.id === oldTx.wallet_id);
+                const { data: oldWallet } = await supabase.from(TABLES.WALLETS).select('balance').eq('id', oldTx.wallet_id).single();
+                // const oldWallet = wallets.find(w => w.id === oldTx.wallet_id);
                 if (oldWallet) {
                     const reversal = oldTx.type === 'income' ? -Number(oldTx.amount) : Number(oldTx.amount);
                     await updateWallet(oldTx.wallet_id, Number(oldWallet.balance) + reversal);
@@ -337,6 +395,7 @@ export function FinanceProvider({ children }) {
             // 2. Prepare Update Payload
             const payload = {
                 ...updates,
+                project_id: updates.project_id || (updates.project_id === null ? null : oldTx.project_id),
                 transaction_date: updates.transaction_date || oldTx.transaction_date, // Keep old date if not changed
             };
 
@@ -606,11 +665,12 @@ export function FinanceProvider({ children }) {
         // 2. Bills Income (Contracting - Paid Bills in this month)
         // Assuming bills have a 'payment_date' or we use 'date' if paid.
         // Let's use 'date' for now, but strictly filtering by status='Paid'
-        const billsIncome = bills
-            .filter(b => b.status === "Paid" && isSameMonth(b.date))
-            .reduce((sum, b) => sum + Number(b.total_amount || b.grand_total || 0), 0);
+        // const billsIncome = bills
+        //     .filter(b => b.status === "Paid" && isSameMonth(b.date))
+        //     .reduce((sum, b) => sum + Number(b.total_amount || b.grand_total || 0), 0);
 
-        const income = transIncome + billsIncome;
+        // const income = transIncome + billsIncome;
+        const income = transIncome;
 
         // 3. Transactions Expense (Direct Expense)
         const transExpense = monthTransactions
@@ -618,16 +678,17 @@ export function FinanceProvider({ children }) {
             .reduce((sum, t) => sum + Number(t.amount), 0);
 
         // 4. Purchases Expense (Marketing)
-        const purchasesExpense = purchases
-            .filter(p => isSameMonth(p.date))
-            .reduce((sum, p) => sum + Number(p.total_amount), 0);
+        // const purchasesExpense = purchases
+        //     .filter(p => isSameMonth(p.date))
+        //     .reduce((sum, p) => sum + Number(p.total_amount), 0);
 
         // 5. Staff Advances (Salary/Labor Expense)
-        const staffExpense = allStaffAdvances
-            .filter(a => isSameMonth(a.date))
-            .reduce((sum, a) => sum + Number(a.amount), 0);
+        // const staffExpense = allStaffAdvances
+        //     .filter(a => isSameMonth(a.date))
+        //     .reduce((sum, a) => sum + Number(a.amount), 0);
 
-        const expense = transExpense + purchasesExpense + staffExpense;
+        // const expense = transExpense + purchasesExpense + staffExpense;
+        const expense = transExpense;
 
         const balance = income - expense;
 
@@ -647,12 +708,12 @@ export function FinanceProvider({ children }) {
         const savingsRate = income > 0 ? Math.round(((income - expense) / income) * 100) : 0;
 
         // Runway (using Global Balance from all time streams)
-        const globalTotalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0) +
-            bills.filter(b => b.status === 'Paid').reduce((sum, b) => sum + Number(b.total_amount || b.grand_total || 0), 0);
+        const globalTotalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
+        // + bills.filter(b => b.status === 'Paid').reduce((sum, b) => sum + Number(b.total_amount || b.grand_total || 0), 0);
 
-        const globalTotalExpense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0) +
-            purchases.reduce((sum, p) => sum + Number(p.total_amount), 0) +
-            allStaffAdvances.reduce((sum, a) => sum + Number(a.amount), 0);
+        const globalTotalExpense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
+        // + purchases.reduce((sum, p) => sum + Number(p.total_amount), 0) +
+        // allStaffAdvances.reduce((sum, a) => sum + Number(a.amount), 0);
 
         const globalBalance = globalTotalIncome - globalTotalExpense;
 
@@ -1006,21 +1067,43 @@ export function FinanceProvider({ children }) {
         }
     };
 
-    const markAttendance = async (date, records) => {
+    const submitDailyAttendance = async (date, records) => {
         // records: [{ staff_id, status }]
         try {
             // Upsert attendance
             const upsertData = records.map(r => ({
-                staff_id: r.staff_id,
+                staff_id: parseInt(r.staff_id), // Ensure Number for BIGINT
                 date: date,
                 status: r.status
             }));
 
-            const { error } = await supabase.from('staff_attendance').upsert(upsertData, { onConflict: 'staff_id,date' });
+            // Use onConflict to update status if record exists for same staff/date
+            const { error } = await supabase
+                .from('staff_attendance')
+                .upsert(upsertData, { onConflict: 'staff_id,date' })
+                .select(); // Select to ensure we get back the data, though we might not use it if we refetch
+
             if (error) throw error;
+
+            // Optimistic update
+            setAttendance(prev => {
+                // Remove existing records for this date to avoid duplicates in state
+                const otherDates = prev.filter(a => a.date !== date);
+                // Create new entries (mocking ID if needed, but for display status is enough)
+                const newEntries = upsertData.map((u, i) => ({
+                    ...u,
+                    id: `temp-${Date.now()}-${i}`, // Temporary ID until refetch
+                    created_at: new Date().toISOString()
+                }));
+                return [...otherDates, ...newEntries];
+            });
+
+            // Re-fetch to get real IDs and ensure sync
+            fetchData();
+
             return { success: true };
         } catch (error) {
-            console.error("Error marking attendance:", error);
+            console.error("Error marking attendance:", JSON.stringify(error, null, 2));
             return { success: false, error };
         }
     };
@@ -1053,10 +1136,29 @@ export function FinanceProvider({ children }) {
         }
     };
 
-    const addStaffAdvance = async (advanceData) => {
+    const addStaffAdvance = async (advanceData, walletId) => {
         try {
-            const { error } = await supabase.from('staff_advances').insert([advanceData]);
+            const { data, error } = await supabase.from('staff_advances').insert([advanceData]).select().single();
             if (error) throw error;
+
+            setAllStaffAdvances(prev => [data, ...prev]);
+
+            // Create corresponding Transaction for Cash Flow
+            if (walletId) {
+                const staffMember = staffList.find(s => s.id === advanceData.staff_id);
+                const staffName = staffMember ? staffMember.name : "Staff";
+
+                await addTransaction({
+                    amount: advanceData.amount,
+                    type: 'expense', // Advance is money OUT
+                    category_id: null,
+                    description: `Advance to ${staffName}`,
+                    transaction_date: advanceData.date,
+                    wallet_id: walletId,
+                    is_debt: false // It's an expense transaction
+                });
+            }
+
             return { success: true };
         } catch (error) {
             console.error(error);
@@ -1403,6 +1505,7 @@ export function FinanceProvider({ children }) {
                 deleteClientQuery,
                 // Staff
                 staffList,
+                staffWithPay,
                 estimates,
                 createEstimate,
                 deleteEstimate,
@@ -1414,10 +1517,10 @@ export function FinanceProvider({ children }) {
                 bills,
                 createBill,
                 deleteBill,
-                staffList,
                 addStaff,
                 updateStaff,
-                markAttendance,
+
+                submitDailyAttendance,
                 getStaffDetails,
                 addStaffAdvance,
                 deleteStaff,
@@ -1441,7 +1544,8 @@ export function FinanceProvider({ children }) {
                         return { success: true };
                     }
                     return { success: false, error };
-                }
+                },
+                refreshData: fetchData,
             }}
         >
             {children}

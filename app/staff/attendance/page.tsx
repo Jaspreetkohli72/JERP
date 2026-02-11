@@ -7,41 +7,37 @@ import { supabase } from '@/lib/supabase';
 
 export default function AttendancePage() {
     // @ts-ignore
-    const { staffList, markAttendance } = useFinance();
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-    const [attendance, setAttendance] = useState<any>({}); // { staff_id: 'Present' | 'Absent' | 'Half-Day' }
+    const { staffList, submitDailyAttendance, attendance: allAttendance } = useFinance();
+    const [date, setDate] = useState(() => {
+        const d = new Date();
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        return d.toISOString().split('T')[0];
+    });
     const [loading, setLoading] = useState(false);
-    const [fetching, setFetching] = useState(true);
+    const [attendance, setAttendance] = useState<Record<string, string>>({});
 
-    // Fetch existing attendance for selected date
+    // Load existing attendance for selected date
     useEffect(() => {
-        const fetchAttendance = async () => {
-            setFetching(true);
-            try {
-                // Get existing for this date
-                const { data } = await supabase.from('staff_attendance').select('*').eq('date', date);
+        if (allAttendance && staffList) {
+            const dailyStatus: Record<string, string> = {};
+            // Default to Present for everyone if no record exists? No, better to show nothing or let user decide.
+            // Actually, for better UX, maybe we iterate staffList and find their status.
 
-                const newAtt = {};
-                // Default all to Present if no record, else use record
-                staffList.forEach((s: any) => {
-                    const record = data?.find(r => r.staff_id === s.id);
-                    // @ts-ignore
-                    newAtt[s.id] = record ? record.status : 'Present';
-                });
-                setAttendance(newAtt);
-            } catch (e) {
-                console.error(e);
-            }
-            setFetching(false);
-        };
-
-        if (staffList.length > 0) {
-            fetchAttendance();
+            // First map existing records
+            allAttendance.forEach((a: any) => {
+                if (a.date === date) {
+                    dailyStatus[a.staff_id] = a.status;
+                }
+            });
+            setAttendance(dailyStatus);
         }
-    }, [date, staffList]);
+    }, [date, allAttendance, staffList]);
 
     const handleStatusChange = (staffId: string, status: string) => {
-        setAttendance((prev: any) => ({ ...prev, [staffId]: status }));
+        setAttendance(prev => ({
+            ...prev,
+            [staffId]: status
+        }));
     };
 
     const handleSave = async () => {
@@ -51,7 +47,7 @@ export default function AttendancePage() {
             status: attendance[staffId]
         }));
 
-        const { success } = await markAttendance(date, records);
+        const { success } = await submitDailyAttendance(date, records);
         if (success) {
             alert('Attendance saved successfully!');
         } else {
@@ -80,7 +76,7 @@ export default function AttendancePage() {
 
             {/* List */}
             <div className="glass overflow-hidden rounded-xl border border-white/10">
-                {fetching ? (
+                {!staffList ? (
                     <div className="p-10 text-center text-gray-500">Loading...</div>
                 ) : (
                     <div>

@@ -20,7 +20,7 @@ export default function BudgetCard({ month = null, onMonthChange = null }) {
     const { financials: currentFinancials, getFinancials, loading, transactions } = useFinance();
     const [showHistory, setShowHistory] = React.useState(false);
 
-    if (loading) return <div className="glass p-3.5 h-32 animate-pulse rounded-[18px]" />;
+    if (loading) return <div className="glass p-3.5 h-[140px] animate-pulse rounded-[18px] bg-white/5" />;
 
     // If month prop is provided, we are in "Historical/Insights" mode
     // Otherwise we use the "Live/Dashboard" mode (currentFinancials)

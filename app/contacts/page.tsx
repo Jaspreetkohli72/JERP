@@ -11,11 +11,11 @@ export default function ContactsPage() {
     const [isAdding, setIsAdding] = useState(false);
     const [newContactName, setNewContactName] = useState("");
 
-    const filteredContacts = contacts?.filter(c =>
+    const filteredContacts = contacts?.filter((c: any) =>
         c.name.toLowerCase().includes(searchTerm.toLowerCase())
     ) || [];
 
-    const formatCurrency = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
+    const formatCurrency = (val: any) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
 
     const handleAddContact = async (e: any) => {
         e.preventDefault();
@@ -43,7 +43,7 @@ export default function ContactsPage() {
         <div className="pb-24">
             <TopBar />
 
-            <div className="px-4 max-w-4xl mx-auto space-y-6">
+            <div className="px-4 w-full space-y-6">
                 <div className="flex flex-col gap-2">
                     <h1 className="text-2xl font-bold text-white">Contacts</h1>
                     <p className="text-muted text-sm">Manage your contacts and track balances.</p>
@@ -106,7 +106,7 @@ export default function ContactsPage() {
                 )}
 
                 {/* Contacts List */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {filteredContacts.length === 0 ? (
                         <div className="col-span-full text-center py-12 text-muted">
                             <p>No contacts found.</p>

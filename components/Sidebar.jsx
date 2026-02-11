@@ -32,7 +32,7 @@ export default function Sidebar() {
     ];
 
     return (
-        <aside className="hidden md:flex flex-col gap-4 w-[250px] sticky top-4 self-start">
+        <aside className="hidden md:flex flex-col gap-4 w-[250px] sticky top-4 self-start shrink-0">
             <div className="glass p-4 md:p-[18px]">
                 {/* Logo */}
                 <div className="flex items-center gap-3 mb-[18px]">
