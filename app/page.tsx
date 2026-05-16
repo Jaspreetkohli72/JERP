@@ -4,7 +4,7 @@ import BudgetCard from "@/components/Dashboard/BudgetCard";
 import AnalyticsWrapper from "@/components/Dashboard/AnalyticsWrapper";
 import { getDashboardStats } from "@/app/actions/dashboard";
 
-export const revalidate = 60; // Optional: Revalidate page every 60s
+export const dynamic = 'force-dynamic';
 
 export default async function Home() {
   const stats = await getDashboardStats();

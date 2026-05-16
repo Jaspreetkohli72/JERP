@@ -90,9 +90,7 @@ export default function PendingPage() {
     };
 
     const handleSettle = async (id: string) => {
-        if (confirm("Settle this account balance to zero?")) {
-            await settleContact(id);
-        }
+        await settleContact(id);
     };
 
     const openManageModal = (contact: Contact) => {
@@ -110,9 +108,7 @@ export default function PendingPage() {
     };
 
     const handleDeleteTransaction = async (txId: string) => {
-        if (confirm("Delete this transaction?")) {
-            await deleteTransaction(txId);
-        }
+        await deleteTransaction(txId);
     };
 
     // Get transactions for the managing contact

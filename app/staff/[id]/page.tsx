@@ -5,6 +5,7 @@ import { useFinance } from '@/context/FinanceContext';
 import { ArrowLeft, Wallet, Calendar as CalendarIcon, Save, Trash2, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { updateStaffAction, deleteStaffAction, updateStaffAdvanceAction, deleteStaffAdvanceAction } from '@/app/actions/staff';
 
 export default function StaffDetailsPage() {
     const { id } = useParams();
@@ -21,6 +22,7 @@ export default function StaffDetailsPage() {
 
     // Modal State
     const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
+    const [editingAdvanceId, setEditingAdvanceId] = useState<string | number | null>(null);
     const [advanceForm, setAdvanceForm] = useState({ amount: '', date: new Date().toISOString().split('T')[0], notes: '', walletId: '' });
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -47,7 +49,7 @@ export default function StaffDetailsPage() {
 
     const handleUpdateStaff = async (e: React.FormEvent) => {
         e.preventDefault();
-        const { success } = await updateStaff(id, {
+        const { success } = await updateStaffAction(id as string, {
             ...editForm,
             salary: Number(editForm.salary) || 0
         });
@@ -55,6 +57,9 @@ export default function StaffDetailsPage() {
             setIsEditModalOpen(false);
             // Refresh local staff object
             setStaff((prev: any) => ({ ...prev, ...editForm, salary: Number(editForm.salary) || 0 }));
+            // Call fetchData in context just in case other things need it
+            if (updateStaff) updateStaff(id, editForm);
+            router.refresh(); // Purge Next.js client router cache
         }
     };
 
@@ -88,17 +93,43 @@ export default function StaffDetailsPage() {
 
     const handleAddAdvance = async (e: React.FormEvent) => {
         e.preventDefault();
-        const { success } = await addStaffAdvance({
-            staff_id: id,
-            amount: Number(advanceForm.amount),
-            date: advanceForm.date,
-            notes: advanceForm.notes
-        }, advanceForm.walletId);
+        
+        if (editingAdvanceId) {
+            const { success, error } = await updateStaffAdvanceAction(editingAdvanceId, {
+                amount: Number(advanceForm.amount),
+                date: advanceForm.date,
+                notes: advanceForm.notes
+            });
+            if (success) {
+                setIsAdvanceModalOpen(false);
+                setEditingAdvanceId(null);
+                setAdvanceForm({ amount: '', date: new Date().toISOString().split('T')[0], notes: '', walletId: '' });
+                loadData();
+            } else {
+                alert(`Failed to update advance: ${error}`);
+            }
+        } else {
+            const { success } = await addStaffAdvance({
+                staff_id: id,
+                amount: Number(advanceForm.amount),
+                date: advanceForm.date,
+                notes: advanceForm.notes
+            }, advanceForm.walletId);
 
+            if (success) {
+                setIsAdvanceModalOpen(false);
+                setAdvanceForm({ amount: '', date: new Date().toISOString().split('T')[0], notes: '', walletId: '' });
+                loadData();
+            }
+        }
+    };
+
+    const handleDeleteAdvance = async (advanceId: string | number) => {
+        const { success, error } = await deleteStaffAdvanceAction(advanceId);
         if (success) {
-            setIsAdvanceModalOpen(false);
-            setAdvanceForm({ amount: '', date: new Date().toISOString().split('T')[0], notes: '', walletId: '' });
             loadData();
+        } else {
+            alert(`Failed to delete advance: ${error}`);
         }
     };
 
@@ -136,9 +167,13 @@ export default function StaffDetailsPage() {
                 </button>
                 <button
                     onClick={async () => {
-                        if (confirm(`Are you sure you want to delete ${staff.name}? This cannot be undone.`)) {
-                            await deleteStaff(id);
+                        const res = await deleteStaffAction(id as string);
+                        if (res.success) {
+                            if (deleteStaff) deleteStaff(id); // Update context locally
                             router.push('/staff');
+                            router.refresh();
+                        } else {
+                            alert(`Failed to delete staff: ${res.error}`);
                         }
                     }}
                     className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
@@ -216,7 +251,11 @@ export default function StaffDetailsPage() {
                         <h3 className="text-lg font-bold flex items-center gap-2">
                             <Wallet size={18} className="text-red-400" /> Payments/Advances
                         </h3>
-                        <button onClick={() => setIsAdvanceModalOpen(true)} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">
+                        <button onClick={() => {
+                            setEditingAdvanceId(null);
+                            setAdvanceForm({ amount: '', date: new Date().toISOString().split('T')[0], notes: '', walletId: '' });
+                            setIsAdvanceModalOpen(true);
+                        }} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">
                             + Add Payment
                         </button>
                     </div>
@@ -224,12 +263,26 @@ export default function StaffDetailsPage() {
                     <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2">
                         {data.advances.length > 0 ? (
                             data.advances.map((rec: any) => (
-                                <div key={rec.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg text-sm">
+                                <div key={rec.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg text-sm group">
                                     <div>
                                         <div className="font-bold text-red-400">₹{rec.amount}</div>
                                         <div className="text-xs text-gray-500">{new Date(rec.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')}</div>
                                     </div>
-                                    <div className="text-xs text-gray-400 max-w-[100px] truncate">{rec.notes || '-'}</div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-xs text-gray-400 max-w-[80px] truncate">{rec.notes || '-'}</div>
+                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => {
+                                                setEditingAdvanceId(rec.id);
+                                                setAdvanceForm({ amount: String(rec.amount), date: rec.date, notes: rec.notes || '', walletId: '' });
+                                                setIsAdvanceModalOpen(true);
+                                            }} className="p-1.5 text-blue-400 hover:bg-blue-500/10 rounded-lg">
+                                                <Pencil size={14} />
+                                            </button>
+                                            <button onClick={() => handleDeleteAdvance(rec.id)} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg">
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             ))
                         ) : <div className="text-gray-500 italic text-sm">No payments recorded</div>}
@@ -241,25 +294,27 @@ export default function StaffDetailsPage() {
             {isAdvanceModalOpen && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-[#0a0a0a] border border-white/10 p-6 rounded-2xl w-full max-w-md shadow-2xl">
-                        <h2 className="text-xl font-bold mb-4">Record Payment / Advance</h2>
+                        <h2 className="text-xl font-bold mb-4">{editingAdvanceId ? 'Edit Payment / Advance' : 'Record Payment / Advance'}</h2>
                         <form onSubmit={handleAddAdvance} className="flex flex-col gap-4">
                             <input autoFocus type="number" placeholder="Amount (₹)" className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3" value={advanceForm.amount} onChange={e => setAdvanceForm({ ...advanceForm, amount: e.target.value })} required />
 
-                            <div className="flex flex-col gap-1">
-                                <label className="text-xs text-gray-400 uppercase">Paid From (Optional)</label>
-                                <select
-                                    className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 bg-[#1a1a1a] text-white"
-                                    value={advanceForm.walletId}
-                                    onChange={e => setAdvanceForm({ ...advanceForm, walletId: e.target.value })}
-                                >
-                                    <option value="" className="bg-[#1a1a1a] text-gray-400">Select Wallet (for auto-deduction)</option>
-                                    {wallets?.map((w: any) => (
-                                        <option key={w.id} value={w.id} className="bg-[#1a1a1a] text-white">
-                                            {w.name} (₹{w.balance})
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                            {!editingAdvanceId && (
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-xs text-gray-400 uppercase">Paid From (Optional)</label>
+                                    <select
+                                        className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 bg-[#1a1a1a] text-white"
+                                        value={advanceForm.walletId}
+                                        onChange={e => setAdvanceForm({ ...advanceForm, walletId: e.target.value })}
+                                    >
+                                        <option value="" className="bg-[#1a1a1a] text-gray-400">Select Wallet (for auto-deduction)</option>
+                                        {wallets?.map((w: any) => (
+                                            <option key={w.id} value={w.id} className="bg-[#1a1a1a] text-white">
+                                                {w.name} (₹{w.balance})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
 
                             <input type="date" className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 [color-scheme:dark]" value={advanceForm.date} onChange={e => setAdvanceForm({ ...advanceForm, date: e.target.value })} />
 
@@ -267,7 +322,9 @@ export default function StaffDetailsPage() {
 
                             <div className="flex gap-3 mt-4">
                                 <button type="button" onClick={() => setIsAdvanceModalOpen(false)} className="flex-1 py-3 text-gray-400 hover:text-white transition-colors">Cancel</button>
-                                <button type="submit" className="flex-1 bg-[var(--accent)] text-black font-bold rounded-lg py-3 hover:opacity-90 transition-opacity">Record</button>
+                                <button type="submit" className="flex-1 bg-[var(--accent)] text-black font-bold rounded-lg py-3 hover:opacity-90 transition-opacity">
+                                    {editingAdvanceId ? 'Save Changes' : 'Record'}
+                                </button>
                             </div>
                         </form>
                     </div>

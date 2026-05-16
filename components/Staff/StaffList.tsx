@@ -3,10 +3,12 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { User, Calendar, Plus, Wallet, ArrowRight, Briefcase } from 'lucide-react';
 import { addStaff } from '@/app/actions/staff';
+import { useRouter } from 'next/navigation';
 
 export default function StaffList({ staffList, staffWithPay, settings }: any) {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const router = useRouter();
 
     // Quick Add State
     const [newStaff, setNewStaff] = useState({ name: '', role: 'Helper', phone: '', salary: '' });
@@ -42,6 +44,7 @@ export default function StaffList({ staffList, staffWithPay, settings }: any) {
         if (result.success) {
             setIsAddModalOpen(false);
             setNewStaff({ name: '', role: 'Helper', phone: '', salary: '' });
+            router.refresh(); // Purge Next.js client router cache to show new staff immediately
         } else {
             alert(`Failed to add staff: ${result.error}`);
         }

@@ -32,9 +32,7 @@ export default function TransactionsPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm("Are you sure you want to delete this transaction? This will reverse the wallet balance.")) {
-            await deleteTransaction(id);
-        }
+        await deleteTransaction(id);
     };
 
     if (loading) {

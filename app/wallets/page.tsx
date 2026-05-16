@@ -276,12 +276,10 @@ export default function WalletsPage() {
                                 <button
                                     type="button"
                                     onClick={async () => {
-                                        if (confirm("Are you sure you want to delete this wallet?")) {
-                                            setSubmitting(true);
-                                            await deleteWallet(editingWallet.id);
-                                            setSubmitting(false);
-                                            setEditingWallet(null);
-                                        }
+                                        setSubmitting(true);
+                                        await deleteWallet(editingWallet.id);
+                                        setSubmitting(false);
+                                        setEditingWallet(null);
                                     }}
                                     disabled={submitting}
                                     className="w-full py-3 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors text-sm font-medium"

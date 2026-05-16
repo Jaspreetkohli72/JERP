@@ -4,10 +4,11 @@ import Link from 'next/link';
 import { useFinance } from '@/context/FinanceContext';
 import { ArrowLeft, Save, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { submitDailyAttendanceAction } from '@/app/actions/staff';
 
 export default function AttendancePage() {
     // @ts-ignore
-    const { staffList, submitDailyAttendance, attendance: allAttendance } = useFinance();
+    const { staffList, attendance: allAttendance, refreshData } = useFinance();
     const [date, setDate] = useState(() => {
         const d = new Date();
         d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
@@ -25,7 +26,7 @@ export default function AttendancePage() {
 
             // First map existing records
             allAttendance.forEach((a: any) => {
-                if (a.date === date) {
+                if (a.date && a.date.startsWith(date)) {
                     dailyStatus[a.staff_id] = a.status;
                 }
             });
@@ -47,11 +48,15 @@ export default function AttendancePage() {
             status: attendance[staffId]
         }));
 
-        const { success } = await submitDailyAttendance(date, records);
+        const { success, error } = await submitDailyAttendanceAction(date, records);
         if (success) {
+            // Fetch fresh data from DB immediately
+            if (refreshData) {
+                await refreshData();
+            }
             alert('Attendance saved successfully!');
         } else {
-            alert('Failed to save attendance.');
+            alert(`Failed to save attendance: ${error}`);
         }
         setLoading(false);
     };

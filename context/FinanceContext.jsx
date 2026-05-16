@@ -1,6 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { fetchAllDataAction } from "../app/actions/data";
 
 const FinanceContext = createContext();
 
@@ -46,53 +47,30 @@ export function FinanceProvider({ children }) {
 
     const fetchData = async () => {
         try {
-            // Fetch All Data concurrently
-            const results = await Promise.allSettled([
-                supabase.from(TABLES.CATEGORIES).select('*'),
-                supabase.from(TABLES.CONTACTS).select('*'),
-                supabase.from(TABLES.TRANSACTIONS).select(`*, categories (name, icon, type), contacts (name)`).order('transaction_date', { ascending: false }),
-                supabase.from(TABLES.GLOBAL_BUDGETS).select('*'),
-                supabase.from(TABLES.BUDGETS).select('*'),
-                supabase.from(TABLES.WALLETS).select('*'),
-                supabase.from(TABLES.WORK_LOGS).select('*').order('created_at', { ascending: false }),
-                supabase.from(TABLES.STICKY_NOTES).select('*').order('created_at', { ascending: false }),
-                supabase.from(TABLES.CLIENT_QUERIES).select('*').order('created_at', { ascending: false }),
-                supabase.from(TABLES.STAFF).select('*').order('created_at', { ascending: false }),
-                supabase.from(TABLES.PROJECTS).select(`*, contacts(name)`).order('created_at', { ascending: false }),
-                supabase.from('staff_advances').select('*').order('date', { ascending: false }),
-                supabase.from('bills').select('*').order('bill_date', { ascending: false }),
-                supabase.from('purchases').select('*, suppliers(name)').order('date', { ascending: false }),
-                supabase.from(TABLES.SETTINGS).select('*').limit(1),
-                supabase.from('staff_attendance').select('*').order('date', { ascending: false })
-            ]);
+            setLoading(true);
 
-            const [
-                catsRes, contsRes, txsRes, gbRes, cbRes, walletsRes,
-                workLogsRes, stickyNotesRes, clientQueriesRes, staffRes,
-                projectsRes, advRes, billsRes, purRes, settingsRes, attendanceRes
-            ] = results;
+            const data = await fetchAllDataAction();
 
-            // ... (error logging) ...
+            setCategories(data.categories || []);
+            setContacts(data.contacts || []);
+            setTransactions(data.transactions || []);
+            setAllGlobalBudgets(data.global_budgets || []);
+            setAllCategoryBudgets(data.budgets || []);
+            setWallets(data.wallets || []);
+            setWorkLogs(data.work_logs || []);
+            setStickyNotes(data.sticky_notes || []);
+            setClientQueries(data.client_queries || []);
+            setStaffList(data.staff || []);
+            setProjects(data.projects || []);
+            setAllStaffAdvances(data.staff_advances || []);
+            setBills(data.bills || []);
+            setPurchases(data.purchases || []);
+            setAttendance(data.staff_attendance || []);
+            setSuppliers(data.suppliers || []);
+            setInventory(data.inventory || []);
+            setShoppingList(data.shopping_list || []);
 
-            const getData = (res) => (res.status === 'fulfilled' && !res.value.error ? res.value.data : []);
-
-            setCategories(getData(catsRes));
-            setContacts(getData(contsRes));
-            setTransactions(getData(txsRes));
-            setAllGlobalBudgets(getData(gbRes));
-            setAllCategoryBudgets(getData(cbRes));
-            setWallets(getData(walletsRes));
-            setWorkLogs(getData(workLogsRes));
-            setStickyNotes(getData(stickyNotesRes));
-            setClientQueries(getData(clientQueriesRes));
-            setStaffList(getData(staffRes));
-            setProjects(getData(projectsRes));
-            setAllStaffAdvances(getData(advRes));
-            setBills(getData(billsRes));
-            setPurchases(getData(purRes));
-            setAttendance(getData(attendanceRes));
-
-            const settingsData = getData(settingsRes);
+            const settingsData = data.settings || [];
             setSettings(settingsData && settingsData.length > 0 ? settingsData[0] : {});
 
             setLoading(false);
@@ -178,29 +156,9 @@ export function FinanceProvider({ children }) {
         // }
 
         // Always fetch fresh data
-        localStorage.removeItem('jasper_data'); // FORCE CLEAR OLD DATA
+
         fetchData();
     }, []);
-
-    // Save to LocalStorage whenever data changes
-    useEffect(() => {
-        if (!loading && transactions.length > 0) {
-            const cache = {
-                transactions,
-                categories,
-                contacts,
-                allGlobalBudgets,
-                allCategoryBudgets,
-                allGlobalBudgets,
-                allCategoryBudgets,
-                wallets,
-                wallets,
-                staffList,
-                settings
-            };
-            localStorage.setItem('jasper_data', JSON.stringify(cache));
-        }
-    }, [transactions, categories, contacts, allGlobalBudgets, allCategoryBudgets, wallets, loading]);
 
 
 
@@ -1197,29 +1155,17 @@ export function FinanceProvider({ children }) {
 
     const fetchMarketingData = async () => {
         try {
-            const [supRes, invRes, purRes, shopRes] = await Promise.all([
-                supabase.from('suppliers').select('*').order('name'),
-                supabase.from('inventory').select('*').order('item_name'),
-                supabase.from('purchases').select('*, suppliers(name)').order('date', { ascending: false }),
-                supabase.from('shopping_list').select('*').order('date_needed', { ascending: true })
-            ]);
-
-            if (supRes.error) throw supRes.error;
-            if (invRes.error) throw invRes.error;
-            if (purRes.error) throw purRes.error;
-
-            setSuppliers(supRes.data || []);
-            setInventory(invRes.data || []);
-            setPurchases(purRes.data || []);
-            setShoppingList(shopRes.data || []);
+            const data = await fetchAllDataAction();
+            if (data) {
+                setSuppliers(data.suppliers || []);
+                setInventory(data.inventory || []);
+                setPurchases(data.purchases || []);
+                setShoppingList(data.shopping_list || []);
+            }
         } catch (error) {
             console.error("Error fetching marketing data:", JSON.stringify(error, null, 2));
         }
     };
-
-    useEffect(() => {
-        fetchMarketingData();
-    }, []);
 
     const addSupplier = async (supplier) => {
         try {
@@ -1506,6 +1452,8 @@ export function FinanceProvider({ children }) {
                 // Staff
                 staffList,
                 staffWithPay,
+                attendance,
+                allStaffAdvances,
                 estimates,
                 createEstimate,
                 deleteEstimate,
