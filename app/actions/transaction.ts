@@ -8,12 +8,12 @@ import { revalidatePath } from 'next/cache';
 const TransactionSchema = z.object({
     amount: z.number().positive('Amount must be positive'),
     type: z.enum(['income', 'expense']),
-    category_id: z.number().nullable().optional(),
+    category_id: z.string().nullable().optional(),
     description: z.string().min(1, 'Description is required'),
     transaction_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format'),
-    contact_id: z.number().nullable().optional(),
-    wallet_id: z.number().nullable().optional(),
-    project_id: z.number().nullable().optional(),
+    contact_id: z.string().nullable().optional(),
+    wallet_id: z.string().nullable().optional(),
+    project_id: z.string().nullable().optional(),
     is_debt: z.boolean().default(false),
 });
 
@@ -30,12 +30,12 @@ export async function addTransaction(prevState: TransactionState, formData: Form
     const rawData = {
         amount: Number(formData.get('amount')),
         type: formData.get('type'),
-        category_id: formData.get('category_id') ? Number(formData.get('category_id')) : null,
+        category_id: formData.get('category_id') ? String(formData.get('category_id')) : null,
         description: formData.get('description'),
         transaction_date: formData.get('transaction_date'),
-        contact_id: formData.get('contact_id') ? Number(formData.get('contact_id')) : null,
-        wallet_id: formData.get('wallet_id') ? Number(formData.get('wallet_id')) : null,
-        project_id: formData.get('project_id') ? Number(formData.get('project_id')) : null,
+        contact_id: formData.get('contact_id') ? String(formData.get('contact_id')) : null,
+        wallet_id: formData.get('wallet_id') ? String(formData.get('wallet_id')) : null,
+        project_id: formData.get('project_id') ? String(formData.get('project_id')) : null,
         is_debt: formData.get('is_debt') === 'true',
     };
 
@@ -46,7 +46,7 @@ export async function addTransaction(prevState: TransactionState, formData: Form
         return {
             success: false,
             errors: validatedFields.error.flatten().fieldErrors,
-            error: 'Missing Fields. Failed to Create Transaction.',
+            error: `Missing Fields: ${JSON.stringify(validatedFields.error.flatten().fieldErrors)}`,
         };
     }
 
