@@ -4,11 +4,15 @@ import Link from 'next/link';
 import { User, Calendar, Plus, Wallet, ArrowRight, Briefcase } from 'lucide-react';
 import { addStaff } from '@/app/actions/staff';
 import { useRouter } from 'next/navigation';
+import { useFinance } from '@/context/FinanceContext';
 
 export default function StaffList({ staffList, staffWithPay, settings }: any) {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const router = useRouter();
+
+    // @ts-ignore
+    const { updateStaff } = useFinance();
 
     // Quick Add State
     const [newStaff, setNewStaff] = useState({ name: '', role: 'Helper', phone: '', salary: '' });
@@ -28,6 +32,26 @@ export default function StaffList({ staffList, staffWithPay, settings }: any) {
             setNewStaff(prev => ({ ...prev, salary: String(rate) }));
         }
     }, [newStaff.role, settings]);
+
+    const handleTerminate = async (staffId: any) => {
+        const confirm = window.confirm("Are you sure you want to terminate this employee?");
+        if (!confirm) return;
+        const res = await updateStaff(staffId, { status: 'Terminated' });
+        if (res.success) {
+            router.refresh();
+        } else {
+            alert(`Failed to terminate staff: ${res.error}`);
+        }
+    };
+
+    const handleReinstate = async (staffId: any) => {
+        const res = await updateStaff(staffId, { status: 'Available' });
+        if (res.success) {
+            router.refresh();
+        } else {
+            alert(`Failed to reinstate staff: ${res.error}`);
+        }
+    };
 
     const handleAddStaff = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -125,7 +149,14 @@ export default function StaffList({ staffList, staffWithPay, settings }: any) {
                                     {staff.name.charAt(0)}
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-lg text-gray-200 group-hover:text-[var(--accent)] transition-colors">{staff.name}</h4>
+                                    <h4 className="font-bold text-lg text-gray-200 group-hover:text-[var(--accent)] transition-colors flex items-center gap-2">
+                                        {staff.name}
+                                        {staff.status === 'Terminated' && (
+                                            <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                Terminated
+                                            </span>
+                                        )}
+                                    </h4>
                                     <div className="flex items-center gap-2 text-xs text-muted text-gray-400">
                                         <Briefcase size={12} />
                                         <span>{staff.role}</span>
@@ -153,6 +184,32 @@ export default function StaffList({ staffList, staffWithPay, settings }: any) {
                                 <span className={`text-lg font-bold ${netPay < 0 ? 'text-red-400' : 'text-green-400'}`}>
                                     {formatCurrency(netPay)}
                                 </span>
+                            </div>
+
+                            <div className="border-t border-white/5 pt-3 flex gap-2">
+                                {staff.status === 'Terminated' ? (
+                                    <button
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleReinstate(staff.id);
+                                        }}
+                                        className="w-full py-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg text-xs font-bold transition-colors"
+                                    >
+                                        Reinstate Employee
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleTerminate(staff.id);
+                                        }}
+                                        className="w-full py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-bold transition-colors"
+                                    >
+                                        Terminate Employee
+                                    </button>
+                                )}
                             </div>
                         </Link>
                     );

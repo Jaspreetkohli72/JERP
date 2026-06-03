@@ -30,7 +30,14 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
     const getStatus = (staffId: any, day: number) => {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const record = (attendance || []).find((a: any) => String(a.staff_id) === String(staffId) && a.date === dateStr);
-        return record ? record.status : null;
+        if (record) return record.status;
+
+        // If no attendance record, check if staff is currently Terminated
+        const staff = (staffList || []).find((s: any) => String(s.id) === String(staffId));
+        if (staff && staff.status === 'Terminated') {
+            return 'Terminated';
+        }
+        return null;
     };
 
     const normalizeStatus = (status: string) => {
@@ -45,6 +52,7 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
         if (status === 'Present') return 'bg-green-500 text-black shadow-[0_0_10px_rgba(34,197,94,0.4)]';
         if (status === 'Absent') return 'bg-red-500 text-black shadow-[0_0_10px_rgba(239,68,68,0.4)]';
         if (status === 'Half-Day') return 'bg-yellow-500 text-black shadow-[0_0_10px_rgba(234,179,8,0.4)]';
+        if (status === 'Terminated') return 'bg-gray-600/40 text-gray-400 border border-white/10 shadow-[0_0_10px_rgba(100,100,100,0.1)]';
         return '';
     };
 
@@ -53,6 +61,7 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
         if (status === 'Present') return 'P';
         if (status === 'Absent') return 'A';
         if (status === 'Half-Day') return 'H';
+        if (status === 'Terminated') return 'T';
         return '';
     };
 
@@ -132,6 +141,10 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
                 <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-red-500/50"></div>
                     <span className="text-sm text-gray-400">Absent</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-gray-500/50"></div>
+                    <span className="text-sm text-gray-400">Terminated</span>
                 </div>
             </div>
         </div>

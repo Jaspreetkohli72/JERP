@@ -147,6 +147,11 @@ export default function StaffDetailsPage() {
                 <div className="flex-1">
                     <h1 className="text-2xl font-bold flex items-center gap-3">
                         {staff.name}
+                        {staff.status === 'Terminated' && (
+                            <span className="text-xs bg-red-500/20 text-red-400 px-2.5 py-1 rounded font-bold uppercase tracking-wider">
+                                Terminated
+                            </span>
+                        )}
                     </h1>
                     <p className="text-gray-400 text-sm">{staff.role} • ₹{staff.salary}/day</p>
                 </div>
