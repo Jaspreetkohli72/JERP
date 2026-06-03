@@ -1069,7 +1069,8 @@ export function FinanceProvider({ children }) {
     const getStaffDetails = async (id, month, year) => {
         try {
             const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-            const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+            const lastDay = new Date(year, month + 1, 0).getDate();
+            const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
             // Fetch Attendance
             const { data: attData } = await supabase.from('staff_attendance')

@@ -94,9 +94,10 @@ export async function getMonthlyAttendance(monthStr?: string) {
     const month = date.getMonth(); // 0-indexed
 
     // Start Date: YYYY-MM-01
-    const startDate = new Date(year, month, 1).toISOString().split('T')[0];
+    const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
     // End Date: YYYY-MM-LastDay
-    const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
     const [staffRes, attendanceRes] = await Promise.all([
         supabase.from('staff').select('*').order('name'),
