@@ -6,10 +6,8 @@ import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function AttendanceCalendar({ staffList, attendance, currentMonth }: any) {
     const router = useRouter();
-    const [dateObj] = useState(() => {
-        // currentMonth is "YYYY-MM"
-        return new Date(`${currentMonth}-01`);
-    });
+    // currentMonth is "YYYY-MM"
+    const dateObj = new Date(`${currentMonth}-01`);
 
     const year = dateObj.getFullYear();
     const month = dateObj.getMonth();

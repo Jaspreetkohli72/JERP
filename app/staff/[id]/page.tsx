@@ -232,7 +232,7 @@ export default function StaffDetailsPage() {
                     </h3>
                     <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2">
                         {data.attendance.length > 0 ? (
-                            data.attendance.map((rec: any) => (
+                            [...data.attendance].sort((a: any, b: any) => (a.date || '').localeCompare(b.date || '')).map((rec: any) => (
                                 <div key={rec.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg text-sm">
                                     <span>{new Date(rec.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')}</span>
                                     <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.status === 'Present' ? 'bg-green-500/20 text-green-400' :

@@ -1076,7 +1076,8 @@ export function FinanceProvider({ children }) {
                 .select('*')
                 .eq('staff_id', id)
                 .gte('date', startDate)
-                .lte('date', endDate);
+                .lte('date', endDate)
+                .order('date', { ascending: true });
 
             // Fetch Advances/Payments (All time to calculate balance, or just this month?)
             // Usually we need running balance. For now simpler: fetch recent.
