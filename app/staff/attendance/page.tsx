@@ -92,7 +92,7 @@ export default function AttendancePage() {
                             <div>Abs</div>
                         </div>
 
-                        {staffList.filter((s: any) => s.status !== 'Terminated').map((staff: any) => (
+                        {staffList.filter((s: any) => !s.status?.startsWith('Terminated')).map((staff: any) => (
                             <div key={staff.id} className="grid grid-cols-[1fr_repeat(3,60px)] gap-2 p-4 border-b border-white/5 items-center hover:bg-white/5 transition-colors">
                                 <div>
                                     <div className="font-bold">{staff.name}</div>

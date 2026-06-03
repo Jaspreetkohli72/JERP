@@ -34,8 +34,11 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
 
         // If no attendance record, check if staff is currently Terminated
         const staff = (staffList || []).find((s: any) => String(s.id) === String(staffId));
-        if (staff && staff.status === 'Terminated') {
-            return 'Terminated';
+        if (staff && staff.status?.startsWith('Terminated')) {
+            const termDateStr = staff.status.split(':')[1];
+            if (!termDateStr || dateStr >= termDateStr) {
+                return 'Terminated';
+            }
         }
         return null;
     };

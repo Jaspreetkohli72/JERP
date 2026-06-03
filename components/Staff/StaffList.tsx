@@ -138,11 +138,12 @@ export default function StaffList({ staffList, staffWithPay, settings }: any) {
                     const earned = staff.financials?.salaryAccrued || 0;
                     const advances = staff.financials?.totalAdvances || 0;
                     const netPay = staff.financials?.netPayable ?? 0;
+                    const isTerminated = staff.status?.startsWith('Terminated');
 
                     return (
                         <Link key={staff.id} href={`/staff/${staff.id}`} className="glass p-5 rounded-xl border border-white/5 hover:border-[var(--accent)]/50 transition-colors flex flex-col gap-4 group relative overflow-hidden">
 
-                            <div className={`absolute top-4 right-4 h-2 w-2 rounded-full ${staff.status === 'Available' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`} />
+                            <div className={`absolute top-4 right-4 h-2 w-2 rounded-full ${isTerminated ? 'bg-red-500' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]'}`} />
 
                             <div className="flex items-center gap-4">
                                 <div className="h-12 w-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-xl font-bold text-gray-400 border border-white/10">
@@ -151,7 +152,7 @@ export default function StaffList({ staffList, staffWithPay, settings }: any) {
                                 <div>
                                     <h4 className="font-bold text-lg text-gray-200 group-hover:text-[var(--accent)] transition-colors flex items-center gap-2">
                                         {staff.name}
-                                        {staff.status === 'Terminated' && (
+                                        {isTerminated && (
                                             <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
                                                 Terminated
                                             </span>
@@ -184,32 +185,6 @@ export default function StaffList({ staffList, staffWithPay, settings }: any) {
                                 <span className={`text-lg font-bold ${netPay < 0 ? 'text-red-400' : 'text-green-400'}`}>
                                     {formatCurrency(netPay)}
                                 </span>
-                            </div>
-
-                            <div className="border-t border-white/5 pt-3 flex gap-2">
-                                {staff.status === 'Terminated' ? (
-                                    <button
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            handleReinstate(staff.id);
-                                        }}
-                                        className="w-full py-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg text-xs font-bold transition-colors"
-                                    >
-                                        Reinstate Employee
-                                    </button>
-                                ) : (
-                                    <button
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            handleTerminate(staff.id);
-                                        }}
-                                        className="w-full py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-bold transition-colors"
-                                    >
-                                        Terminate Employee
-                                    </button>
-                                )}
                             </div>
                         </Link>
                     );

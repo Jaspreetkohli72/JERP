@@ -180,3 +180,15 @@ export async function deleteStaffAdvanceAction(id: string | number) {
         return { success: false, error: e.message };
     }
 }
+
+export async function deleteAttendanceAction(id: string | number) {
+    try {
+        const { error } = await supabase.from('staff_attendance').delete().eq('id', id);
+        if (error) throw error;
+        revalidatePath('/staff');
+        revalidatePath('/staff/calendar');
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}

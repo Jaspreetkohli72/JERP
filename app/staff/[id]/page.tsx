@@ -5,7 +5,7 @@ import { useFinance } from '@/context/FinanceContext';
 import { ArrowLeft, Wallet, Calendar as CalendarIcon, Save, Trash2, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { updateStaffAction, deleteStaffAction, updateStaffAdvanceAction, deleteStaffAdvanceAction } from '@/app/actions/staff';
+import { updateStaffAction, deleteStaffAction, updateStaffAdvanceAction, deleteStaffAdvanceAction, deleteAttendanceAction } from '@/app/actions/staff';
 
 export default function StaffDetailsPage() {
     const { id } = useParams();
@@ -27,6 +27,38 @@ export default function StaffDetailsPage() {
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editForm, setEditForm] = useState({ name: '', role: '', phone: '', salary: '' });
+
+    const [isTerminateModalOpen, setIsTerminateModalOpen] = useState(false);
+    const [terminationDate, setTerminationDate] = useState(() => {
+        const d = new Date();
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        return d.toISOString().split('T')[0];
+    });
+
+    const handleTerminate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const statusVal = `Terminated:${terminationDate}`;
+        const res = await updateStaff(id, { status: statusVal });
+        if (res.success) {
+            setIsTerminateModalOpen(false);
+            setStaff((prev: any) => ({ ...prev, status: statusVal }));
+            router.refresh();
+        } else {
+            alert(`Failed to terminate employee: ${res.error}`);
+        }
+    };
+
+    const handleReinstate = async () => {
+        const confirm = window.confirm("Are you sure you want to reinstate this employee?");
+        if (!confirm) return;
+        const res = await updateStaff(id, { status: 'Available' });
+        if (res.success) {
+            setStaff((prev: any) => ({ ...prev, status: 'Available' }));
+            router.refresh();
+        } else {
+            alert(`Failed to reinstate employee: ${res.error}`);
+        }
+    };
 
     // Auto-fill salary in Edit Mode
     useEffect(() => {
@@ -133,6 +165,17 @@ export default function StaffDetailsPage() {
         }
     };
 
+    const handleDeleteAttendance = async (attendanceId: string | number) => {
+        const confirm = window.confirm("Are you sure you want to delete this attendance record?");
+        if (!confirm) return;
+        const { success, error } = await deleteAttendanceAction(attendanceId);
+        if (success) {
+            loadData();
+        } else {
+            alert(`Failed to delete attendance: ${error}`);
+        }
+    };
+
     if (!staff) return <div className="p-10 text-center text-white">Loading staff...</div>;
 
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -147,14 +190,36 @@ export default function StaffDetailsPage() {
                 <div className="flex-1">
                     <h1 className="text-2xl font-bold flex items-center gap-3">
                         {staff.name}
-                        {staff.status === 'Terminated' && (
+                        {staff.status?.startsWith('Terminated') && (
                             <span className="text-xs bg-red-500/20 text-red-400 px-2.5 py-1 rounded font-bold uppercase tracking-wider">
                                 Terminated
                             </span>
                         )}
                     </h1>
-                    <p className="text-gray-400 text-sm">{staff.role} • ₹{staff.salary}/day</p>
+                    <p className="text-gray-400 text-sm">
+                        {staff.role} • ₹{staff.salary}/day
+                        {staff.status?.startsWith('Terminated') && (
+                            <span className="text-red-400 ml-2 font-medium">
+                                (Terminated on {new Date(staff.status.split(':')[1]).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })})
+                            </span>
+                        )}
+                    </p>
                 </div>
+                {staff.status?.startsWith('Terminated') ? (
+                    <button
+                        onClick={handleReinstate}
+                        className="bg-green-500/10 hover:bg-green-500/20 text-green-400 px-4 py-2 rounded-lg text-sm font-bold transition-colors"
+                    >
+                        Reinstate
+                    </button>
+                ) : (
+                    <button
+                        onClick={() => setIsTerminateModalOpen(true)}
+                        className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm font-bold transition-colors"
+                    >
+                        Terminate
+                    </button>
+                )}
                 <button
                     onClick={() => {
                         setEditForm({
@@ -238,12 +303,21 @@ export default function StaffDetailsPage() {
                     <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2">
                         {data.attendance.length > 0 ? (
                             [...data.attendance].sort((a: any, b: any) => (a.date || '').localeCompare(b.date || '')).map((rec: any) => (
-                                <div key={rec.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg text-sm">
+                                <div key={rec.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg text-sm group">
                                     <span>{new Date(rec.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')}</span>
-                                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.status === 'Present' ? 'bg-green-500/20 text-green-400' :
-                                        rec.status === 'Absent' ? 'bg-red-500/20 text-red-400' :
-                                            'bg-yellow-500/20 text-yellow-400'
-                                        }`}>{rec.status}</span>
+                                    <div className="flex items-center gap-3">
+                                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.status === 'Present' ? 'bg-green-500/20 text-green-400' :
+                                            rec.status === 'Absent' ? 'bg-red-500/20 text-red-400' :
+                                                'bg-yellow-500/20 text-yellow-400'
+                                            }`}>{rec.status}</span>
+                                        <button 
+                                            onClick={() => handleDeleteAttendance(rec.id)} 
+                                            className="p-1 text-red-400 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title="Delete Attendance"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
                                 </div>
                             ))
                         ) : <div className="text-gray-500 italic text-sm">No records this month</div>}
@@ -357,6 +431,33 @@ export default function StaffDetailsPage() {
                             <div className="flex gap-3 mt-4">
                                 <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 py-3 text-gray-400 hover:text-white transition-colors">Cancel</button>
                                 <button type="submit" className="flex-1 bg-[var(--accent)] text-black font-bold rounded-lg py-3 hover:opacity-90 transition-opacity">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+            {isTerminateModalOpen && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-[#0a0a0a] border border-white/10 p-6 rounded-2xl w-full max-w-md shadow-2xl">
+                        <h2 className="text-xl font-bold mb-2">Terminate Employee</h2>
+                        <p className="text-gray-400 text-sm mb-4">Please select the termination date for <strong>{staff.name}</strong>.</p>
+                        <form onSubmit={handleTerminate} className="flex flex-col gap-4">
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs text-gray-400 uppercase">Termination Date</label>
+                                <input 
+                                    type="date" 
+                                    className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 [color-scheme:dark]" 
+                                    value={terminationDate} 
+                                    onChange={e => setTerminationDate(e.target.value)} 
+                                    required 
+                                />
+                            </div>
+
+                            <div className="flex gap-3 mt-4">
+                                <button type="button" onClick={() => setIsTerminateModalOpen(false)} className="flex-1 py-3 text-gray-400 hover:text-white transition-colors">Cancel</button>
+                                <button type="submit" className="flex-1 bg-red-600 text-white font-bold rounded-lg py-3 hover:bg-red-700 transition-colors">
+                                    Confirm Termination
+                                </button>
                             </div>
                         </form>
                     </div>
