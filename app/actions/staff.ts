@@ -4,16 +4,11 @@ import { supabase } from '@/lib/supabase';
 import { revalidatePath } from 'next/cache';
 
 export async function getStaffStats() {
-    // 1. Fetch Staff, Attendance (Current Month), Advances (Current Month), Settings
-    const today = new Date();
-    // YYYY-MM-01
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
-    const currentMonthPrefix = today.toISOString().slice(0, 7);
-
+    // 1. Fetch Staff, Attendance, Advances, Settings
     const [staffRes, attendanceRes, advancesRes, settingsRes] = await Promise.all([
         supabase.from('staff').select('*').order('created_at', { ascending: false }),
-        supabase.from('staff_attendance').select('*').gte('date', startOfMonth),
-        supabase.from('staff_advances').select('*').gte('date', startOfMonth),
+        supabase.from('staff_attendance').select('*'),
+        supabase.from('staff_advances').select('*'),
         supabase.from('settings').select('*').limit(1)
     ]);
 
@@ -29,20 +24,22 @@ export async function getStaffStats() {
     // 2. Calculate Payroll Logic (Ported from FinanceContext)
     const staffWithPay = staffList.map(staff => {
         // Attendance
-        const monthAttendance = attendance.filter(a =>
+        const staffAttendance = attendance.filter(a =>
             String(a.staff_id) === String(staff.id)
         );
 
-        const daysPresent = monthAttendance.filter(a => a.status === 'Present').length;
-        const halfDays = monthAttendance.filter(a => a.status === 'Half-Day').length;
-        const totalDays = daysPresent + (halfDays * 0.5);
-        const salaryAccrued = totalDays * (Number(staff.salary) || 0);
+        const daysPresent = staffAttendance.filter(a => a.status === 'Present').length;
+        const halfDays = staffAttendance.filter(a => a.status === 'Half-Day').length;
+        const overtimeDays = staffAttendance.filter(a => a.status === 'Overtime').length;
+        const totalDays = daysPresent + (halfDays * 0.5) + overtimeDays;
+        const salaryDays = daysPresent + (halfDays * 0.5) + (overtimeDays * 2.0);
+        const salaryAccrued = salaryDays * (Number(staff.salary) || 0);
 
         // Advances
-        const monthAdvances = allStaffAdvances.filter(adv =>
+        const staffAdvances = allStaffAdvances.filter(adv =>
             String(adv.staff_id) === String(staff.id)
         );
-        const totalAdvances = monthAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0);
+        const totalAdvances = staffAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0);
         const netPayable = salaryAccrued - totalAdvances;
 
         return {
@@ -50,6 +47,7 @@ export async function getStaffStats() {
             attendanceStats: {
                 daysPresent,
                 halfDays,
+                overtimeDays,
                 totalDays
             },
             financials: {

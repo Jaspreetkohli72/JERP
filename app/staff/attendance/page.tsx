@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useFinance } from '@/context/FinanceContext';
-import { ArrowLeft, Save, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { ArrowLeft, Save, CheckCircle, XCircle, Clock, Zap } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { submitDailyAttendanceAction } from '@/app/actions/staff';
 
@@ -85,15 +85,16 @@ export default function AttendancePage() {
                     <div className="p-10 text-center text-gray-500">Loading...</div>
                 ) : (
                     <div>
-                        <div className="grid grid-cols-[1fr_repeat(3,60px)] gap-2 p-4 border-b border-white/10 bg-white/5 text-xs text-gray-400 font-bold uppercase tracking-wider text-center items-center">
+                        <div className="grid grid-cols-[1fr_repeat(4,60px)] gap-2 p-4 border-b border-white/10 bg-white/5 text-xs text-gray-400 font-bold uppercase tracking-wider text-center items-center">
                             <div className="text-left">Staff Member</div>
                             <div>Pres</div>
                             <div>Half</div>
                             <div>Abs</div>
+                            <div>Over</div>
                         </div>
 
                         {staffList.filter((s: any) => !s.status?.startsWith('Terminated')).map((staff: any) => (
-                            <div key={staff.id} className="grid grid-cols-[1fr_repeat(3,60px)] gap-2 p-4 border-b border-white/5 items-center hover:bg-white/5 transition-colors">
+                            <div key={staff.id} className="grid grid-cols-[1fr_repeat(4,60px)] gap-2 p-4 border-b border-white/5 items-center hover:bg-white/5 transition-colors">
                                 <div>
                                     <div className="font-bold">{staff.name}</div>
                                     <div className="text-xs text-gray-500">{staff.role}</div>
@@ -121,6 +122,14 @@ export default function AttendancePage() {
                                     className={`flex items-center justify-center p-2 rounded-lg transition-all ${attendance[staff.id] === 'Absent' ? 'bg-red-500 text-black scale-110 shadow-lg shadow-red-500/20' : 'bg-white/5 text-gray-600 hover:bg-white/10'}`}
                                 >
                                     <XCircle size={20} />
+                                </button>
+
+                                {/* Overtime */}
+                                <button
+                                    onClick={() => handleStatusChange(staff.id, 'Overtime')}
+                                    className={`flex items-center justify-center p-2 rounded-lg transition-all ${attendance[staff.id] === 'Overtime' ? 'bg-purple-500 text-black scale-110 shadow-lg shadow-purple-500/20' : 'bg-white/5 text-gray-600 hover:bg-white/10'}`}
+                                >
+                                    <Zap size={20} />
                                 </button>
                             </div>
                         ))}

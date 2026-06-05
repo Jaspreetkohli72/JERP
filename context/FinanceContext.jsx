@@ -86,34 +86,26 @@ export function FinanceProvider({ children }) {
 
     // Derived Staff with Pay Logic
     const staffWithPay = React.useMemo(() => {
-        const today = new Date();
-        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-
         return staffList.map(staff => {
-            // 1. Calculate Attendance Accrual for Current Month
-            // 1. Calculate Attendance Accrual for Current Month
-            // Use ISO string prefix for 100% timezone-safe filtering (YYYY-MM)
-            const currentMonthPrefix = today.toISOString().slice(0, 7);
-
-            const monthAttendance = (attendance || []).filter(a => {
-                return String(a.staff_id) === String(staff.id) &&
-                    (a.date && a.date.startsWith(currentMonthPrefix));
+            // 1. Calculate Attendance Accrual (All-time totals)
+            const staffAttendance = (attendance || []).filter(a => {
+                return String(a.staff_id) === String(staff.id);
             });
 
-            const daysPresent = monthAttendance.filter(a => a.status === 'Present').length;
-            const halfDays = monthAttendance.filter(a => a.status === 'Half-Day').length;
+            const daysPresent = staffAttendance.filter(a => a.status === 'Present').length;
+            const halfDays = staffAttendance.filter(a => a.status === 'Half-Day').length;
+            const overtimeDays = staffAttendance.filter(a => a.status === 'Overtime').length;
 
-            const totalDays = daysPresent + (halfDays * 0.5);
-            const salaryAccrued = totalDays * (Number(staff.salary) || 0);
+            const totalDays = daysPresent + (halfDays * 0.5) + overtimeDays;
+            const salaryDays = daysPresent + (halfDays * 0.5) + (overtimeDays * 2.0);
+            const salaryAccrued = salaryDays * (Number(staff.salary) || 0);
 
-            // 2. Calculate Advances Taken in Current Month
-            // 2. Calculate Advances Taken in Current Month
-            const monthAdvances = allStaffAdvances.filter(adv => {
-                return String(adv.staff_id) === String(staff.id) &&
-                    (adv.date && adv.date.startsWith(currentMonthPrefix));
+            // 2. Calculate Advances Taken (All-time totals)
+            const staffAdvances = allStaffAdvances.filter(adv => {
+                return String(adv.staff_id) === String(staff.id);
             });
 
-            const totalAdvances = monthAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0);
+            const totalAdvances = staffAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0);
             const netPayable = salaryAccrued - totalAdvances;
 
             return {
@@ -121,6 +113,7 @@ export function FinanceProvider({ children }) {
                 attendanceStats: {
                     daysPresent,
                     halfDays,
+                    overtimeDays,
                     totalDays
                 },
                 financials: {

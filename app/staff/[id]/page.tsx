@@ -11,7 +11,7 @@ export default function StaffDetailsPage() {
     const { id } = useParams();
     const router = useRouter();
     // @ts-ignore
-    const { staffList, getStaffDetails, addStaffAdvance, deleteStaff, updateStaff, settings, wallets } = useFinance();
+    const { staffList, getStaffDetails, addStaffAdvance, deleteStaff, updateStaff, settings, wallets, refreshData } = useFinance();
 
     // State
     const [staff, setStaff] = useState<any>(null);
@@ -22,6 +22,9 @@ export default function StaffDetailsPage() {
 
     // Modal State
     const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
+    const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
+    const [settleForm, setSettleForm] = useState({ walletId: '', date: new Date().toISOString().split('T')[0], notes: 'Account Settlement' });
+    const [settleIsSubmitting, setSettleIsSubmitting] = useState(false);
     const [editingAdvanceId, setEditingAdvanceId] = useState<string | number | null>(null);
     const [advanceForm, setAdvanceForm] = useState({ amount: '', date: new Date().toISOString().split('T')[0], notes: '', walletId: '' });
 
@@ -118,8 +121,10 @@ export default function StaffDetailsPage() {
     // Stats Logic
     const presentCount = data.attendance.filter((a: any) => a.status === 'Present').length;
     const halfDayCount = data.attendance.filter((a: any) => a.status === 'Half-Day').length;
-    const effectiveDays = presentCount + (halfDayCount * 0.5);
-    const estimatedEarnings = staff ? effectiveDays * staff.salary : 0;
+    const overtimeCount = data.attendance.filter((a: any) => a.status === 'Overtime').length;
+    const effectiveDays = presentCount + (halfDayCount * 0.5) + overtimeCount;
+    const salaryDays = presentCount + (halfDayCount * 0.5) + (overtimeCount * 2.0);
+    const estimatedEarnings = staff ? salaryDays * staff.salary : 0;
     const totalAdvances = data.advances.reduce((sum, a: any) => sum + Number(a.amount), 0);
     const balance = estimatedEarnings - totalAdvances;
 
@@ -153,6 +158,30 @@ export default function StaffDetailsPage() {
                 setAdvanceForm({ amount: '', date: new Date().toISOString().split('T')[0], notes: '', walletId: '' });
                 loadData();
             }
+        }
+    };
+
+    const handleSettleAccount = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSettleIsSubmitting(true);
+        const { success, error } = await addStaffAdvance({
+            staff_id: id,
+            amount: Number(balance),
+            date: settleForm.date,
+            notes: settleForm.notes
+        }, settleForm.walletId);
+        setSettleIsSubmitting(false);
+
+        if (success) {
+            setIsSettleModalOpen(false);
+            setSettleForm({ walletId: '', date: new Date().toISOString().split('T')[0], notes: 'Account Settlement' });
+            alert('Account settled successfully!');
+            loadData();
+            if (refreshData) {
+                await refreshData();
+            }
+        } else {
+            alert(`Failed to settle account: ${error?.message || error}`);
         }
     };
 
@@ -271,6 +300,7 @@ export default function StaffDetailsPage() {
                     <div className="flex gap-2 text-xs text-gray-500 mt-1">
                         <span>P: {presentCount}</span>
                         <span>HD: {halfDayCount}</span>
+                        <span>OT: {overtimeCount}</span>
                     </div>
                 </div>
 
@@ -283,13 +313,23 @@ export default function StaffDetailsPage() {
                     <p className="text-xs text-gray-500 mt-1">Based on daily rate</p>
                 </div>
 
-                <div className="glass p-5 rounded-xl border border-white/5 bg-red-500/5">
-                    <div className="flex items-center gap-3 mb-2 text-red-400">
-                        <Wallet size={20} />
-                        <h3 className="font-bold text-sm uppercase tracking-wider">Advances/Paid</h3>
+                <div className="glass p-5 rounded-xl border border-white/5 bg-red-500/5 flex flex-col justify-between">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2 text-red-400">
+                            <Wallet size={20} />
+                            <h3 className="font-bold text-sm uppercase tracking-wider">Advances/Paid</h3>
+                        </div>
+                        <div className="text-2xl font-bold">₹{totalAdvances.toLocaleString()}</div>
+                        <p className="text-xs text-gray-500 mt-1">Balance: ₹{balance.toLocaleString()}</p>
                     </div>
-                    <div className="text-2xl font-bold">₹{totalAdvances.toLocaleString()}</div>
-                    <p className="text-xs text-gray-500 mt-1">Balance: ₹{balance.toLocaleString()}</p>
+                    {balance > 0 && (
+                        <button
+                            onClick={() => setIsSettleModalOpen(true)}
+                            className="mt-3 w-full bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white text-xs font-bold py-2 rounded-lg transition-all text-center border border-red-500/30"
+                        >
+                            Settle Account
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -308,6 +348,7 @@ export default function StaffDetailsPage() {
                                     <div className="flex items-center gap-3">
                                         <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.status === 'Present' ? 'bg-green-500/20 text-green-400' :
                                             rec.status === 'Absent' ? 'bg-red-500/20 text-red-400' :
+                                            rec.status === 'Overtime' ? 'bg-purple-500/20 text-purple-400' :
                                                 'bg-yellow-500/20 text-yellow-400'
                                             }`}>{rec.status}</span>
                                         <button 
@@ -457,6 +498,72 @@ export default function StaffDetailsPage() {
                                 <button type="button" onClick={() => setIsTerminateModalOpen(false)} className="flex-1 py-3 text-gray-400 hover:text-white transition-colors">Cancel</button>
                                 <button type="submit" className="flex-1 bg-red-600 text-white font-bold rounded-lg py-3 hover:bg-red-700 transition-colors">
                                     Confirm Termination
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {isSettleModalOpen && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-[#0a0a0a] border border-white/10 p-6 rounded-2xl w-full max-w-md shadow-2xl">
+                        <h2 className="text-xl font-bold mb-2 text-white">Settle Staff Account</h2>
+                        <p className="text-gray-400 text-sm mb-4">
+                            Record settlement payment of <strong>₹{balance.toLocaleString()}</strong> to <strong>{staff.name}</strong>.
+                        </p>
+                        <form onSubmit={handleSettleAccount} className="flex flex-col gap-4 text-white">
+                            <div className="flex flex-col gap-1 text-left">
+                                <label className="text-xs text-gray-400 uppercase">Paid From (Wallet)</label>
+                                <select
+                                    required
+                                    className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 bg-[#1a1a1a] text-white"
+                                    value={settleForm.walletId}
+                                    onChange={e => setSettleForm({ ...settleForm, walletId: e.target.value })}
+                                >
+                                    <option value="" className="bg-[#1a1a1a] text-gray-400">Select Wallet</option>
+                                    {wallets?.map((w: any) => (
+                                        <option key={w.id} value={w.id} className="bg-[#1a1a1a] text-white">
+                                            {w.name} (₹{w.balance})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="flex flex-col gap-1 text-left">
+                                <label className="text-xs text-gray-400 uppercase">Date</label>
+                                <input
+                                    type="date"
+                                    className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 [color-scheme:dark]"
+                                    value={settleForm.date}
+                                    onChange={e => setSettleForm({ ...settleForm, date: e.target.value })}
+                                    required
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-1 text-left">
+                                <label className="text-xs text-gray-400 uppercase">Notes</label>
+                                <textarea
+                                    className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 h-20 resize-none text-white"
+                                    value={settleForm.notes}
+                                    onChange={e => setSettleForm({ ...settleForm, notes: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="flex gap-3 mt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsSettleModalOpen(false)}
+                                    className="flex-1 py-3 text-gray-400 hover:text-white transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={settleIsSubmitting}
+                                    className="flex-1 bg-[var(--accent)] text-black font-bold rounded-lg py-3 hover:opacity-90 transition-opacity"
+                                >
+                                    {settleIsSubmitting ? 'Settling...' : 'Confirm Settlement'}
                                 </button>
                             </div>
                         </form>
