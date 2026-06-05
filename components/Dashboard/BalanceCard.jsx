@@ -17,10 +17,10 @@ export default function BalanceCard({ stats }) {
     const { financials, totalLiquidAssets: contextTotal, loading } = useFinance();
     const [activeForm, setActiveForm] = useState(null); // 'income' | 'expense' | null
 
-    // Prefer Server Stats -> Context Stats
-    const displayTotal = stats ? stats.totalLiquidAssets : contextTotal;
-    const displayIncome = stats ? stats.income : financials?.income || 0;
-    const displayExpense = stats ? stats.expense : financials?.expense || 0;
+    // Prefer Server Stats on initial load -> Switch to live Context Stats once loaded/updated
+    const displayTotal = (!loading && contextTotal !== undefined) ? contextTotal : (stats ? stats.totalLiquidAssets : contextTotal);
+    const displayIncome = (!loading && financials?.income !== undefined) ? financials.income : (stats ? stats.income : financials?.income || 0);
+    const displayExpense = (!loading && financials?.expense !== undefined) ? financials.expense : (stats ? stats.expense : financials?.expense || 0);
 
     // Only show loading skeletal if NO data is available (neither server nor client)
     const isLoading = loading && !stats;
