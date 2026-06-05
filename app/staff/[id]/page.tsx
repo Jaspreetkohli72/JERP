@@ -11,7 +11,7 @@ export default function StaffDetailsPage() {
     const { id } = useParams();
     const router = useRouter();
     // @ts-ignore
-    const { staffList, getStaffDetails, addStaffAdvance, deleteStaff, updateStaff, settings, wallets, refreshData } = useFinance();
+    const { staffList, getStaffDetails, addStaffAdvance, deleteStaff, updateStaff, settings, wallets, refreshData, attendance: globalAttendance, allStaffAdvances: globalAdvances } = useFinance();
 
     // State
     const [staff, setStaff] = useState<any>(null);
@@ -23,7 +23,12 @@ export default function StaffDetailsPage() {
     // Modal State
     const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
     const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
-    const [settleForm, setSettleForm] = useState({ walletId: '', date: new Date().toISOString().split('T')[0], notes: 'Account Settlement' });
+    const [settleForm, setSettleForm] = useState({
+        walletId: '',
+        date: new Date().toISOString().split('T')[0],
+        settleTillDate: new Date().toISOString().split('T')[0],
+        notes: `Account Settlement up to ${new Date().toISOString().split('T')[0]}`
+    });
     const [settleIsSubmitting, setSettleIsSubmitting] = useState(false);
     const [editingAdvanceId, setEditingAdvanceId] = useState<string | number | null>(null);
     const [advanceForm, setAdvanceForm] = useState({ amount: '', date: new Date().toISOString().split('T')[0], notes: '', walletId: '' });
@@ -161,12 +166,57 @@ export default function StaffDetailsPage() {
         }
     };
 
+    const calculateBalanceUpTo = (dateStr: string) => {
+        if (!staff) return 0;
+        
+        const attList = globalAttendance && globalAttendance.length > 0 ? globalAttendance : data.attendance;
+        const advList = globalAdvances && globalAdvances.length > 0 ? globalAdvances : data.advances;
+
+        const staffAtt = attList.filter((a: any) => 
+            String(a.staff_id) === String(id) && 
+            a.date && a.date <= dateStr
+        );
+        
+        const present = staffAtt.filter((a: any) => a.status === 'Present').length;
+        const halfDay = staffAtt.filter((a: any) => a.status === 'Half-Day').length;
+        const overtime = staffAtt.filter((a: any) => a.status === 'Overtime').length;
+        
+        const salDays = present + (halfDay * 0.5) + (overtime * 2.0);
+        const earnings = salDays * (Number(staff.salary) || 0);
+        
+        const staffAdv = advList.filter((a: any) => 
+            String(a.staff_id) === String(id) && 
+            a.date && a.date <= dateStr
+        );
+        
+        const advances = staffAdv.reduce((sum: number, a: any) => sum + Number(a.amount), 0);
+        
+        return earnings - advances;
+    };
+
+    const overallBalance = calculateBalanceUpTo('9999-12-31');
+
+    const handleSettleTillDateChange = (dateStr: string) => {
+        setSettleForm(prev => ({
+            ...prev,
+            settleTillDate: dateStr,
+            notes: `Account Settlement up to ${dateStr}`
+        }));
+    };
+
     const handleSettleAccount = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        const settlementAmount = calculateBalanceUpTo(settleForm.settleTillDate);
+        if (settlementAmount <= 0) {
+            alert('Calculated settlement balance must be greater than zero.');
+            return;
+        }
+
         setSettleIsSubmitting(true);
         const { success, error } = await addStaffAdvance({
             staff_id: id,
-            amount: Number(balance),
+            amount: Number(settlementAmount),
             date: settleForm.date,
             notes: settleForm.notes
         }, settleForm.walletId);
@@ -174,7 +224,12 @@ export default function StaffDetailsPage() {
 
         if (success) {
             setIsSettleModalOpen(false);
-            setSettleForm({ walletId: '', date: new Date().toISOString().split('T')[0], notes: 'Account Settlement' });
+            setSettleForm({
+                walletId: '',
+                date: new Date().toISOString().split('T')[0],
+                settleTillDate: new Date().toISOString().split('T')[0],
+                notes: `Account Settlement up to ${new Date().toISOString().split('T')[0]}`
+            });
             alert('Account settled successfully!');
             loadData();
             if (refreshData) {
@@ -320,11 +375,19 @@ export default function StaffDetailsPage() {
                             <h3 className="font-bold text-sm uppercase tracking-wider">Advances/Paid</h3>
                         </div>
                         <div className="text-2xl font-bold">₹{totalAdvances.toLocaleString()}</div>
-                        <p className="text-xs text-gray-500 mt-1">Balance: ₹{balance.toLocaleString()}</p>
+                        <p className="text-xs text-gray-500 mt-1">Balance: ₹{overallBalance.toLocaleString()}</p>
                     </div>
-                    {balance > 0 && (
+                    {overallBalance > 0 && (
                         <button
-                            onClick={() => setIsSettleModalOpen(true)}
+                            onClick={() => {
+                                setSettleForm({
+                                    walletId: '',
+                                    date: new Date().toISOString().split('T')[0],
+                                    settleTillDate: new Date().toISOString().split('T')[0],
+                                    notes: `Account Settlement up to ${new Date().toISOString().split('T')[0]}`
+                                });
+                                setIsSettleModalOpen(true);
+                            }}
                             className="mt-3 w-full bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white text-xs font-bold py-2 rounded-lg transition-all text-center border border-red-500/30"
                         >
                             Settle Account
@@ -510,7 +573,7 @@ export default function StaffDetailsPage() {
                     <div className="bg-[#0a0a0a] border border-white/10 p-6 rounded-2xl w-full max-w-md shadow-2xl">
                         <h2 className="text-xl font-bold mb-2 text-white">Settle Staff Account</h2>
                         <p className="text-gray-400 text-sm mb-4">
-                            Record settlement payment of <strong>₹{balance.toLocaleString()}</strong> to <strong>{staff.name}</strong>.
+                            Record settlement payment of <strong>₹{calculateBalanceUpTo(settleForm.settleTillDate).toLocaleString()}</strong> to <strong>{staff.name}</strong>.
                         </p>
                         <form onSubmit={handleSettleAccount} className="flex flex-col gap-4 text-white">
                             <div className="flex flex-col gap-1 text-left">
@@ -531,7 +594,18 @@ export default function StaffDetailsPage() {
                             </div>
 
                             <div className="flex flex-col gap-1 text-left">
-                                <label className="text-xs text-gray-400 uppercase">Date</label>
+                                <label className="text-xs text-gray-400 uppercase">Settle Till Date</label>
+                                <input
+                                    type="date"
+                                    className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 [color-scheme:dark]"
+                                    value={settleForm.settleTillDate}
+                                    onChange={e => handleSettleTillDateChange(e.target.value)}
+                                    required
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-1 text-left">
+                                <label className="text-xs text-gray-400 uppercase">Payment Date</label>
                                 <input
                                     type="date"
                                     className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 [color-scheme:dark]"
