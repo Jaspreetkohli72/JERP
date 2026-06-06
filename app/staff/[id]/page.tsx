@@ -29,6 +29,7 @@ export default function StaffDetailsPage() {
         settleTillDate: new Date().toISOString().split('T')[0],
         notes: `Account Settlement up to ${new Date().toISOString().split('T')[0]}`
     });
+    const [settleAmount, setSettleAmount] = useState('');
     const [settleIsSubmitting, setSettleIsSubmitting] = useState(false);
     const [editingAdvanceId, setEditingAdvanceId] = useState<string | number | null>(null);
     const [advanceForm, setAdvanceForm] = useState({ amount: '', date: new Date().toISOString().split('T')[0], notes: '', walletId: '' });
@@ -184,9 +185,9 @@ export default function StaffDetailsPage() {
         const salDays = present + (halfDay * 0.5) + (overtime * 2.0);
         const earnings = salDays * (Number(staff.salary) || 0);
         
+        // Advances are calculated up to the current day / all-time
         const staffAdv = advList.filter((a: any) => 
-            String(a.staff_id) === String(id) && 
-            a.date && a.date <= dateStr
+            String(a.staff_id) === String(id)
         );
         
         const advances = staffAdv.reduce((sum: number, a: any) => sum + Number(a.amount), 0);
@@ -197,26 +198,28 @@ export default function StaffDetailsPage() {
     const overallBalance = calculateBalanceUpTo('9999-12-31');
 
     const handleSettleTillDateChange = (dateStr: string) => {
+        const defaultAmt = calculateBalanceUpTo(dateStr);
         setSettleForm(prev => ({
             ...prev,
             settleTillDate: dateStr,
             notes: `Account Settlement up to ${dateStr}`
         }));
+        setSettleAmount(String(defaultAmt));
     };
 
     const handleSettleAccount = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        const settlementAmount = calculateBalanceUpTo(settleForm.settleTillDate);
-        if (settlementAmount <= 0) {
-            alert('Calculated settlement balance must be greater than zero.');
+        const settlementAmount = Number(settleAmount);
+        if (isNaN(settlementAmount) || settlementAmount <= 0) {
+            alert('Settlement amount must be greater than zero.');
             return;
         }
 
         setSettleIsSubmitting(true);
         const { success, error } = await addStaffAdvance({
             staff_id: id,
-            amount: Number(settlementAmount),
+            amount: settlementAmount,
             date: settleForm.date,
             notes: settleForm.notes
         }, settleForm.walletId);
@@ -230,6 +233,7 @@ export default function StaffDetailsPage() {
                 settleTillDate: new Date().toISOString().split('T')[0],
                 notes: `Account Settlement up to ${new Date().toISOString().split('T')[0]}`
             });
+            setSettleAmount('');
             alert('Account settled successfully!');
             loadData();
             if (refreshData) {
@@ -380,12 +384,15 @@ export default function StaffDetailsPage() {
                     {overallBalance > 0 && (
                         <button
                             onClick={() => {
+                                const todayStr = new Date().toISOString().split('T')[0];
                                 setSettleForm({
                                     walletId: '',
-                                    date: new Date().toISOString().split('T')[0],
-                                    settleTillDate: new Date().toISOString().split('T')[0],
-                                    notes: `Account Settlement up to ${new Date().toISOString().split('T')[0]}`
+                                    date: todayStr,
+                                    settleTillDate: todayStr,
+                                    notes: `Account Settlement up to ${todayStr}`
                                 });
+                                const defaultAmt = calculateBalanceUpTo(todayStr);
+                                setSettleAmount(String(defaultAmt));
                                 setIsSettleModalOpen(true);
                             }}
                             className="mt-3 w-full bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white text-xs font-bold py-2 rounded-lg transition-all text-center border border-red-500/30"
@@ -573,7 +580,7 @@ export default function StaffDetailsPage() {
                     <div className="bg-[#0a0a0a] border border-white/10 p-6 rounded-2xl w-full max-w-md shadow-2xl">
                         <h2 className="text-xl font-bold mb-2 text-white">Settle Staff Account</h2>
                         <p className="text-gray-400 text-sm mb-4">
-                            Record settlement payment of <strong>₹{calculateBalanceUpTo(settleForm.settleTillDate).toLocaleString()}</strong> to <strong>{staff.name}</strong>.
+                            Record settlement payment to <strong>{staff.name}</strong>. Default balance up to selected date is <strong>₹{calculateBalanceUpTo(settleForm.settleTillDate).toLocaleString()}</strong>.
                         </p>
                         <form onSubmit={handleSettleAccount} className="flex flex-col gap-4 text-white">
                             <div className="flex flex-col gap-1 text-left">
@@ -591,6 +598,17 @@ export default function StaffDetailsPage() {
                                         </option>
                                     ))}
                                 </select>
+                            </div>
+
+                            <div className="flex flex-col gap-1 text-left">
+                                <label className="text-xs text-gray-400 uppercase">Amount (₹)</label>
+                                <input
+                                    type="number"
+                                    className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[var(--accent)]"
+                                    value={settleAmount}
+                                    onChange={e => setSettleAmount(e.target.value)}
+                                    required
+                                />
                             </div>
 
                             <div className="flex flex-col gap-1 text-left">
