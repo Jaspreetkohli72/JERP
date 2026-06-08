@@ -170,11 +170,87 @@ export async function updateStaffAdvanceAction(id: string | number, updates: any
 
 export async function deleteStaffAdvanceAction(id: string | number) {
     try {
-        const { error } = await supabase.from('staff_advances').delete().eq('id', id);
-        if (error) throw error;
+        // 1. Get the staff advance details first
+        const { data: advance, error: getAdvError } = await supabase
+            .from('staff_advances')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (getAdvError) throw getAdvError;
+
+        if (advance) {
+            // 2. Get the staff member name to recreate the description
+            const { data: staff, error: getStaffError } = await supabase
+                .from('staff')
+                .select('name')
+                .eq('id', advance.staff_id)
+                .single();
+
+            if (getStaffError) throw getStaffError;
+
+            if (staff) {
+                const description = `Advance to ${staff.name}`;
+
+                // 3. Find matching transaction (supporting precise and fallback description)
+                const { data: txList, error: txError } = await supabase
+                    .from('transactions')
+                    .select('*')
+                    .eq('amount', advance.amount)
+                    .eq('type', 'expense')
+                    .eq('transaction_date', advance.date)
+                    .in('description', [description, 'Advance to Staff'])
+                    .limit(1);
+
+                if (txError) throw txError;
+
+                if (txList && txList.length > 0) {
+                    const tx = txList[0];
+
+                    // 4. Revert the wallet balance
+                    if (tx.wallet_id) {
+                        const { data: wallet, error: walletError } = await supabase
+                            .from('wallets')
+                            .select('balance')
+                            .eq('id', tx.wallet_id)
+                            .single();
+
+                        if (walletError) throw walletError;
+
+                        if (wallet) {
+                            const newBalance = Number(wallet.balance) + Number(tx.amount);
+                            const { error: updateWalletError } = await supabase
+                                .from('wallets')
+                                .update({ balance: newBalance })
+                                .eq('id', tx.wallet_id);
+
+                            if (updateWalletError) throw updateWalletError;
+                        }
+                    }
+
+                    // 5. Delete the transaction
+                    const { error: deleteTxError } = await supabase
+                        .from('transactions')
+                        .delete()
+                        .eq('id', tx.id);
+
+                    if (deleteTxError) throw deleteTxError;
+                }
+            }
+        }
+
+        // 6. Delete the staff advance
+        const { error: deleteAdvError } = await supabase
+            .from('staff_advances')
+            .delete()
+            .eq('id', id);
+
+        if (deleteAdvError) throw deleteAdvError;
+
         revalidatePath('/staff');
         return { success: true };
     } catch (e: any) {
+        console.error("Error in deleteStaffAdvanceAction:", e);
         return { success: false, error: e.message };
     }
 }

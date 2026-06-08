@@ -248,6 +248,9 @@ export default function StaffDetailsPage() {
         const { success, error } = await deleteStaffAdvanceAction(advanceId);
         if (success) {
             loadData();
+            if (refreshData) {
+                await refreshData();
+            }
         } else {
             alert(`Failed to delete advance: ${error}`);
         }

@@ -1098,7 +1098,7 @@ export function FinanceProvider({ children }) {
 
             // Create corresponding Transaction for Cash Flow
             if (walletId) {
-                const staffMember = staffList.find(s => s.id === advanceData.staff_id);
+                const staffMember = staffList.find(s => String(s.id) === String(advanceData.staff_id));
                 const staffName = staffMember ? staffMember.name : "Staff";
 
                 await addTransaction({
