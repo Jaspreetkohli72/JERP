@@ -129,7 +129,7 @@ export default function StaffDetailsPage() {
     const halfDayCount = data.attendance.filter((a: any) => a.status === 'Half-Day').length;
     const overtimeCount = data.attendance.filter((a: any) => a.status === 'Overtime').length;
     const effectiveDays = presentCount + (halfDayCount * 0.5) + overtimeCount;
-    const salaryDays = presentCount + (halfDayCount * 0.5) + (overtimeCount * 2.0);
+    const salaryDays = presentCount + (halfDayCount * 0.5) + (overtimeCount * 1.5);
     const estimatedEarnings = staff ? salaryDays * staff.salary : 0;
     const totalAdvances = data.advances.reduce((sum, a: any) => sum + Number(a.amount), 0);
     const balance = estimatedEarnings - totalAdvances;
@@ -182,7 +182,7 @@ export default function StaffDetailsPage() {
         const halfDay = staffAtt.filter((a: any) => a.status === 'Half-Day').length;
         const overtime = staffAtt.filter((a: any) => a.status === 'Overtime').length;
         
-        const salDays = present + (halfDay * 0.5) + (overtime * 2.0);
+        const salDays = present + (halfDay * 0.5) + (overtime * 1.5);
         const earnings = salDays * (Number(staff.salary) || 0);
         
         // Advances are calculated up to the current day / all-time

@@ -97,7 +97,7 @@ export function FinanceProvider({ children }) {
             const overtimeDays = staffAttendance.filter(a => a.status === 'Overtime').length;
 
             const totalDays = daysPresent + (halfDays * 0.5) + overtimeDays;
-            const salaryDays = daysPresent + (halfDays * 0.5) + (overtimeDays * 2.0);
+            const salaryDays = daysPresent + (halfDays * 0.5) + (overtimeDays * 1.5);
             const salaryAccrued = salaryDays * (Number(staff.salary) || 0);
 
             // 2. Calculate Advances Taken (All-time totals)
