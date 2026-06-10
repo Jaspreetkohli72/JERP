@@ -254,7 +254,7 @@ export default function ImportModal({ onClose }) {
                                                     value={tx.type}
                                                     onChange={val => {
                                                         const newTxs = [...parsedTxs];
-                                                        newTxs[i].type = val as string;
+                                                        newTxs[i].type = val;
                                                         setParsedTxs(newTxs);
                                                     }}
                                                     triggerClassName="bg-black/20 text-[10px] rounded px-1 py-0.5 border border-white/10"
