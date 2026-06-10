@@ -82,39 +82,65 @@ export default function MeasurementDetailsPage() {
                     </div>
                 </div>
 
-                {/* Items Table */}
-                <table className="w-full mb-8 border-collapse text-sm">
-                    <thead>
-                        <tr className="bg-gray-100 border-y border-gray-300">
-                            <th className="py-3 px-2 text-left font-bold w-[40%]">Description</th>
-                            <th className="py-3 px-2 text-center font-bold">Length</th>
-                            <th className="py-3 px-2 text-center font-bold">Width</th>
-                            <th className="py-3 px-2 text-center font-bold">Nos</th>
-                            <th className="py-3 px-2 text-center font-bold">Unit</th>
-                            <th className="py-3 px-2 text-right font-bold bg-gray-200">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {measurement.measurement_items && measurement.measurement_items.map((item: any, index: number) => (
-                            <tr key={index} className="border-b border-gray-200">
-                                <td className="py-3 px-2 font-medium">{item.description}</td>
-                                <td className="py-3 px-2 text-center text-gray-600 font-mono">{Number(item.length) || '-'}</td>
-                                <td className="py-3 px-2 text-center text-gray-600 font-mono">{Number(item.breadth) || '-'}</td>
-                                <td className="py-3 px-2 text-center text-gray-600 font-mono">{Number(item.depth) || '-'}</td>
-                                <td className="py-3 px-2 text-center uppercase text-xs text-gray-500">{item.unit}</td>
-                                <td className="py-3 px-2 text-right font-bold text-gray-900 bg-gray-50">{Number(item.quantity).toLocaleString()}</td>
+                {/* Items Layout */}
+                {measurement.measurement_items && measurement.measurement_items.length === 1 && Number(measurement.measurement_items[0].length) === 0 && Number(measurement.measurement_items[0].breadth) === 0 ? (
+                    <div className="flex flex-col gap-4 p-6 bg-gray-50 rounded-xl border border-gray-200 mb-8">
+                        <h3 className="font-bold text-gray-700 text-xs uppercase tracking-wider">Measurement Details</h3>
+                        {measurement.measurement_items[0].description.startsWith('data:image/') ? (
+                            <div className="flex flex-col gap-4">
+                                <img src={measurement.measurement_items[0].description} alt="Measurement Attachment" className="max-w-full max-h-[500px] object-contain rounded-xl shadow-md border border-gray-200 mx-auto" />
+                                <div className="flex justify-between items-center text-sm font-semibold text-gray-800 bg-white p-4 rounded-lg border border-gray-100 mt-2">
+                                    <span>Unit: <span className="uppercase font-bold text-gray-600">{measurement.measurement_items[0].unit}</span></span>
+                                    <span>Total Quantity: <span className="font-bold text-gray-900 text-lg">{Number(measurement.measurement_items[0].quantity).toLocaleString()}</span></span>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-4">
+                                <div className="whitespace-pre-wrap text-gray-700 bg-white p-5 rounded-lg border border-gray-100 font-mono text-sm leading-relaxed min-h-[120px]">
+                                    {measurement.measurement_items[0].description}
+                                </div>
+                                <div className="flex justify-between items-center text-sm font-semibold text-gray-800 bg-white p-4 rounded-lg border border-gray-100">
+                                    <span>Unit: <span className="uppercase font-bold text-gray-600">{measurement.measurement_items[0].unit}</span></span>
+                                    <span>Total Quantity: <span className="font-bold text-gray-900 text-lg">{Number(measurement.measurement_items[0].quantity).toLocaleString()}</span></span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    /* Items Table */
+                    <table className="w-full mb-8 border-collapse text-sm">
+                        <thead>
+                            <tr className="bg-gray-100 border-y border-gray-300">
+                                <th className="py-3 px-2 text-left font-bold w-[40%]">Description</th>
+                                <th className="py-3 px-2 text-center font-bold">Length</th>
+                                <th className="py-3 px-2 text-center font-bold">Width</th>
+                                <th className="py-3 px-2 text-center font-bold">Nos</th>
+                                <th className="py-3 px-2 text-center font-bold">Unit</th>
+                                <th className="py-3 px-2 text-right font-bold bg-gray-200">Total</th>
                             </tr>
-                        ))}
-                    </tbody>
-                    <tfoot>
-                        <tr className="bg-gray-800 text-white">
-                            <td colSpan={5} className="py-3 px-4 text-right font-bold uppercase tracking-wider">Total Quantity</td>
-                            <td className="py-3 px-2 text-right font-bold text-[var(--accent)-print] text-white">
-                                {measurement.measurement_items?.reduce((sum: number, i: any) => sum + (Number(i.quantity) || 0), 0).toLocaleString()}
-                            </td>
-                        </tr>
-                    </tfoot>
-                </table>
+                        </thead>
+                        <tbody>
+                            {measurement.measurement_items && measurement.measurement_items.map((item: any, index: number) => (
+                                <tr key={index} className="border-b border-gray-200">
+                                    <td className="py-3 px-2 font-medium">{item.description}</td>
+                                    <td className="py-3 px-2 text-center text-gray-600 font-mono">{Number(item.length) || '-'}</td>
+                                    <td className="py-3 px-2 text-center text-gray-600 font-mono">{Number(item.breadth) || '-'}</td>
+                                    <td className="py-3 px-2 text-center text-gray-600 font-mono">{Number(item.depth) || '-'}</td>
+                                    <td className="py-3 px-2 text-center uppercase text-xs text-gray-500">{item.unit}</td>
+                                    <td className="py-3 px-2 text-right font-bold text-gray-900 bg-gray-50">{Number(item.quantity).toLocaleString()}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                        <tfoot>
+                            <tr className="bg-gray-800 text-white">
+                                <td colSpan={5} className="py-3 px-4 text-right font-bold uppercase tracking-wider">Total Quantity</td>
+                                <td className="py-3 px-2 text-right font-bold text-white">
+                                    {measurement.measurement_items?.reduce((sum: number, i: any) => sum + (Number(i.quantity) || 0), 0).toLocaleString()}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                )}
 
                 {/* Footer Info */}
                 <div className="mt-12 pt-8 border-t border-gray-200 flex justify-between text-xs text-gray-400">
