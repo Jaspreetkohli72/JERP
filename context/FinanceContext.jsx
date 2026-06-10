@@ -629,62 +629,57 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    // Global totals calculation (memoized to prevent recalculation inside getFinancials)
+    const globalTotals = React.useMemo(() => {
+        let income = 0;
+        let expense = 0;
+        for (let i = 0; i < transactions.length; i++) {
+            const t = transactions[i];
+            const amt = Number(t.amount) || 0;
+            if (t.type === 'income') {
+                income += amt;
+            } else if (t.type === 'expense') {
+                expense += amt;
+            }
+        }
+        return { income, expense, balance: income - expense };
+    }, [transactions]);
+
     // Helper: Get Financials for a Specific Month
     const getFinancials = React.useCallback((monthStr) => {
         const targetMonth = monthStr || new Date().toISOString().slice(0, 7);
 
-        // Filter transactions for this month
-        const [year, month] = targetMonth.split('-');
-        const monthTransactions = transactions.filter(t => {
-            const d = new Date(t.transaction_date);
-            return d.getFullYear() === parseInt(year) && (d.getMonth() + 1) === parseInt(month);
-        });
+        // Filter transactions for this month (avoiding slow Date parsing)
+        const monthTransactions = transactions.filter(t => 
+            t.transaction_date && t.transaction_date.slice(0, 7) === targetMonth
+        );
 
-        const isSameMonth = (dateStr) => {
-            const d = new Date(dateStr);
-            return d.getFullYear() === parseInt(year) && (d.getMonth() + 1) === parseInt(month);
-        };
+        let transIncome = 0;
+        let transExpense = 0;
+        let budgetUsed = 0;
+        const expenseByCategory = {};
 
-        // 1. Transactions Income (Direct Income)
-        const transIncome = monthTransactions
-            .filter((t) => t.type === "income")
-            .reduce((sum, t) => sum + Number(t.amount), 0);
+        for (let i = 0; i < monthTransactions.length; i++) {
+            const t = monthTransactions[i];
+            const amt = Number(t.amount) || 0;
+            if (t.type === 'income') {
+                transIncome += amt;
+            } else if (t.type === 'expense') {
+                transExpense += amt;
+                if (!t.contact_id) {
+                    budgetUsed += amt;
+                    const catName = t.categories?.name || 'Uncategorized';
+                    expenseByCategory[catName] = (expenseByCategory[catName] || 0) + amt;
+                }
+            }
+        }
 
-        // 2. Bills Income (Contracting - Paid Bills in this month)
-        // Assuming bills have a 'payment_date' or we use 'date' if paid.
-        // Let's use 'date' for now, but strictly filtering by status='Paid'
-        // const billsIncome = bills
-        //     .filter(b => b.status === "Paid" && isSameMonth(b.date))
-        //     .reduce((sum, b) => sum + Number(b.total_amount || b.grand_total || 0), 0);
-
-        // const income = transIncome + billsIncome;
         const income = transIncome;
-
-        // 3. Transactions Expense (Direct Expense)
-        const transExpense = monthTransactions
-            .filter((t) => t.type === "expense")
-            .reduce((sum, t) => sum + Number(t.amount), 0);
-
-        // 4. Purchases Expense (Marketing)
-        // const purchasesExpense = purchases
-        //     .filter(p => isSameMonth(p.date))
-        //     .reduce((sum, p) => sum + Number(p.total_amount), 0);
-
-        // 5. Staff Advances (Salary/Labor Expense)
-        // const staffExpense = allStaffAdvances
-        //     .filter(a => isSameMonth(a.date))
-        //     .reduce((sum, a) => sum + Number(a.amount), 0);
-
-        // const expense = transExpense + purchasesExpense + staffExpense;
         const expense = transExpense;
-
         const balance = income - expense;
 
-        // Budget Logic (Excluding Contact Transactions) - Keep as is for now for budget tracking
-        const budgetableExpenses = monthTransactions.filter(t => t.type === 'expense' && !t.contact_id);
         const budgetObj = allGlobalBudgets.find(b => b.month_year === targetMonth);
         const budgetLimit = budgetObj?.amount_limit || 80000;
-        const budgetUsed = budgetableExpenses.reduce((sum, t) => sum + Number(t.amount), 0);
         const budgetRemaining = budgetLimit - budgetUsed;
         const spendingPercentage = budgetLimit > 0 ? Math.round((budgetUsed / budgetLimit) * 100) : 0;
 
@@ -695,16 +690,8 @@ export function FinanceProvider({ children }) {
         // Savings Rate
         const savingsRate = income > 0 ? Math.round(((income - expense) / income) * 100) : 0;
 
-        // Runway (using Global Balance from all time streams)
-        const globalTotalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
-        // + bills.filter(b => b.status === 'Paid').reduce((sum, b) => sum + Number(b.total_amount || b.grand_total || 0), 0);
-
-        const globalTotalExpense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
-        // + purchases.reduce((sum, p) => sum + Number(p.total_amount), 0) +
-        // allStaffAdvances.reduce((sum, a) => sum + Number(a.amount), 0);
-
-        const globalBalance = globalTotalIncome - globalTotalExpense;
-
+        // Runway (using precalculated global balance)
+        const globalBalance = globalTotals.balance;
         const burnRate = expense > 0 ? expense : 0;
         let runway = "No Burn";
         if (burnRate > 0) {
@@ -715,13 +702,6 @@ export function FinanceProvider({ children }) {
         }
 
         // Top Category
-        const expenseByCategory = budgetableExpenses
-            .reduce((acc, t) => {
-                const catName = t.categories?.name || 'Uncategorized';
-                acc[catName] = (acc[catName] || 0) + Number(t.amount);
-                return acc;
-            }, {});
-
         const topCategoryEntry = Object.entries(expenseByCategory).sort((a, b) => b[1] - a[1])[0];
         const topCategoryName = topCategoryEntry ? topCategoryEntry[0] : "No expenses";
         const topCategoryAmount = topCategoryEntry ? topCategoryEntry[1] : 0;
@@ -757,7 +737,7 @@ export function FinanceProvider({ children }) {
             topCategory: { name: topCategoryName, amount: topCategoryAmount },
             categoryMetrics
         };
-    }, [transactions, bills, purchases, allStaffAdvances, allGlobalBudgets, allCategoryBudgets, categories]);
+    }, [transactions, allGlobalBudgets, allCategoryBudgets, categories, globalTotals]);
 
     // Derived State for Current Month (Backwards Compatibility)
     const currentMonthStr = new Date().toISOString().slice(0, 7);
@@ -765,21 +745,45 @@ export function FinanceProvider({ children }) {
     // Memoize currentFinancials to prevent re-render loop
     const currentFinancials = React.useMemo(() => getFinancials(currentMonthStr), [getFinancials, currentMonthStr]);
 
-    // Contact Balances Calculation (Global)
-    const contactsWithBalances = React.useMemo(() => contacts.map(contact => {
-        const contactTxs = transactions.filter(t => t.contact_id === contact.id);
-        // Only count transactions where is_debt is TRUE (default)
-        // If is_debt is FALSE, it's a direct settlement/payment that doesn't affect the "Loan/Debt" balance tracking
-        const debtTxs = contactTxs.filter(t => t.is_debt !== false);
+    // Contact Balances Calculation (Global) - Optimized to O(T + S + C)
+    const contactsWithBalances = React.useMemo(() => {
+        // Group transactions by contact_id
+        const txGroups = {};
+        for (let i = 0; i < transactions.length; i++) {
+            const t = transactions[i];
+            if (!t.contact_id) continue;
+            if (!txGroups[t.contact_id]) {
+                txGroups[t.contact_id] = { debtValue: 0, creditValue: 0 };
+            }
+            if (t.is_debt !== false) {
+                const amt = Number(t.amount) || 0;
+                if (t.type === 'expense') {
+                    txGroups[t.contact_id].debtValue += amt;
+                } else if (t.type === 'income') {
+                    txGroups[t.contact_id].creditValue += amt;
+                }
+            }
+        }
 
-        const debtValue = debtTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
-        const creditValue = debtTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
+        // Group unpaid sales by client_id
+        const salesGroups = {};
+        if (sales && sales.length > 0) {
+            for (let i = 0; i < sales.length; i++) {
+                const s = sales[i];
+                if (!s.client_id || s.is_paid !== false) continue;
+                salesGroups[s.client_id] = (salesGroups[s.client_id] || 0) + (Number(s.total_amount) || 0);
+            }
+        }
 
-        const contactSales = (sales || []).filter(s => s.client_id === contact.id && s.is_paid === false);
-        const unpaidSalesAmount = contactSales.reduce((sum, s) => sum + Number(s.total_amount), 0);
-
-        return { ...contact, balance: (debtValue - creditValue) + unpaidSalesAmount };
-    }), [contacts, transactions, sales]);
+        return contacts.map(contact => {
+            const group = txGroups[contact.id] || { debtValue: 0, creditValue: 0 };
+            const unpaidSalesAmount = salesGroups[contact.id] || 0;
+            return {
+                ...contact,
+                balance: (group.debtValue - group.creditValue) + unpaidSalesAmount
+            };
+        });
+    }, [contacts, transactions, sales]);
 
     // Modal State
     const [isAddTxModalOpen, setIsAddTxModalOpen] = useState(false);

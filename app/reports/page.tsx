@@ -63,7 +63,7 @@ export default function ReportsPage() {
                 {/* Income vs Expense Pie */}
                 <div className="glass p-6 rounded-xl border border-white/5 min-h-[400px] flex flex-col">
                     <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Activity size={18} className="text-[var(--accent)]" /> Overview</h3>
-                    <div className="flex-1 w-full h-full min-h-[300px]">
+                    <div className="w-full h-[300px] relative">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
