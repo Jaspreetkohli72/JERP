@@ -182,7 +182,7 @@ export default function ImportModal({ onClose }) {
     // ... UI Rendering ...
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="w-full max-w-2xl bg-[#0f172a] rounded-[24px] border border-white/10 flex flex-col max-h-[85vh]">
+            <div className="w-full max-w-2xl bg-[#0a0a0a] rounded-[24px] border border-white/10 flex flex-col max-h-[85vh]">
 
                 {/* Header */}
                 <div className="flex items-center justify-between p-5 border-b border-white/5">

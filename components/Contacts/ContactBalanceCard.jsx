@@ -16,7 +16,7 @@ export default function ContactBalanceCard() {
     const { contacts, loading } = useFinance();
     const [activeForm, setActiveForm] = useState(null); // 'income' | 'expense' | null
 
-    if (loading) return <div className="glass-soft p-4 h-48 animate-pulse rounded-[26px]" />;
+    if (loading) return <div className="glass p-4 h-48 animate-pulse rounded-[26px]" />;
 
     // Calculate Metrics
     // Balance > 0 means they OWES ME (Asset) -> "To Receive"
@@ -36,9 +36,9 @@ export default function ContactBalanceCard() {
 
     return (
         <div className="mb-6">
-            <div className="glass-soft p-5 rounded-[26px] bg-[radial-gradient(circle_at_100%_0%,rgba(56,189,248,0.1),hsla(0,0%,0%,0)_50%),linear-gradient(135deg,rgba(15,23,42,0.95),rgba(15,23,42,0.85))] relative group overflow-hidden">
+            <div className="glass p-5 rounded-[26px] bg-[radial-gradient(circle_at_100%_0%,rgba(255,215,0,0.06),hsla(0,0%,0%,0)_50%),linear-gradient(135deg,rgba(20,20,20,0.95),rgba(10,10,10,1))] relative group overflow-hidden">
                 {/* Glow overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-[rgba(168,85,247,0.15)] via-transparent to-[rgba(59,130,246,0.15)] mix-blend-screen pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-br from-[rgba(255,215,0,0.08)] via-transparent to-[rgba(184,134,11,0.08)] mix-blend-screen pointer-events-none" />
 
                 <div className="relative z-10 flex flex-col gap-4">
 

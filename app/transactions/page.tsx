@@ -134,7 +134,7 @@ export default function TransactionsPage() {
                                     </div>
 
                                     {/* Actions (visible on hover) */}
-                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute right-4 bg-[#1e1e2e]/90 p-1 rounded-lg backdrop-blur-md md:static md:bg-transparent md:opacity-0 md:group-hover:opacity-100">
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute right-4 bg-[#0a0a0a]/90 p-1 rounded-lg backdrop-blur-md md:static md:bg-transparent md:opacity-0 md:group-hover:opacity-100">
                                         <button
                                             onClick={() => setEditingTx(t)}
                                             className="p-2 hover:bg-white/10 rounded-lg text-blue-400 transition-colors"

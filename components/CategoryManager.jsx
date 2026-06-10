@@ -58,7 +58,7 @@ export default function CategoryManager({ onClose }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-md bg-[#0f172a] rounded-[24px] border border-white/10 shadow-2xl flex flex-col max-h-[80vh]">
+            <div className="w-full max-w-md bg-[#0a0a0a] rounded-[24px] border border-white/10 shadow-2xl flex flex-col max-h-[80vh]">
 
                 {/* Header */}
                 <div className="flex items-center justify-between p-5 border-b border-white/5">
@@ -137,7 +137,7 @@ export default function CategoryManager({ onClose }) {
                                                 setSelectedIcon(iconKey);
                                                 setShowIconPicker(false);
                                             }}
-                                            className={`p-2 rounded-lg flex items-center justify-center transition-colors ${selectedIcon === iconKey ? 'bg-indigo-500 text-white' : 'text-muted hover:bg-white/10'}`}
+                                            className={`p-2 rounded-lg flex items-center justify-center transition-colors ${selectedIcon === iconKey ? 'bg-accent text-black font-semibold' : 'text-muted hover:bg-white/10'}`}
                                             title={iconKey}
                                         >
                                             <IconComp size={18} />
@@ -152,7 +152,7 @@ export default function CategoryManager({ onClose }) {
                         <button
                             type="button"
                             onClick={() => setShowIconPicker(!showIconPicker)}
-                            className="p-2.5 bg-[#0f172a] border border-white/10 rounded-xl text-muted hover:text-white transition-colors"
+                            className="p-2.5 bg-[#0a0a0a] border border-white/10 rounded-xl text-muted hover:text-white transition-colors"
                             title="Select Icon"
                         >
                             <SelectedIconComp size={20} />
@@ -163,12 +163,12 @@ export default function CategoryManager({ onClose }) {
                             value={newCatName}
                             onChange={(e) => setNewCatName(e.target.value)}
                             placeholder={`New ${activeTab} category...`}
-                            className="flex-1 px-4 py-2.5 bg-[#0f172a] border border-white/10 rounded-xl text-sm focus:outline-none focus:border-indigo-500/50 transition-colors"
+                            className="flex-1 px-4 py-2.5 bg-[#0a0a0a] border border-white/10 rounded-xl text-sm focus:outline-none focus:border-accent/50 transition-colors"
                         />
                         <button
                             type="submit"
                             disabled={!newCatName.trim() || isSubmitting}
-                            className="p-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="p-2.5 bg-accent hover:bg-accent/80 text-black font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                             <Plus size={20} />
                         </button>

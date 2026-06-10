@@ -125,7 +125,7 @@ export default function ContactDetailsModal({ contact, transactions, onClose, on
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-md bg-[#0f172a] rounded-[24px] border border-white/10 shadow-2xl flex flex-col max-h-[85vh]">
+            <div className="w-full max-w-md bg-[#0a0a0a] rounded-[24px] border border-white/10 shadow-2xl flex flex-col max-h-[85vh]">
 
                 {/* Header */}
                 <div className="flex items-center justify-between p-5 border-b border-white/5 bg-white/5 rounded-t-[24px]">
@@ -168,7 +168,7 @@ export default function ContactDetailsModal({ contact, transactions, onClose, on
                         <button
                             onClick={handleSettle}
                             disabled={isSettling}
-                            className="mt-4 flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-full transition-colors disabled:opacity-50 shadow-lg shadow-blue-900/20"
+                            className="mt-4 flex items-center gap-2 px-5 py-2.5 bg-accent hover:bg-accent/80 text-black text-sm font-semibold rounded-full transition-colors disabled:opacity-50 shadow-lg"
                         >
                             <CheckCircle size={16} />
                             {isSettling ? "Settling..." : "Settle Account"}

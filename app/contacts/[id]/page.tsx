@@ -30,7 +30,7 @@ export default function ContactDetailsPage() {
         return (
             <div className="p-4 space-y-4">
                 <TopBar />
-                <div className="h-64 glass-soft animate-pulse rounded-2xl"></div>
+                <div className="h-64 glass animate-pulse rounded-2xl"></div>
             </div>
         );
     }
@@ -78,7 +78,7 @@ export default function ContactDetailsPage() {
                 </div>
 
                 {/* Balance Card */}
-                <div className="glass-card p-6 rounded-3xl relative overflow-hidden">
+                <div className="glass p-6 rounded-3xl relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-10">
                         <ArrowUp size={100} className="transform rotate-45" />
                     </div>
@@ -116,7 +116,7 @@ export default function ContactDetailsPage() {
                             </div>
                         ) : (
                             contactTransactions.map((t: any) => (
-                                <div key={t.id} className="glass-soft p-4 rounded-2xl flex items-center justify-between group hover:bg-white/5 transition-colors">
+                                <div key={t.id} className="glass p-4 rounded-2xl flex items-center justify-between group hover:bg-white/5 transition-colors">
                                     <div className="flex items-center gap-4">
                                         <div className={`p-3 rounded-full ${t.type === 'income' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
                                             {t.type === 'income' ? <ArrowUp size={20} /> : <ArrowDown size={20} />}

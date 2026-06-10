@@ -4,7 +4,7 @@ import { useFinance } from "../../context/FinanceContext";
 import ContactBalanceCard from "../../components/Contacts/ContactBalanceCard";
 import ContactDetailsModal from "../../components/Contacts/ContactDetailsModal";
 import TopBar from "@/components/TopBar";
-import { Search, UserPlus, ArrowRight, User, Phone, Pencil, Trash2, Check, X } from "lucide-react";
+import { Search, UserPlus, ArrowRight, User, Phone, Pencil, Trash2, Check, X, Users } from "lucide-react";
 import Link from "next/link";
 
 export default function ContactsPage() {
@@ -85,7 +85,7 @@ export default function ContactsPage() {
         return (
             <div className="p-4 space-y-4">
                 <TopBar />
-                <div className="h-64 glass-soft animate-pulse rounded-2xl"></div>
+                <div className="h-64 glass animate-pulse rounded-2xl"></div>
             </div>
         );
     }
@@ -96,8 +96,10 @@ export default function ContactsPage() {
 
             <div className="px-4 w-full space-y-6">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-2xl font-bold text-white">Contacts</h1>
-                    <p className="text-muted text-sm">Manage your contacts and track balances.</p>
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-[var(--accent)] to-[var(--accent-3)] bg-clip-text text-transparent flex items-center gap-2">
+                        <Users size={28} className="text-[var(--accent)]" /> Contacts
+                    </h1>
+                    <p className="text-muted text-sm mt-1">Manage your contacts and track balances.</p>
                 </div>
 
                 {/* Net Balance Card — only when not in form mode */}
@@ -118,7 +120,7 @@ export default function ContactsPage() {
                         </div>
                         <button
                             onClick={startAdd}
-                            className="flex items-center justify-center gap-2 px-6 py-3 bg-accent hover:bg-accent/90 text-white font-medium rounded-xl transition-colors"
+                            className="flex items-center justify-center gap-2 px-6 py-3 bg-accent hover:bg-accent/90 text-black font-semibold rounded-xl transition-colors"
                         >
                             <UserPlus size={18} />
                             <span>Add Contact</span>
@@ -128,7 +130,7 @@ export default function ContactsPage() {
 
                 {/* Add / Edit Form */}
                 {(isAddMode || editingContactId) && (
-                    <form onSubmit={handleSubmit} className="p-4 rounded-2xl glass-soft animate-in fade-in slide-in-from-top-4 border border-white/10">
+                    <form onSubmit={handleSubmit} className="p-4 rounded-2xl glass animate-in fade-in slide-in-from-top-4 border border-white/10">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-sm font-medium uppercase tracking-wider text-muted">
                                 {editingContactId ? "Edit Contact" : "New Contact"}
@@ -192,7 +194,7 @@ export default function ContactsPage() {
                             filteredContacts.map((contact: any) => (
                                 <div
                                     key={contact.id}
-                                    className="glass-soft p-4 rounded-2xl flex items-center justify-between group hover:bg-white/5 transition-all hover:scale-[1.01] cursor-pointer"
+                                    className="glass p-4 rounded-2xl flex items-center justify-between group hover:bg-white/5 transition-all hover:scale-[1.01] cursor-pointer"
                                     onClick={() => setViewingContactId(contact.id)}
                                 >
                                     <div className="flex items-center gap-3">

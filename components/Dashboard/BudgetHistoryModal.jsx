@@ -12,7 +12,7 @@ export default function BudgetHistoryModal({ transactions, onClose }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-md bg-[#0f172a] rounded-[24px] border border-white/10 shadow-2xl flex flex-col max-h-[80vh]">
+            <div className="w-full max-w-md bg-[#0a0a0a] rounded-[24px] border border-white/10 shadow-2xl flex flex-col max-h-[80vh]">
 
                 {/* Header */}
                 <div className="flex items-center justify-between p-5 border-b border-white/5">

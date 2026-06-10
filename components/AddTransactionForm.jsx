@@ -235,7 +235,7 @@ export default function AddTransactionForm({ type, onClose, title, initialData }
                             </button>
 
                             {isProjectDropdownOpen && (
-                                <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-[#1e1e2e] border border-white/10 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+                                <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-[#0a0a0a] border border-white/10 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto">
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -337,7 +337,7 @@ export default function AddTransactionForm({ type, onClose, title, initialData }
                             </button>
 
                             {isDropdownOpen && (
-                                <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-[#1e1e2e] border border-white/10 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+                                <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-[#0a0a0a] border border-white/10 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto">
                                     <button
                                         type="button"
                                         onClick={() => {

@@ -108,7 +108,7 @@ export default function CustomSelect({
         <div
             ref={dropdownRef}
             style={dropdownStyle}
-            className={`bg-[#1e1e2e] border border-white/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto custom-scrollbar ${dropdownClassName}`}
+            className={`bg-[#0a0a0a] border border-white/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto custom-scrollbar ${dropdownClassName}`}
         >
             {normalizedOptions.map((opt, i) => {
                 const isAction = String(opt.value) === "create_new" || String(opt.label).startsWith("+");

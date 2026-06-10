@@ -774,8 +774,12 @@ export function FinanceProvider({ children }) {
 
         const debtValue = debtTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
         const creditValue = debtTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
-        return { ...contact, balance: debtValue - creditValue };
-    }), [contacts, transactions]);
+
+        const contactSales = (sales || []).filter(s => s.client_id === contact.id && s.is_paid === false);
+        const unpaidSalesAmount = contactSales.reduce((sum, s) => sum + Number(s.total_amount), 0);
+
+        return { ...contact, balance: (debtValue - creditValue) + unpaidSalesAmount };
+    }), [contacts, transactions, sales]);
 
     // Modal State
     const [isAddTxModalOpen, setIsAddTxModalOpen] = useState(false);
