@@ -374,7 +374,7 @@ export default function SalesPage() {
     const unpaidSales = (sales as SaleRecord[]).filter(s => s.is_paid === false);
 
     return (
-        <div className="p-4 md:p-8 text-white max-w-[1200px] mx-auto mb-20 animate-in fade-in duration-500 flex flex-col gap-6">
+        <div className="px-0.5 py-4 md:p-8 text-white max-w-[1200px] mx-auto mb-20 animate-in fade-in duration-500 flex flex-col gap-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
@@ -400,15 +400,15 @@ export default function SalesPage() {
             {/* Configurator Cards */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Ghodi Card */}
-                <div className="glass p-6 rounded-2xl border border-white/5 flex flex-col gap-5 justify-between relative overflow-hidden">
+                <div className="glass p-4 sm:p-6 rounded-2xl border border-white/5 flex flex-col gap-5 justify-between relative overflow-hidden">
                     <div className="flex flex-col gap-4">
-                        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
                             <h2 className="text-xl font-bold text-gray-200">Ghodi Configurator</h2>
                             <span className="text-[10px] uppercase font-bold tracking-widest bg-[var(--accent)]/15 text-[var(--accent)] px-2.5 py-1 rounded-full">Fabrications</span>
                         </div>
 
                         {/* Options selectors */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Folding Option</label>
                                 <CustomSelect
@@ -470,7 +470,7 @@ export default function SalesPage() {
                         </div>
 
                         {/* Quantity and Date */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Quantity (pcs)</label>
                                 <input
@@ -568,9 +568,9 @@ export default function SalesPage() {
                 </div>
 
                 {/* Trolley Card */}
-                <div className="glass p-6 rounded-2xl border border-white/5 flex flex-col gap-5 justify-between relative overflow-hidden">
+                <div className="glass p-4 sm:p-6 rounded-2xl border border-white/5 flex flex-col gap-5 justify-between relative overflow-hidden">
                     <div className="flex flex-col gap-4">
-                        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
                             <h2 className="text-xl font-bold text-gray-200">Trolley Configurator</h2>
                             <span className="text-[10px] uppercase font-bold tracking-widest bg-[var(--accent)]/15 text-[var(--accent)] px-2.5 py-1 rounded-full">Fabrications</span>
                         </div>
@@ -673,7 +673,7 @@ export default function SalesPage() {
                         </div>
 
                         {/* Quantity and Date */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Quantity (pcs)</label>
                                 <input
@@ -772,12 +772,12 @@ export default function SalesPage() {
             </div>
 
             {/* Outstanding Collections Card */}
-            <div className="glass p-6 rounded-2xl border border-white/5 relative overflow-hidden flex flex-col gap-4 w-full">
-                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="glass p-4 sm:p-6 rounded-2xl border border-white/5 relative overflow-hidden flex flex-col gap-4 w-full">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
                     <h2 className="text-xl font-bold text-gray-200 flex items-center gap-2">
                         <ClipboardList className="text-yellow-400" size={22} /> Outstanding Collections
                     </h2>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs uppercase font-bold tracking-widest bg-yellow-400/10 text-yellow-400 px-3.5 py-1.5 rounded-full flex items-center gap-1.5">
                             <Clock size={14} /> {unpaidSales.length} Pending
                         </span>
