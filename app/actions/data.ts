@@ -20,7 +20,8 @@ const TABLES = {
     SUPPLIERS: 'suppliers',
     STAFF_ATTENDANCE: 'staff_attendance',
     STAFF_ADVANCES: 'staff_advances',
-    SETTINGS: 'settings'
+    SETTINGS: 'settings',
+    SALES: 'sales'
 };
 
 export async function fetchAllDataAction() {
@@ -43,13 +44,14 @@ export async function fetchAllDataAction() {
         supabase.from('staff_attendance').select('*').order('date', { ascending: false }),
         supabase.from('suppliers').select('*').order('name'),
         supabase.from('inventory').select('*').order('item_name'),
-        supabase.from('shopping_list').select('*').order('date_needed', { ascending: true })
+        supabase.from('shopping_list').select('*').order('date_needed', { ascending: true }),
+        supabase.from('sales').select('*').order('date', { ascending: false })
     ]);
 
     const keys = [
         'categories', 'contacts', 'transactions', 'global_budgets', 'budgets', 'wallets',
         'work_logs', 'sticky_notes', 'client_queries', 'staff', 'projects', 'staff_advances',
-        'bills', 'purchases', 'settings', 'staff_attendance', 'suppliers', 'inventory', 'shopping_list'
+        'bills', 'purchases', 'settings', 'staff_attendance', 'suppliers', 'inventory', 'shopping_list', 'sales'
     ];
 
     const data: any = {};

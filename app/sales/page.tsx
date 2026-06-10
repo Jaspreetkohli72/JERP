@@ -2,12 +2,11 @@
 import React, { useState, useEffect } from "react";
 import { useFinance } from "@/context/FinanceContext";
 import CustomSelect from "@/components/CustomSelect";
-import { ArrowLeft, ShoppingCart, Settings, Plus, Check, X, DollarSign, Wallet, ClipboardList, Clock } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Settings, Plus, Check, X, DollarSign, Wallet, ClipboardList, Clock, ChevronDown } from "lucide-react";
 import Link from "next/link";
 
 const DEFAULT_RATES_KEY = "gfe_sales_default_rates";
 const CLIENT_RATES_KEY = "gfe_sales_client_rates";
-const SALES_LOG_KEY = "gfe_sales_log";
 
 const INITIAL_DEFAULT_RATES = {
     ghodi_nonfolding_5ft: 1200,
@@ -36,12 +35,11 @@ interface SaleRecord {
 
 export default function SalesPage() {
     // @ts-ignore
-    const { contacts = [], addContact, addTransaction, wallets = [] } = useFinance();
+    const { contacts = [], addContact, addTransaction, wallets = [], sales = [], addSale, updateSale } = useFinance();
 
     // Default & Client Rates States
     const [defaultRates, setDefaultRates] = useState(INITIAL_DEFAULT_RATES);
     const [clientRates, setClientRates] = useState<Record<string, Record<string, number>>>({});
-    const [salesLog, setSalesLog] = useState<SaleRecord[]>([]);
 
     // Ghodi Card States
     const [ghodiFolding, setGhodiFolding] = useState<"folding" | "nonfolding">("nonfolding");
@@ -52,7 +50,7 @@ export default function SalesPage() {
     const [newGhodiClientName, setNewGhodiClientName] = useState("");
     const [ghodiWalletId, setGhodiWalletId] = useState("");
     const [isRecordingGhodiSale, setIsRecordingGhodiSale] = useState(false);
-    const [ghodiPcsSold, setGhodiPcsSold] = useState(1);
+    const [ghodiPcsSold, setGhodiPcsSold] = useState(0);
     const [ghodiIsPaid, setGhodiIsPaid] = useState(true);
     const [ghodiSaleDate, setGhodiSaleDate] = useState(() => new Date().toISOString().split("T")[0]);
 
@@ -66,14 +64,16 @@ export default function SalesPage() {
     const [newTrolleyClientName, setNewTrolleyClientName] = useState("");
     const [trolleyWalletId, setTrolleyWalletId] = useState("");
     const [isRecordingTrolleySale, setIsRecordingTrolleySale] = useState(false);
-    const [trolleyPcsSold, setTrolleyPcsSold] = useState(1);
+    const [trolleyPcsSold, setTrolleyPcsSold] = useState(0);
     const [trolleyIsPaid, setTrolleyIsPaid] = useState(true);
     const [trolleySaleDate, setTrolleySaleDate] = useState(() => new Date().toISOString().split("T")[0]);
 
     // Outstanding collection wallet map (unpaid_sale_id -> selected_wallet_id)
     const [collectWalletIds, setCollectWalletIds] = useState<Record<string, string>>({});
+    // Track which client rows are expanded in Outstanding Collections
+    const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
 
-    // Load from localStorage on mount
+    // Load rates from localStorage on mount (config only — not sales data)
     useEffect(() => {
         const storedDefaults = localStorage.getItem(DEFAULT_RATES_KEY);
         if (storedDefaults) {
@@ -88,14 +88,6 @@ export default function SalesPage() {
         if (storedClientRates) {
             try {
                 setClientRates(JSON.parse(storedClientRates));
-            } catch (e) {
-                console.error(e);
-            }
-        }
-        const storedSalesLog = localStorage.getItem(SALES_LOG_KEY);
-        if (storedSalesLog) {
-            try {
-                setSalesLog(JSON.parse(storedSalesLog));
             } catch (e) {
                 console.error(e);
             }
@@ -241,7 +233,7 @@ export default function SalesPage() {
         const totalAmount = rate * ghodiPcsSold;
         const desc = `Sale: ${productName} x${ghodiPcsSold} (${clientName})`;
 
-        // Save to sales log in local storage
+        // Save sale to Supabase
         const newSale: SaleRecord = {
             id: `sale-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             date: ghodiSaleDate,
@@ -270,12 +262,10 @@ export default function SalesPage() {
         }
 
         if (transactionSuccess) {
-            const updatedLog = [newSale, ...salesLog];
-            setSalesLog(updatedLog);
-            localStorage.setItem(SALES_LOG_KEY, JSON.stringify(updatedLog));
+            await addSale(newSale);
             alert(ghodiIsPaid ? "Sale recorded and payment logged successfully!" : "Unpaid sale recorded under Outstanding Collections.");
             setIsRecordingGhodiSale(false);
-            setGhodiPcsSold(1);
+            setGhodiPcsSold(0);
             setGhodiSaleDate(new Date().toISOString().split("T")[0]);
         } else {
             alert("Failed to log transaction.");
@@ -297,7 +287,7 @@ export default function SalesPage() {
         const totalAmount = rate * trolleyPcsSold;
         const desc = `Sale: ${productName} x${trolleyPcsSold} (${clientName})`;
 
-        // Save to sales log in local storage
+        // Save sale to Supabase
         const newSale: SaleRecord = {
             id: `sale-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             date: trolleySaleDate,
@@ -326,12 +316,10 @@ export default function SalesPage() {
         }
 
         if (transactionSuccess) {
-            const updatedLog = [newSale, ...salesLog];
-            setSalesLog(updatedLog);
-            localStorage.setItem(SALES_LOG_KEY, JSON.stringify(updatedLog));
+            await addSale(newSale);
             alert(trolleyIsPaid ? "Sale recorded and payment logged successfully!" : "Unpaid sale recorded under Outstanding Collections.");
             setIsRecordingTrolleySale(false);
-            setTrolleyPcsSold(1);
+            setTrolleyPcsSold(0);
             setTrolleySaleDate(new Date().toISOString().split("T")[0]);
         } else {
             alert("Failed to log transaction.");
@@ -357,21 +345,14 @@ export default function SalesPage() {
         });
 
         if (res.success) {
-            const updatedLog = salesLog.map(s => {
-                if (s.id === sale.id) {
-                    return { ...s, is_paid: true, wallet_id: walletId };
-                }
-                return s;
-            });
-            setSalesLog(updatedLog);
-            localStorage.setItem(SALES_LOG_KEY, JSON.stringify(updatedLog));
+            await updateSale(sale.id, { is_paid: true, wallet_id: walletId });
             alert("Outstanding payment collected successfully and logged to transactions!");
         } else {
             alert("Failed to record payment transaction.");
         }
     };
 
-    const unpaidSales = salesLog.filter(s => s.is_paid === false);
+    const unpaidSales = (sales as SaleRecord[]).filter(s => s.is_paid === false);
 
     return (
         <div className="p-4 md:p-8 text-white max-w-[1200px] mx-auto mb-20 animate-in fade-in duration-500 flex flex-col gap-6">
@@ -475,10 +456,10 @@ export default function SalesPage() {
                                 <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Quantity (pcs)</label>
                                 <input
                                     type="number"
-                                    min="1"
+                                    min="0"
                                     className="bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none text-white"
                                     value={ghodiPcsSold}
-                                    onChange={e => setGhodiPcsSold(Math.max(1, parseInt(e.target.value) || 1))}
+                                    onChange={e => setGhodiPcsSold(Math.max(0, parseInt(e.target.value) || 0))}
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
@@ -678,10 +659,10 @@ export default function SalesPage() {
                                 <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Quantity (pcs)</label>
                                 <input
                                     type="number"
-                                    min="1"
+                                    min="0"
                                     className="bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none text-white"
                                     value={trolleyPcsSold}
-                                    onChange={e => setTrolleyPcsSold(Math.max(1, parseInt(e.target.value) || 1))}
+                                    onChange={e => setTrolleyPcsSold(Math.max(0, parseInt(e.target.value) || 0))}
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
@@ -782,51 +763,92 @@ export default function SalesPage() {
                     </span>
                 </div>
 
-                <div className="flex flex-col gap-3 overflow-y-auto max-h-[440px] pr-1 pb-32">
-                    {unpaidSales.length > 0 ? (
-                        unpaidSales.map(sale => (
-                            <div key={sale.id} className="bg-white/5 p-4 rounded-xl border border-white/5 hover:border-white/10 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                <div className="flex flex-col gap-1">
-                                    <div className="font-bold text-white text-base">{sale.product_name}</div>
-                                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-gray-400 mt-0.5">
-                                        <span>To: <strong className="text-gray-200">{sale.client_name}</strong></span>
-                                        <span>•</span>
-                                        <span>Qty: <strong className="text-gray-200">{sale.quantity} pcs</strong></span>
-                                        <span>•</span>
-                                        <span>Date: <strong>{new Date(sale.date).toLocaleDateString()}</strong></span>
-                                    </div>
-                                </div>
+                <div className="flex flex-col gap-2 overflow-y-auto max-h-[440px] pr-1 pb-32">
+                    {unpaidSales.length > 0 ? (() => {
+                        // Group by client
+                        const grouped: Record<string, { clientName: string; clientId: string; totalOwed: number; sales: SaleRecord[] }> = {};
+                        unpaidSales.forEach(sale => {
+                            const key = sale.client_id || sale.client_name;
+                            if (!grouped[key]) {
+                                grouped[key] = { clientName: sale.client_name, clientId: sale.client_id, totalOwed: 0, sales: [] };
+                            }
+                            grouped[key].totalOwed += Number(sale.total_amount);
+                            grouped[key].sales.push(sale);
+                        });
 
-                                {/* Action & wallet select */}
-                                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
-                                    <div className="flex flex-col gap-1 text-right md:pr-4">
-                                        <span className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Amount to Collect</span>
-                                        <span className="text-xl font-bold text-yellow-400">₹{sale.total_amount.toLocaleString()}</span>
-                                    </div>
+                        return Object.entries(grouped).map(([key, group]) => {
+                            const isExpanded = !!expandedClients[key];
+                            return (
+                                <div key={key} className="rounded-xl border border-white/10 overflow-hidden">
+                                    {/* Client summary row — click to expand */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setExpandedClients(prev => ({ ...prev, [key]: !prev[key] }))}
+                                        className="w-full flex items-center justify-between px-5 py-4 bg-white/5 hover:bg-white/8 transition-colors"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-9 h-9 rounded-full bg-yellow-400/10 border border-yellow-400/20 flex items-center justify-center text-yellow-400 font-bold text-sm">
+                                                {group.clientName.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div className="text-left">
+                                                <div className="font-semibold text-white text-base">{group.clientName}</div>
+                                                <div className="text-xs text-gray-400">{group.sales.length} {group.sales.length === 1 ? 'delivery' : 'deliveries'} pending</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <div className="text-right">
+                                                <div className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Total Owed</div>
+                                                <div className="text-xl font-bold text-yellow-400">₹{group.totalOwed.toLocaleString()}</div>
+                                            </div>
+                                            <ChevronDown
+                                                size={18}
+                                                className={`text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                                            />
+                                        </div>
+                                    </button>
 
-                                    <div className="flex flex-col gap-1.5 min-w-[140px]">
-                                        <CustomSelect
-                                            placeholder="Choose Wallet"
-                                            value={collectWalletIds[sale.id] || ""}
-                                            onChange={val => setCollectWalletIds({ ...collectWalletIds, [sale.id]: val as string })}
-                                            triggerClassName="p-2 text-xs"
-                                            options={[
-                                                { value: "", label: "Choose Wallet" },
-                                                ...wallets.map((w: any) => ({ value: w.id, label: w.name }))
-                                            ]}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => handleCollectPayment(sale)}
-                                            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-lg text-xs transition-colors flex items-center justify-center gap-1"
-                                        >
-                                            Collect Payment
-                                        </button>
-                                    </div>
+                                    {/* Expanded delivery rows */}
+                                    {isExpanded && (
+                                        <div className="flex flex-col divide-y divide-white/5 bg-black/20">
+                                            {group.sales.map(sale => (
+                                                <div key={sale.id} className="px-5 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <div className="font-medium text-gray-200 text-sm">{sale.product_name}</div>
+                                                        <div className="flex items-center gap-2 text-xs text-gray-400">
+                                                            <span><strong className="text-gray-300">{sale.quantity} pcs</strong></span>
+                                                            <span>•</span>
+                                                            <span>{new Date(sale.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                                            <span>•</span>
+                                                            <span className="text-yellow-400 font-semibold">₹{Number(sale.total_amount).toLocaleString()}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <CustomSelect
+                                                            placeholder="Choose Wallet"
+                                                            value={collectWalletIds[sale.id] || ""}
+                                                            onChange={val => setCollectWalletIds({ ...collectWalletIds, [sale.id]: val as string })}
+                                                            triggerClassName="p-2 text-xs"
+                                                            options={[
+                                                                { value: "", label: "Choose Wallet" },
+                                                                ...wallets.map((w: any) => ({ value: w.id, label: w.name }))
+                                                            ]}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleCollectPayment(sale)}
+                                                            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors whitespace-nowrap"
+                                                        >
+                                                            Collect
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-                        ))
-                    ) : (
+                            );
+                        });
+                    })() : (
                         <div className="flex flex-col items-center justify-center text-center text-muted py-16 gap-3">
                             <Check size={48} className="text-green-400 opacity-30" />
                             <p className="text-gray-300 font-medium text-lg">All caught up!</p>

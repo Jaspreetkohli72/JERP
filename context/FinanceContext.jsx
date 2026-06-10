@@ -26,6 +26,7 @@ export function FinanceProvider({ children }) {
     const [settings, setSettings] = useState({});
     const [loading, setLoading] = useState(true);
     const [attendance, setAttendance] = useState([]);
+    const [sales, setSales] = useState([]);
 
     const TABLES = {
         TRANSACTIONS: 'transactions',
@@ -40,7 +41,8 @@ export function FinanceProvider({ children }) {
         CLIENT_QUERIES: 'client_queries',
         STAFF: 'staff',
         ATTENDANCE: 'staff_attendance',
-        SETTINGS: 'settings'
+        SETTINGS: 'settings',
+        SALES: 'sales'
     };
 
     // ... (useEffect and other state in between) ...
@@ -69,6 +71,7 @@ export function FinanceProvider({ children }) {
             setSuppliers(data.suppliers || []);
             setInventory(data.inventory || []);
             setShoppingList(data.shopping_list || []);
+            setSales(data.sales || []);
 
             const settingsData = data.settings || [];
             setSettings(settingsData && settingsData.length > 0 ? settingsData[0] : {});
@@ -154,6 +157,40 @@ export function FinanceProvider({ children }) {
     }, []);
 
 
+
+    // --- Sales (Supabase) ---
+    const addSale = async (sale) => {
+        try {
+            const { data, error } = await supabase
+                .from(TABLES.SALES)
+                .insert([sale])
+                .select()
+                .single();
+            if (error) throw error;
+            setSales(prev => [data, ...prev]);
+            return { success: true, data };
+        } catch (error) {
+            console.error('Error adding sale:', error);
+            return { success: false, error };
+        }
+    };
+
+    const updateSale = async (id, updates) => {
+        try {
+            const { data, error } = await supabase
+                .from(TABLES.SALES)
+                .update(updates)
+                .eq('id', id)
+                .select()
+                .single();
+            if (error) throw error;
+            setSales(prev => prev.map(s => s.id === id ? data : s));
+            return { success: true, data };
+        } catch (error) {
+            console.error('Error updating sale:', error);
+            return { success: false, error };
+        }
+    };
 
     // Add Transaction
     const addTransaction = async (newTx) => {
@@ -1480,6 +1517,9 @@ export function FinanceProvider({ children }) {
                 updateShoppingListItem,
                 deleteShoppingListItem,
                 settings,
+                sales,
+                addSale,
+                updateSale,
                 updateSettings: async (newSettings) => {
                     const { error } = await supabase.from(TABLES.SETTINGS).upsert({ id: 1, ...newSettings });
                     if (!error) {
