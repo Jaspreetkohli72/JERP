@@ -68,8 +68,9 @@ export default function SalesPage() {
     const [trolleyIsPaid, setTrolleyIsPaid] = useState(true);
     const [trolleySaleDate, setTrolleySaleDate] = useState(() => new Date().toISOString().split("T")[0]);
 
-    // Outstanding collection wallet map (unpaid_sale_id -> selected_wallet_id)
+    // Outstanding collection state — keyed by clientKey
     const [collectWalletIds, setCollectWalletIds] = useState<Record<string, string>>({});
+    const [collectAmounts, setCollectAmounts] = useState<Record<string, string>>({});
     // Track which client rows are expanded in Outstanding Collections
     const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
 
@@ -326,27 +327,45 @@ export default function SalesPage() {
         }
     };
 
-    // Outstanding collection confirm handler
-    const handleCollectPayment = async (sale: SaleRecord) => {
-        const walletId = collectWalletIds[sale.id];
+    // Outstanding collection — one collect per client
+    const handleCollectClientPayment = async (
+        clientKey: string,
+        group: { clientName: string; clientId: string; totalOwed: number; sales: SaleRecord[] }
+    ) => {
+        const walletId = collectWalletIds[clientKey];
+        const rawAmount = collectAmounts[clientKey];
+        const amount = rawAmount !== undefined ? Number(rawAmount) : group.totalOwed;
+
         if (!walletId) {
             alert("Please select a wallet to receive the payment.");
             return;
         }
+        if (!amount || amount <= 0) {
+            alert("Please enter a valid amount.");
+            return;
+        }
 
-        const desc = `Payment received: Sale: ${sale.product_name} x${sale.quantity} (${sale.client_name})`;
+        const desc = `Payment collected from ${group.clientName} (${group.sales.length} ${group.sales.length === 1 ? 'item' : 'items'})`;
         const res = await addTransaction({
-            amount: sale.total_amount,
+            amount,
             type: "income",
             description: desc,
             wallet_id: walletId,
-            contact_id: sale.client_id || null,
+            contact_id: group.clientId || null,
             is_debt: false,
         });
 
         if (res.success) {
-            await updateSale(sale.id, { is_paid: true, wallet_id: walletId });
-            alert("Outstanding payment collected successfully and logged to transactions!");
+            // Mark all this client's sales as paid only if full amount collected
+            if (amount >= group.totalOwed) {
+                await Promise.all(group.sales.map((sale: SaleRecord) => updateSale(sale.id, { is_paid: true, wallet_id: walletId })));
+            }
+            // Clear the amount field for this client
+            setCollectAmounts(prev => { const n = { ...prev }; delete n[clientKey]; return n; });
+            alert(amount >= group.totalOwed
+                ? "Full payment collected and all deliveries marked as paid!"
+                : `₹${amount.toLocaleString()} collected. Deliveries remain outstanding until full amount is received.`
+            );
         } else {
             alert("Failed to record payment transaction.");
         }
@@ -763,7 +782,7 @@ export default function SalesPage() {
                     </span>
                 </div>
 
-                <div className="flex flex-col gap-2 overflow-y-auto max-h-[440px] pr-1 pb-32">
+                <div className="flex flex-col gap-2">
                     {unpaidSales.length > 0 ? (() => {
                         // Group by client
                         const grouped: Record<string, { clientName: string; clientId: string; totalOwed: number; sales: SaleRecord[] }> = {};
@@ -779,12 +798,12 @@ export default function SalesPage() {
                         return Object.entries(grouped).map(([key, group]) => {
                             const isExpanded = !!expandedClients[key];
                             return (
-                                <div key={key} className="rounded-xl border border-white/10 overflow-hidden">
+                                <div key={key} className="rounded-xl border border-white/10">
                                     {/* Client summary row — click to expand */}
                                     <button
                                         type="button"
                                         onClick={() => setExpandedClients(prev => ({ ...prev, [key]: !prev[key] }))}
-                                        className="w-full flex items-center justify-between px-5 py-4 bg-white/5 hover:bg-white/8 transition-colors"
+                                        className={`w-full flex items-center justify-between px-5 py-4 bg-white/5 hover:bg-white/8 transition-colors ${isExpanded ? 'rounded-t-xl' : 'rounded-xl'}`}
                                     >
                                         <div className="flex items-center gap-3">
                                             <div className="w-9 h-9 rounded-full bg-yellow-400/10 border border-yellow-400/20 flex items-center justify-center text-yellow-400 font-bold text-sm">
@@ -807,42 +826,58 @@ export default function SalesPage() {
                                         </div>
                                     </button>
 
-                                    {/* Expanded delivery rows */}
+                                    {/* Expanded: info-only delivery rows + single collect footer */}
                                     {isExpanded && (
-                                        <div className="flex flex-col divide-y divide-white/5 bg-black/20">
-                                            {group.sales.map(sale => (
-                                                <div key={sale.id} className="px-5 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                                                    <div className="flex flex-col gap-0.5">
-                                                        <div className="font-medium text-gray-200 text-sm">{sale.product_name}</div>
-                                                        <div className="flex items-center gap-2 text-xs text-gray-400">
-                                                            <span><strong className="text-gray-300">{sale.quantity} pcs</strong></span>
-                                                            <span>•</span>
-                                                            <span>{new Date(sale.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                                                            <span>•</span>
-                                                            <span className="text-yellow-400 font-semibold">₹{Number(sale.total_amount).toLocaleString()}</span>
+                                        <div className="flex flex-col bg-black/20 rounded-b-xl">
+                                            {/* Delivery rows — read only */}
+                                            <div className="flex flex-col divide-y divide-white/5">
+                                                {group.sales.map((sale: SaleRecord) => (
+                                                    <div key={sale.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <div className="font-medium text-gray-200 text-sm">{sale.product_name}</div>
+                                                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                                                                <span><strong className="text-gray-300">{sale.quantity} pcs</strong></span>
+                                                                <span>•</span>
+                                                                <span>{new Date(sale.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                                            </div>
                                                         </div>
+                                                        <span className="text-yellow-400 font-semibold text-sm">₹{Number(sale.total_amount).toLocaleString()}</span>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <CustomSelect
-                                                            placeholder="Choose Wallet"
-                                                            value={collectWalletIds[sale.id] || ""}
-                                                            onChange={val => setCollectWalletIds({ ...collectWalletIds, [sale.id]: val as string })}
-                                                            triggerClassName="p-2 text-xs"
-                                                            options={[
-                                                                { value: "", label: "Choose Wallet" },
-                                                                ...wallets.map((w: any) => ({ value: w.id, label: w.name }))
-                                                            ]}
+                                                ))}
+                                            </div>
+
+                                            {/* Single collect footer */}
+                                            <div className="px-5 py-4 border-t border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                                                <CustomSelect
+                                                    placeholder="Choose Wallet"
+                                                    value={collectWalletIds[key] || ""}
+                                                    onChange={val => setCollectWalletIds(prev => ({ ...prev, [key]: val as string }))}
+                                                    triggerClassName="p-2 text-xs"
+                                                    options={[
+                                                        { value: "", label: "Choose Wallet" },
+                                                        ...wallets.map((w: any) => ({ value: w.id, label: w.name }))
+                                                    ]}
+                                                />
+                                                <div className="flex items-center gap-2 flex-1">
+                                                    <div className="flex items-center bg-white/5 border border-white/10 rounded-lg px-3 py-2 gap-1 flex-1 min-w-[100px]">
+                                                        <span className="text-gray-400 text-sm font-semibold">₹</span>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            value={collectAmounts[key] !== undefined ? collectAmounts[key] : group.totalOwed}
+                                                            onChange={e => setCollectAmounts(prev => ({ ...prev, [key]: e.target.value }))}
+                                                            className="bg-transparent text-white text-sm font-semibold w-full outline-none"
                                                         />
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleCollectPayment(sale)}
-                                                            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors whitespace-nowrap"
-                                                        >
-                                                            Collect
-                                                        </button>
                                                     </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleCollectClientPayment(key, group)}
+                                                        className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg text-xs transition-colors whitespace-nowrap"
+                                                    >
+                                                        Collect Payment
+                                                    </button>
                                                 </div>
-                                            ))}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
