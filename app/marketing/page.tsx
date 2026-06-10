@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useFinance } from '@/context/FinanceContext';
 import { Store, Package, ShoppingCart, Plus, Calendar, Search, Trash2, Edit2, CheckCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
+import CustomSelect from '@/components/CustomSelect';
 
 export default function MarketingPage() {
     // @ts-ignore
@@ -285,19 +286,31 @@ export default function MarketingPage() {
                             <input required autoFocus type="text" placeholder="Item Name (e.g. Cement)" className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3" value={newItem.item_name} onChange={e => setNewItem({ ...newItem, item_name: e.target.value })} />
 
                             <div className="flex gap-4">
-                                <select className="input-field bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-3 flex-1" value={newItem.unit} onChange={e => setNewItem({ ...newItem, unit: e.target.value })}>
-                                    <option value="pcs">Pcs</option>
-                                    <option value="kg">Kg</option>
-                                    <option value="ltr">Litre</option>
-                                    <option value="m">Meter</option>
-                                    <option value="ft">Feet</option>
-                                </select>
-                                <select className="input-field bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-3 flex-1" value={newItem.category} onChange={e => setNewItem({ ...newItem, category: e.target.value })}>
-                                    <option value="Raw Material">Raw Material</option>
-                                    <option value="Consumable">Consumable</option>
-                                    <option value="Asset">Asset</option>
-                                    <option value="Tool">Tool</option>
-                                </select>
+                                <CustomSelect
+                                    className="flex-1 relative"
+                                    triggerClassName="px-4 py-3 bg-[#1a1a1a]"
+                                    value={newItem.unit}
+                                    onChange={val => setNewItem({ ...newItem, unit: val as string })}
+                                    options={[
+                                        { value: "pcs", label: "Pcs" },
+                                        { value: "kg", label: "Kg" },
+                                        { value: "ltr", label: "Litre" },
+                                        { value: "m", label: "Meter" },
+                                        { value: "ft", label: "Feet" }
+                                    ]}
+                                />
+                                <CustomSelect
+                                    className="flex-1 relative"
+                                    triggerClassName="px-4 py-3 bg-[#1a1a1a]"
+                                    value={newItem.category}
+                                    onChange={val => setNewItem({ ...newItem, category: val as string })}
+                                    options={[
+                                        { value: "Raw Material", label: "Raw Material" },
+                                        { value: "Consumable", label: "Consumable" },
+                                        { value: "Asset", label: "Asset" },
+                                        { value: "Tool", label: "Tool" }
+                                    ]}
+                                />
                             </div>
 
                             <input type="number" placeholder="Standard Rate (₹)" className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3" value={newItem.base_rate} onChange={e => setNewItem({ ...newItem, base_rate: e.target.value })} />
@@ -321,13 +334,19 @@ export default function MarketingPage() {
 
                             <div className="flex gap-4">
                                 <input type="number" placeholder="Qty" className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 w-24" value={newShoppingItem.quantity} onChange={e => setNewShoppingItem({ ...newShoppingItem, quantity: e.target.value })} />
-                                <select className="input-field bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-3 flex-1" value={newShoppingItem.unit} onChange={e => setNewShoppingItem({ ...newShoppingItem, unit: e.target.value })}>
-                                    <option value="pcs">Pcs</option>
-                                    <option value="kg">Kg</option>
-                                    <option value="ltr">Litre</option>
-                                    <option value="m">Meter</option>
-                                    <option value="ft">Feet</option>
-                                </select>
+                                <CustomSelect
+                                    className="flex-1 relative"
+                                    triggerClassName="px-4 py-3 bg-[#1a1a1a]"
+                                    value={newShoppingItem.unit}
+                                    onChange={val => setNewShoppingItem({ ...newShoppingItem, unit: val as string })}
+                                    options={[
+                                        { value: "pcs", label: "Pcs" },
+                                        { value: "kg", label: "Kg" },
+                                        { value: "ltr", label: "Litre" },
+                                        { value: "m", label: "Meter" },
+                                        { value: "ft", label: "Feet" }
+                                    ]}
+                                />
                             </div>
 
                             <div className="flex flex-col gap-1">

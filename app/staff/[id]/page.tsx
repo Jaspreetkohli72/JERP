@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useFinance } from '@/context/FinanceContext';
 import { ArrowLeft, Wallet, Calendar as CalendarIcon, Save, Trash2, Pencil } from 'lucide-react';
 import Link from 'next/link';
+import CustomSelect from '@/components/CustomSelect';
 import { supabase } from '@/lib/supabase';
 import { updateStaffAction, deleteStaffAction, updateStaffAdvanceAction, deleteStaffAdvanceAction, deleteAttendanceAction } from '@/app/actions/staff';
 
@@ -209,6 +210,11 @@ export default function StaffDetailsPage() {
 
     const handleSettleAccount = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        if (!settleForm.walletId) {
+            alert('Please select a wallet.');
+            return;
+        }
         
         const settlementAmount = Number(settleAmount);
         if (isNaN(settlementAmount) || settlementAmount <= 0) {
@@ -494,18 +500,19 @@ export default function StaffDetailsPage() {
                             {!editingAdvanceId && (
                                 <div className="flex flex-col gap-1">
                                     <label className="text-xs text-gray-400 uppercase">Paid From (Optional)</label>
-                                    <select
-                                        className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 bg-[#1a1a1a] text-white"
+                                    <CustomSelect
+                                        placeholder="Select Wallet (for auto-deduction)"
                                         value={advanceForm.walletId}
-                                        onChange={e => setAdvanceForm({ ...advanceForm, walletId: e.target.value })}
-                                    >
-                                        <option value="" className="bg-[#1a1a1a] text-gray-400">Select Wallet (for auto-deduction)</option>
-                                        {wallets?.map((w: any) => (
-                                            <option key={w.id} value={w.id} className="bg-[#1a1a1a] text-white">
-                                                {w.name} (₹{w.balance})
-                                            </option>
-                                        ))}
-                                    </select>
+                                        onChange={val => setAdvanceForm({ ...advanceForm, walletId: val as string })}
+                                        triggerClassName="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3"
+                                        options={[
+                                            { value: "", label: "Select Wallet (for auto-deduction)" },
+                                            ...(wallets || []).map((w: any) => ({
+                                                value: w.id,
+                                                label: `${w.name} (₹${w.balance})`
+                                            }))
+                                        ]}
+                                    />
                                 </div>
                             )}
 
@@ -530,13 +537,18 @@ export default function StaffDetailsPage() {
                         <form onSubmit={handleUpdateStaff} className="flex flex-col gap-4">
                             <input required type="text" placeholder="Full Name" className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
 
-                            <select className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 bg-[#1a1a1a]" value={editForm.role} onChange={e => setEditForm({ ...editForm, role: e.target.value })}>
-                                <option value="Helper" className="bg-[#1a1a1a] text-white">Helper</option>
-                                <option value="Welder" className="bg-[#1a1a1a] text-white">Welder</option>
-                                <option value="Fitter" className="bg-[#1a1a1a] text-white">Fitter</option>
-                                <option value="Supervisor" className="bg-[#1a1a1a] text-white">Supervisor</option>
-                                <option value="Driver" className="bg-[#1a1a1a] text-white">Driver</option>
-                            </select>
+                            <CustomSelect
+                                value={editForm.role}
+                                onChange={val => setEditForm({ ...editForm, role: val as string })}
+                                triggerClassName="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3"
+                                options={[
+                                    { value: "Helper", label: "Helper" },
+                                    { value: "Welder", label: "Welder" },
+                                    { value: "Fitter", label: "Fitter" },
+                                    { value: "Supervisor", label: "Supervisor" },
+                                    { value: "Driver", label: "Driver" }
+                                ]}
+                            />
 
                             <input type="number" placeholder="Daily Salary Rate (₹)" className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3" value={editForm.salary} onChange={e => setEditForm({ ...editForm, salary: e.target.value })} />
 
@@ -588,19 +600,19 @@ export default function StaffDetailsPage() {
                         <form onSubmit={handleSettleAccount} className="flex flex-col gap-4 text-white">
                             <div className="flex flex-col gap-1 text-left">
                                 <label className="text-xs text-gray-400 uppercase">Paid From (Wallet)</label>
-                                <select
-                                    required
-                                    className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 bg-[#1a1a1a] text-white"
+                                <CustomSelect
+                                    placeholder="Select Wallet"
                                     value={settleForm.walletId}
-                                    onChange={e => setSettleForm({ ...settleForm, walletId: e.target.value })}
-                                >
-                                    <option value="" className="bg-[#1a1a1a] text-gray-400">Select Wallet</option>
-                                    {wallets?.map((w: any) => (
-                                        <option key={w.id} value={w.id} className="bg-[#1a1a1a] text-white">
-                                            {w.name} (₹{w.balance})
-                                        </option>
-                                    ))}
-                                </select>
+                                    onChange={val => setSettleForm({ ...settleForm, walletId: val as string })}
+                                    triggerClassName="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3"
+                                    options={[
+                                        { value: "", label: "Select Wallet" },
+                                        ...(wallets || []).map((w: any) => ({
+                                            value: w.id,
+                                            label: `${w.name} (₹${w.balance})`
+                                        }))
+                                    ]}
+                                />
                             </div>
 
                             <div className="flex flex-col gap-1 text-left">

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, Plus, Search, Filter, Briefcase, Edit2, Trash2, ChevronRight, X } from 'lucide-react';
 // @ts-ignore
 import { useFinance } from '@/context/FinanceContext';
+import CustomSelect from '@/components/CustomSelect';
 
 export default function ProjectsPage() {
     // @ts-ignore
@@ -58,16 +59,18 @@ export default function ProjectsPage() {
                             className="w-full bg-black/40 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-[var(--accent)]/50 transition-all"
                         />
                     </div>
-                    <select
+                    <CustomSelect
                         value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="bg-black/40 border border-white/10 rounded-xl py-2 px-3 text-sm focus:outline-none focus:border-[var(--accent)]/50 transition-all"
-                    >
-                        <option value="all">All Status</option>
-                        <option value="active">Active</option>
-                        <option value="completed">Completed</option>
-                        <option value="on-hold">On Hold</option>
-                    </select>
+                        onChange={val => setStatusFilter(val as string)}
+                        triggerClassName="py-2 px-3 text-sm"
+                        className="relative w-auto inline-block"
+                        options={[
+                            { value: "all", label: "All Status" },
+                            { value: "active", label: "Active" },
+                            { value: "completed", label: "Completed" },
+                            { value: "on-hold", label: "On Hold" }
+                        ]}
+                    />
                 </div>
 
                 <button
@@ -218,23 +221,22 @@ function ProjectModal({ isOpen, onClose, project, onSubmit, contacts }: { isOpen
                     <div>
                         <label className="block text-xs font-medium text-muted uppercase tracking-wider mb-1.5">Client</label>
                         {!isCreatingClient ? (
-                            <select
+                            <CustomSelect
+                                placeholder="Select Client (Optional)"
                                 value={formData.contact_id}
-                                onChange={e => {
-                                    if (e.target.value === 'create_new') {
+                                onChange={val => {
+                                    if (val === 'create_new') {
                                         setIsCreatingClient(true);
                                     } else {
-                                        setFormData({ ...formData, contact_id: e.target.value });
+                                        setFormData({ ...formData, contact_id: val as string });
                                     }
                                 }}
-                                className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-[var(--accent)] transition-colors"
-                            >
-                                <option value="">Select Client (Optional)</option>
-                                {contacts.map((c: any) => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
-                                <option value="create_new" className="text-[var(--accent)] font-semibold">+ Create New Client...</option>
-                            </select>
+                                options={[
+                                    { value: "", label: "Select Client (Optional)" },
+                                    ...contacts.map((c: any) => ({ value: c.id, label: c.name })),
+                                    { value: "create_new", label: "+ Create New Client..." }
+                                ]}
+                            />
                         ) : (
                             <div className="flex gap-2">
                                 <input
@@ -275,15 +277,15 @@ function ProjectModal({ isOpen, onClose, project, onSubmit, contacts }: { isOpen
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-medium text-muted uppercase tracking-wider mb-1.5">Status</label>
-                            <select
+                            <CustomSelect
                                 value={formData.status}
-                                onChange={e => setFormData({ ...formData, status: e.target.value })}
-                                className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-[var(--accent)] transition-colors"
-                            >
-                                <option value="active">Active</option>
-                                <option value="completed">Completed</option>
-                                <option value="on-hold">On Hold</option>
-                            </select>
+                                onChange={val => setFormData({ ...formData, status: val as string })}
+                                options={[
+                                    { value: "active", label: "Active" },
+                                    { value: "completed", label: "Completed" },
+                                    { value: "on-hold", label: "On Hold" }
+                                ]}
+                            />
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-muted uppercase tracking-wider mb-1.5">Start Date</label>

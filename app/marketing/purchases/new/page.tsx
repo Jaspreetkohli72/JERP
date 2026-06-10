@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useFinance } from '@/context/FinanceContext';
 import { ArrowLeft, Plus, Trash2, Save, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
+import CustomSelect from '@/components/CustomSelect';
 
 export default function NewPurchasePage() {
     // @ts-ignore
@@ -102,16 +103,16 @@ export default function NewPurchasePage() {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="col-span-2 md:col-span-1">
                                 <label className="text-xs text-gray-500 mb-1 block">Supplier</label>
-                                <select
-                                    className="input-field bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2 w-full"
+                                <CustomSelect
+                                    placeholder="Select Supplier"
                                     value={formData.supplier_id}
-                                    onChange={e => setFormData({ ...formData, supplier_id: e.target.value })}
-                                >
-                                    <option value="">Select Supplier</option>
-                                    {suppliers.map((s: any) => (
-                                        <option key={s.id} value={s.id}>{s.name}</option>
-                                    ))}
-                                </select>
+                                    onChange={val => setFormData({ ...formData, supplier_id: val as string })}
+                                    triggerClassName="px-4 py-2 bg-[#1a1a1a]"
+                                    options={[
+                                        { value: "", label: "Select Supplier" },
+                                        ...suppliers.map((s: any) => ({ value: s.id, label: s.name }))
+                                    ]}
+                                />
                             </div>
                             <div className="col-span-2 md:col-span-1">
                                 <label className="text-xs text-gray-500 mb-1 block">Date</label>
@@ -142,16 +143,16 @@ export default function NewPurchasePage() {
                             {items.map((item, index) => (
                                 <div key={index} className="grid grid-cols-12 gap-2 items-center bg-white/5 p-2 rounded-lg">
                                     <div className="col-span-4">
-                                        <select
-                                            className="bg-[#1a1a1a] border border-white/10 rounded px-2 py-1 w-full text-sm"
+                                        <CustomSelect
+                                            placeholder="Select Item"
                                             value={item.inventory_item_id}
-                                            onChange={e => handleItemChange(index, 'inventory_item_id', e.target.value)}
-                                        >
-                                            <option value="">Select Item</option>
-                                            {inventory.map((i: any) => (
-                                                <option key={i.id} value={i.id}>{i.item_name} ({i.unit})</option>
-                                            ))}
-                                        </select>
+                                            onChange={val => handleItemChange(index, 'inventory_item_id', val)}
+                                            triggerClassName="px-2 py-1.5 bg-[#1a1a1a] text-sm"
+                                            options={[
+                                                { value: "", label: "Select Item" },
+                                                ...inventory.map((i: any) => ({ value: i.id, label: `${i.item_name} (${i.unit})` }))
+                                            ]}
+                                        />
                                     </div>
                                     <div className="col-span-2">
                                         <input

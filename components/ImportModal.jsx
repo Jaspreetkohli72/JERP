@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { X, Upload, FileText, Check, AlertTriangle, ArrowRight } from "lucide-react";
 import { useFinance } from "../context/FinanceContext";
 import * as pdfjsLib from "pdfjs-dist/build/pdf";
+import CustomSelect from "@/components/CustomSelect";
 
 // Worker setup for Next.js (Client Side)
 // We use a CDN to avoid webpack complexity with worker-loader
@@ -249,18 +250,19 @@ export default function ImportModal({ onClose }) {
                                                 className="bg-transparent border-none focus:outline-none text-sm text-gray-200 w-full"
                                             />
                                             <div className="flex items-center gap-1">
-                                                <select
+                                                <CustomSelect
                                                     value={tx.type}
-                                                    onChange={(e) => {
+                                                    onChange={val => {
                                                         const newTxs = [...parsedTxs];
-                                                        newTxs[i].type = e.target.value;
+                                                        newTxs[i].type = val as string;
                                                         setParsedTxs(newTxs);
                                                     }}
-                                                    className="bg-black/20 text-xs rounded px-1 py-0.5 border border-white/10"
-                                                >
-                                                    <option value="expense">Exp</option>
-                                                    <option value="income">Inc</option>
-                                                </select>
+                                                    triggerClassName="bg-black/20 text-[10px] rounded px-1 py-0.5 border border-white/10"
+                                                    options={[
+                                                        { value: "expense", label: "Exp" },
+                                                        { value: "income", label: "Inc" }
+                                                    ]}
+                                                />
                                                 <span className="text-sm font-medium">{tx.amount}</span>
                                             </div>
                                             {/* Category Select - Simplified */}

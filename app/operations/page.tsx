@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { CheckSquare, StickyNote, MessageSquare, Plus, Trash2, CheckCircle, Clock, AlertCircle, Pencil } from "lucide-react";
 import { useFinance } from "../../context/FinanceContext";
+import CustomSelect from "../../components/CustomSelect";
 
 export default function OperationsPage() {
     // Work Log State
@@ -99,20 +100,15 @@ export default function OperationsPage() {
                             onChange={(e) => setNewLogDate(e.target.value)}
                         />
 
-                        <div className="relative w-full">
-                            <select
-                                value={newLogPriority}
-                                onChange={(e) => setNewLogPriority(e.target.value)}
-                                className="w-full appearance-none bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-sm focus:outline-none cursor-pointer hover:bg-white/5 transition-colors text-white"
-                            >
-                                <option value="normal" className="bg-gray-900 text-white">Normal</option>
-                                <option value="high" className="bg-gray-900 text-white">High</option>
-                                <option value="low" className="bg-gray-900 text-white">Low</option>
-                            </select>
-                            <svg className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="m6 9 6 6 6-6" />
-                            </svg>
-                        </div>
+                        <CustomSelect
+                            value={newLogPriority}
+                            onChange={(val) => setNewLogPriority(val as string)}
+                            options={[
+                                { value: "normal", label: "Normal" },
+                                { value: "high", label: "High" },
+                                { value: "low", label: "Low" }
+                            ]}
+                        />
 
                         <button type="submit" className="w-full bg-green-500/20 text-green-400 px-4 py-3 rounded-lg hover:bg-green-500/30 transition-colors font-semibold text-sm flex items-center justify-center gap-2">
                             <Plus size={18} /> Add Task
@@ -292,17 +288,20 @@ export default function OperationsPage() {
                                     <div className="flex items-center justify-between">
                                         <div className="font-semibold text-gray-200">{query.customer_name}</div>
                                         <div className="flex items-center gap-2">
-                                            <select
+                                            <CustomSelect
                                                 value={query.status}
-                                                onChange={(e) => updateClientQueryStatus(query.id, e.target.value)}
-                                                className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full border-none focus:outline-none cursor-pointer ${query.status === 'new' ? 'bg-blue-500/20 text-blue-400' :
+                                                onChange={val => updateClientQueryStatus(query.id, val as string)}
+                                                className="relative min-w-[100px]"
+                                                triggerClassName={`text-[10px] uppercase font-bold px-2 py-1 rounded-full border-none focus:outline-none cursor-pointer ${
+                                                    query.status === 'new' ? 'bg-blue-500/20 text-blue-400' :
                                                     query.status === 'in-progress' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400'
-                                                    }`}
-                                            >
-                                                <option value="new">New</option>
-                                                <option value="in-progress">Working</option>
-                                                <option value="resolved">Done</option>
-                                            </select>
+                                                }`}
+                                                options={[
+                                                    { value: "new", label: "New" },
+                                                    { value: "in-progress", label: "Working" },
+                                                    { value: "resolved", label: "Done" }
+                                                ]}
+                                            />
                                             <button
                                                 onClick={() => deleteClientQuery(query.id)}
                                                 className="text-gray-500 hover:text-red-400 transition-colors"

@@ -4,6 +4,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useFinance } from '@/context/FinanceContext';
 import { ArrowLeft, Plus, Trash2, Save } from 'lucide-react';
 import Link from 'next/link';
+import CustomSelect from '@/components/CustomSelect';
 import { supabase } from '@/lib/supabase';
 
 interface EstimateItem {
@@ -304,71 +305,69 @@ export default function EditEstimatePage() {
                         {items.map((item, index) => (
                             <div key={index} className="grid grid-cols-[1.5fr_3fr_0.6fr_0.8fr_1fr_40px] gap-3 items-center mb-2">
 
-                                {/* Item Type */}
-                                <select
-                                    className="input-field bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-[var(--accent)] focus:outline-none w-full text-white"
+                                <CustomSelect
+                                    placeholder="Select Type"
                                     value={item.category || ''}
-                                    onChange={(e) => {
-                                        const newCategory = e.target.value;
+                                    onChange={(val) => {
+                                        const newCategory = val as string;
                                         handleItemChange(index, 'category', newCategory);
                                     }}
-                                >
-                                    <option value="" className="bg-black text-white">Select Type</option>
-                                    {/* @ts-ignore */}
-                                    {Array.from(new Set(inventory?.map(i => {
-                                        if (i.category && i.category !== 'Raw Material' && i.category !== 'Hardware') return i.category;
+                                    triggerClassName="input-field bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs"
+                                    options={[
+                                        { value: "", label: "Select Type" },
+                                        ...Array.from(new Set((inventory || []).map((i: any) => {
+                                            if (i.category && i.category !== 'Raw Material' && i.category !== 'Hardware') return i.category;
 
-                                        // Whitelist for structural types
-                                        const name = i.item_name || '';
-                                        const KNOWN_TYPES = ['Angle', 'Channel', 'Flat Bar', 'Round', 'Square', 'Rectangular', 'Garder', 'Beam', 'Pipe', 'Sheet', 'Plate', 'Welding', 'CNC'];
-
-                                        for (const type of KNOWN_TYPES) {
-                                            if (name.startsWith(type)) return type;
-                                        }
-
-                                        return 'Hardware';
-                                    }))).sort().map(cat => (
-                                        // @ts-ignore
-                                        <option key={cat} value={cat} className="bg-black text-white">{cat}</option>
-                                    ))}
-                                </select>
-
-                                {/* Dimensions */}
-                                <select
-                                    className="input-field bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-[var(--accent)] focus:outline-none w-full text-white"
-                                    value={item.inventory_id || ''}
-                                    onChange={(e) => {
-                                        handleItemChange(index, 'inventory_id', e.target.value);
-                                    }}
-                                    disabled={!item.category}
-                                >
-                                    <option value="" className="bg-black text-white">Select Size</option>
-                                    {/* @ts-ignore */}
-                                    {inventory?.filter(i => {
-                                        let type = i.category;
-                                        if (!type || type === 'Raw Material' || type === 'Hardware') {
+                                            // Whitelist for structural types
                                             const name = i.item_name || '';
                                             const KNOWN_TYPES = ['Angle', 'Channel', 'Flat Bar', 'Round', 'Square', 'Rectangular', 'Garder', 'Beam', 'Pipe', 'Sheet', 'Plate', 'Welding', 'CNC'];
-                                            let found = false;
-                                            for (const t of KNOWN_TYPES) {
-                                                if (name.startsWith(t)) {
-                                                    type = t;
-                                                    found = true;
-                                                    break;
-                                                }
+
+                                            for (const type of KNOWN_TYPES) {
+                                                if (name.startsWith(type)) return type;
                                             }
-                                            if (!found) type = 'Hardware';
-                                        }
-                                        return type === item.category;
-                                    }).map(i => {
-                                        let display = i.item_name;
-                                        // Only strip type if it matches strictly
-                                        if (item.category && display.startsWith(item.category)) {
-                                            display = display.replace(item.category, '').trim();
-                                        }
-                                        return <option key={i.id} value={i.id} className="bg-black text-white">{display}</option>;
-                                    })}
-                                </select>
+
+                                            return 'Hardware';
+                                        }))).filter(Boolean).sort().map(cat => ({ value: cat, label: cat }))
+                                    ]}
+                                />
+
+                                {/* Dimensions */}
+                                <CustomSelect
+                                    placeholder="Select Size"
+                                    value={item.inventory_id || ''}
+                                    onChange={(val) => {
+                                        handleItemChange(index, 'inventory_id', val as string);
+                                    }}
+                                    disabled={!item.category}
+                                    triggerClassName="input-field bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs"
+                                    options={[
+                                        { value: "", label: "Select Size" },
+                                        ...(inventory || []).filter((i: any) => {
+                                            let type = i.category;
+                                            if (!type || type === 'Raw Material' || type === 'Hardware') {
+                                                const name = i.item_name || '';
+                                                const KNOWN_TYPES = ['Angle', 'Channel', 'Flat Bar', 'Round', 'Square', 'Rectangular', 'Garder', 'Beam', 'Pipe', 'Sheet', 'Plate', 'Welding', 'CNC'];
+                                                let found = false;
+                                                for (const t of KNOWN_TYPES) {
+                                                    if (name.startsWith(t)) {
+                                                        type = t;
+                                                        found = true;
+                                                        break;
+                                                    }
+                                                }
+                                                if (!found) type = 'Hardware';
+                                            }
+                                            return type === item.category;
+                                        }).map((i: any) => {
+                                            let display = i.item_name;
+                                            // Only strip type if it matches strictly
+                                            if (item.category && display.startsWith(item.category)) {
+                                                display = display.replace(item.category, '').trim();
+                                            }
+                                            return { value: i.id, label: display };
+                                        })
+                                    ]}
+                                />
 
                                 {/* Qty */}
                                 <input

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Home, BarChart2, CreditCard, Target, Users, Settings } from "lucide-react";
+import { Home, BarChart2, CreditCard, Target, Users, Settings, ShoppingCart } from "lucide-react";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -20,6 +20,7 @@ export default function Sidebar() {
     const navItems = [
         { name: "Overview", icon: Home, href: "/" },
         { name: "Wallets", icon: CreditCard, href: "/wallets" },
+        { name: "Sales", icon: ShoppingCart, href: "/sales" },
         { name: "Operations", icon: Target, href: "/operations" },
         { name: "Contracting", icon: BarChart2, href: "/contracting" },
         { name: "Staff", icon: Users, href: "/staff" },

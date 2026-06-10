@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import Link from 'next/link';
+import CustomSelect from '@/components/CustomSelect';
 import { User, Calendar, Plus, Wallet, ArrowRight, Briefcase } from 'lucide-react';
 import { addStaff } from '@/app/actions/staff';
 import { useRouter } from 'next/navigation';
@@ -205,13 +206,18 @@ export default function StaffList({ staffList, staffWithPay, settings }: any) {
                         <form onSubmit={handleAddStaff} className="flex flex-col gap-4">
                             <input required autoFocus type="text" placeholder="Full Name" className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3" value={newStaff.name} onChange={e => setNewStaff({ ...newStaff, name: e.target.value })} />
 
-                            <select className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 bg-[#1a1a1a]" value={newStaff.role} onChange={e => setNewStaff({ ...newStaff, role: e.target.value })}>
-                                <option value="Helper" className="bg-[#1a1a1a] text-white">Helper</option>
-                                <option value="Welder" className="bg-[#1a1a1a] text-white">Welder</option>
-                                <option value="Fitter" className="bg-[#1a1a1a] text-white">Fitter</option>
-                                <option value="Supervisor" className="bg-[#1a1a1a] text-white">Supervisor</option>
-                                <option value="Driver" className="bg-[#1a1a1a] text-white">Driver</option>
-                            </select>
+                            <CustomSelect
+                                value={newStaff.role}
+                                onChange={val => setNewStaff({ ...newStaff, role: val as string })}
+                                triggerClassName="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3"
+                                options={[
+                                    { value: "Helper", label: "Helper" },
+                                    { value: "Welder", label: "Welder" },
+                                    { value: "Fitter", label: "Fitter" },
+                                    { value: "Supervisor", label: "Supervisor" },
+                                    { value: "Driver", label: "Driver" }
+                                ]}
+                            />
 
                             <input type="number" placeholder="Daily Salary Rate (₹)" className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3" value={newStaff.salary} onChange={e => setNewStaff({ ...newStaff, salary: e.target.value })} />
 

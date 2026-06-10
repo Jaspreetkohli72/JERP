@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useFinance } from '@/context/FinanceContext';
 import { ArrowLeft, Plus, Trash2, Save, Link as LinkIcon, Camera, Upload } from 'lucide-react';
 import Link from 'next/link';
+import CustomSelect from '@/components/CustomSelect';
 
 export default function CreateMeasurementPage() {
     const router = useRouter();
@@ -219,18 +220,19 @@ export default function CreateMeasurementPage() {
                         <label className="text-sm text-gray-400 flex items-center gap-2">
                             <LinkIcon size={14} /> Link to Estimate (Optional)
                         </label>
-                        <select
-                            className="input-field bg-black/30 border border-white/10 rounded-lg px-4 py-2 text-sm focus:border-[var(--accent)] focus:outline-none appearance-none bg-gray-900 text-white"
+                        <CustomSelect
+                            placeholder="-- Select Estimate --"
                             value={formData.estimate_id}
-                            onChange={e => setFormData({ ...formData, estimate_id: e.target.value })}
-                        >
-                            <option value="" className="bg-gray-900 text-gray-400">-- Select Estimate --</option>
-                            {estimates && estimates.map((est: any) => (
-                                <option key={est.id} value={est.id} className="bg-gray-900 text-white">
-                                    {est.client_name} - {est.project_name} (Total: ₹{est.total_amount})
-                                </option>
-                            ))}
-                        </select>
+                            onChange={val => setFormData({ ...formData, estimate_id: val as string })}
+                            triggerClassName="input-field bg-black/30 border border-white/10 rounded-lg px-4 py-2"
+                            options={[
+                                { value: "", label: "-- Select Estimate --" },
+                                ...(estimates || []).map((est: any) => ({
+                                    value: est.id,
+                                    label: `${est.client_name} - ${est.project_name} (Total: ₹${est.total_amount})`
+                                }))
+                            ]}
+                        />
                     </div>
                 </div>
 
@@ -298,11 +300,16 @@ export default function CreateMeasurementPage() {
                                     </div>
                                     <input type="number" placeholder="Nos" className="input-field bg-black/30 border border-white/10 rounded-lg px-2 py-2 text-sm text-center hidden md:block focus:border-[var(--accent)] focus:outline-none text-white" value={item.depth || ''} onChange={e => handleItemChange(index, 'depth', e.target.value)} min="0" step="1" />
 
-                                    <select className="input-field bg-black/30 border border-white/10 rounded-lg px-2 py-2 text-sm text-center focus:border-[var(--accent)] focus:outline-none bg-gray-900 text-white" value={item.unit} onChange={e => handleItemChange(index, 'unit', e.target.value)}>
-                                        <option value="sqft">SQFT</option>
-                                        <option value="pcs">PCS</option>
-                                        <option value="kg">KG</option>
-                                    </select>
+                                    <CustomSelect
+                                        value={item.unit}
+                                        onChange={val => handleItemChange(index, 'unit', val as string)}
+                                        triggerClassName="input-field bg-black/30 border border-white/10 rounded-lg px-2 py-2 text-xs text-center"
+                                        options={[
+                                            { value: "sqft", label: "SQFT" },
+                                            { value: "pcs", label: "PCS" },
+                                            { value: "kg", label: "KG" }
+                                        ]}
+                                    />
 
                                     <div className="flex items-center gap-1 md:hidden">
                                         <span className="text-xs text-gray-500 w-16">Total:</span>
@@ -354,15 +361,16 @@ export default function CreateMeasurementPage() {
                                 </div>
                                 <div className="flex flex-col gap-2">
                                     <label className="text-sm text-gray-400">Unit</label>
-                                    <select
-                                        className="bg-black/30 border border-white/10 rounded-lg px-4 py-2 text-sm focus:border-[var(--accent)] focus:outline-none bg-gray-900 text-white"
+                                    <CustomSelect
                                         value={selectedUnit}
-                                        onChange={e => setSelectedUnit(e.target.value)}
-                                    >
-                                        <option value="sqft">SQFT</option>
-                                        <option value="pcs">PCS</option>
-                                        <option value="kg">KG</option>
-                                    </select>
+                                        onChange={val => setSelectedUnit(val as string)}
+                                        triggerClassName="bg-black/30 border border-white/10 rounded-lg px-4 py-2"
+                                        options={[
+                                            { value: "sqft", label: "SQFT" },
+                                            { value: "pcs", label: "PCS" },
+                                            { value: "kg", label: "KG" }
+                                        ]}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -450,15 +458,16 @@ export default function CreateMeasurementPage() {
                                 </div>
                                 <div className="flex flex-col gap-2">
                                     <label className="text-sm text-gray-400">Unit</label>
-                                    <select
-                                        className="bg-black/30 border border-white/10 rounded-lg px-4 py-2 text-sm focus:border-[var(--accent)] focus:outline-none bg-gray-900 text-white"
+                                    <CustomSelect
                                         value={selectedUnit}
-                                        onChange={e => setSelectedUnit(e.target.value)}
-                                    >
-                                        <option value="sqft">SQFT</option>
-                                        <option value="pcs">PCS</option>
-                                        <option value="kg">KG</option>
-                                    </select>
+                                        onChange={val => setSelectedUnit(val as string)}
+                                        triggerClassName="bg-black/30 border border-white/10 rounded-lg px-4 py-2"
+                                        options={[
+                                            { value: "sqft", label: "SQFT" },
+                                            { value: "pcs", label: "PCS" },
+                                            { value: "kg", label: "KG" }
+                                        ]}
+                                    />
                                 </div>
                             </div>
                         </div>

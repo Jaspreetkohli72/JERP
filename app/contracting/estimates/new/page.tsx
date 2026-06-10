@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useFinance } from '@/context/FinanceContext';
 import { ArrowLeft, Plus, Trash2, Save, FileText, X, ChevronDown, Calculator, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
+import CustomSelect from '@/components/CustomSelect';
 
 interface EstimateItem {
     category?: string;
@@ -239,18 +240,16 @@ Note..
                 </div>
 
                 {/* Type Switcher Dropdown */}
-                <div className="relative">
-                    <select
-                        value={estimateType}
-                        onChange={(e) => setEstimateType(e.target.value as EstimateType)}
-                        className="bg-black/40 border border-white/10 text-white text-sm rounded-lg focus:ring-[var(--accent)] focus:border-[var(--accent)] block w-full p-2.5 pr-10 appearance-none font-bold uppercase tracking-wider cursor-pointer"
-                    >
-                        <option value="Standard">Standard Estimate</option>
-                        <option value="Grill">Grill / Weight Based</option>
-                        <option value="Shed">Shed / Area Based</option>
-                    </select>
-                    <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" size={16} />
-                </div>
+                <CustomSelect
+                    value={estimateType}
+                    onChange={val => setEstimateType(val as EstimateType)}
+                    triggerClassName="bg-black/40 border border-white/10 text-white text-sm rounded-lg p-2.5 font-bold uppercase tracking-wider text-left min-w-[200px]"
+                    options={[
+                        { value: "Standard", label: "Standard Estimate" },
+                        { value: "Grill", label: "Grill / Weight Based" },
+                        { value: "Shed", label: "Shed / Area Based" }
+                    ]}
+                />
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -401,32 +400,29 @@ Note..
                         {items.map((item, index) => (
                             <div key={index} className={`grid ${estimateType === 'Grill' ? 'grid-cols-[1.5fr_2.3fr_0.5fr_0.5fr_0.5fr_0.6fr_0.8fr_40px]' : 'grid-cols-[1.5fr_3fr_0.6fr_0.8fr_1fr_40px]'} gap-3 items-center mb-2 px-2`}>
 
-                                {/* Item Type Selector */}
-                                <select
-                                    className="input-field bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-[var(--accent)] focus:outline-none w-full text-white"
+                                <CustomSelect
+                                    placeholder="Select Type"
                                     value={item.category || ''}
-                                    onChange={(e) => {
-                                        const newCategory = e.target.value;
+                                    onChange={(val) => {
+                                        const newCategory = val as string;
                                         const newItems = [...items];
                                         newItems[index] = { ...newItems[index], category: newCategory, inventory_id: '', description: '', rate: 0, amount: 0 };
                                         setItems(newItems);
                                     }}
-                                >
-                                    <option value="" className="bg-black text-white">Select Type</option>
-                                    {/* @ts-ignore */}
-                                    {Array.from(new Set(inventory?.map(i => i.category))).sort().map(cat => (
-                                        // @ts-ignore
-                                        <option key={cat} value={cat} className="bg-black text-white">{cat}</option>
-                                    ))}
-                                </select>
+                                    triggerClassName="input-field bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs"
+                                    options={[
+                                        { value: "", label: "Select Type" },
+                                        ...Array.from(new Set((inventory || []).map((i: any) => i.category))).filter(Boolean).sort().map(cat => ({ value: cat, label: cat }))
+                                    ]}
+                                />
 
                                 {/* Item Selection / Desc */}
                                 <div className="flex gap-2">
-                                    <select
-                                        className="input-field bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-[var(--accent)] focus:outline-none w-full text-white"
+                                    <CustomSelect
+                                        placeholder="Select Spec"
                                         value={item.inventory_id || ''}
-                                        onChange={(e) => {
-                                            const newId = e.target.value;
+                                        onChange={(val) => {
+                                            const newId = val as string;
                                             if (!newId) return;
                                             // @ts-ignore
                                             const selected = inventory.find(i => String(i.id) === String(newId));
@@ -446,14 +442,12 @@ Note..
                                             setItems(newItems);
                                         }}
                                         disabled={!item.category}
-                                    >
-                                        <option value="" className="bg-black text-white">Select Spec</option>
-                                        {/* @ts-ignore */}
-                                        {inventory?.filter(i => i.category === item.category).map(i => (
-                                            // @ts-ignore
-                                            <option key={i.id} value={i.id} className="bg-black text-white">{i.item_name}</option>
-                                        ))}
-                                    </select>
+                                        triggerClassName="input-field bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs"
+                                        options={[
+                                            { value: "", label: "Select Spec" },
+                                            ...(inventory || []).filter((i: any) => i.category === item.category).map((i: any) => ({ value: i.id, label: i.item_name }))
+                                        ]}
+                                    />
                                     {estimateType === 'Shed' && <input type="text" className="w-full bg-black/30 border border-white/10 px-2 rounded" value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} placeholder="Custom Desc" />}
                                 </div>
 

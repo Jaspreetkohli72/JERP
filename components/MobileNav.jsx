@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Home, BarChart2, Target, User, Plus, CreditCard, Users, Settings } from "lucide-react";
+import { Home, BarChart2, Target, User, Plus, CreditCard, Users, Settings, ShoppingCart } from "lucide-react";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -13,6 +13,7 @@ export default function MobileNav() {
     const navItems = [
         { name: "Overview", icon: Home, href: "/" }, // Home -> Overview
         { name: "Wallets", icon: CreditCard, href: "/wallets" }, // New
+        { name: "Sales", icon: ShoppingCart, href: "/sales" },
         { name: "Ops", icon: Target, href: "/operations" },
         { name: "Work", icon: BarChart2, href: "/contracting" }, // "Contracting" -> Work (Short name ok)
         { name: "Staff", icon: Users, href: "/staff" },

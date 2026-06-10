@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useFinance } from '@/context/FinanceContext';
 import { ArrowLeft, Plus, Trash2, Save, Wand2 } from 'lucide-react';
 import Link from 'next/link';
+import CustomSelect from '@/components/CustomSelect';
 
 interface BillItem {
     category?: string;
@@ -158,18 +159,20 @@ export default function CreateBillPage() {
                         <div className="flex items-center gap-2 text-xs text-gray-400 bg-white/5 px-3 py-1.5 rounded-lg">
                             <Wand2 size={12} className="text-[var(--accent)]" />
                             <span>Quick Import:</span>
-                            <select
-                                className="bg-transparent focus:outline-none text-white max-w-[150px] truncate"
+                            <CustomSelect
+                                placeholder="Select Estimate..."
                                 value={formData.estimate_id}
-                                onChange={handleEstimateSelect}
-                            >
-                                <option value="" className="bg-gray-900">Select Estimate...</option>
-                                {estimates && estimates.map((est: any) => (
-                                    <option key={est.id} value={est.id} className="bg-gray-900">
-                                        {est.client_name} - {est.project_name}
-                                    </option>
-                                ))}
-                            </select>
+                                onChange={val => handleEstimateSelect({ target: { value: val } } as any)}
+                                className="relative max-w-[150px] inline-block"
+                                triggerClassName="px-2 py-1 bg-transparent text-white text-xs border-none"
+                                options={[
+                                    { value: "", label: "Select Estimate..." },
+                                    ...(estimates || []).map((est: any) => ({
+                                        value: est.id,
+                                        label: `${est.client_name} - ${est.project_name}`
+                                    }))
+                                ]}
+                            />
                         </div>
                     </div>
 
@@ -190,10 +193,15 @@ export default function CreateBillPage() {
                         </div>
                         <div className="flex flex-col gap-2">
                             <label className="text-sm text-gray-400">Status</label>
-                            <select className="input-field bg-black/30 border border-white/10 rounded-lg px-4 py-2 text-sm focus:border-[var(--accent)] focus:outline-none bg-gray-900" value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
-                                <option value="Pending">Pending</option>
-                                <option value="Paid">Paid</option>
-                            </select>
+                            <CustomSelect
+                                value={formData.status}
+                                onChange={val => setFormData({ ...formData, status: val as string })}
+                                triggerClassName="px-4 py-2 text-sm"
+                                options={[
+                                    { value: "Pending", label: "Pending" },
+                                    { value: "Paid", label: "Paid" }
+                                ]}
+                            />
                         </div>
                     </div>
                 </div>
@@ -217,11 +225,11 @@ export default function CreateBillPage() {
                             <div key={index} className="grid grid-cols-[1.5fr_3fr_0.6fr_0.8fr_1fr_40px] gap-3 items-center mb-2">
 
                                 {/* Item Type */}
-                                <select
-                                    className="input-field bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-[var(--accent)] focus:outline-none w-full text-white"
+                                <CustomSelect
+                                    placeholder="Select Type"
                                     value={item.category || ''}
-                                    onChange={(e) => {
-                                        const newCategory = e.target.value;
+                                    onChange={val => {
+                                        const newCategory = val as string;
                                         const newItems = [...items];
                                         newItems[index] = {
                                             ...newItems[index],
@@ -233,33 +241,31 @@ export default function CreateBillPage() {
                                         };
                                         setItems(newItems);
                                     }}
-                                >
-                                    <option value="" className="bg-black text-white">Select Type</option>
-                                    {/* @ts-ignore */}
-                                    {Array.from(new Set(inventory?.map(i => {
-                                        if (i.category && i.category !== 'Raw Material' && i.category !== 'Hardware') return i.category;
+                                    triggerClassName="px-3 py-2 text-sm"
+                                    options={[
+                                        { value: "", label: "Select Type" },
+                                        ...Array.from(new Set(inventory?.map(i => {
+                                            if (i.category && i.category !== 'Raw Material' && i.category !== 'Hardware') return i.category;
 
-                                        // Whitelist for structural types
-                                        const name = i.item_name || '';
-                                        const KNOWN_TYPES = ['Angle', 'Channel', 'Flat Bar', 'Round', 'Square', 'Rectangular', 'Garder', 'Beam', 'Pipe', 'Sheet', 'Plate', 'Welding', 'CNC'];
+                                            // Whitelist for structural types
+                                            const name = i.item_name || '';
+                                            const KNOWN_TYPES = ['Angle', 'Channel', 'Flat Bar', 'Round', 'Square', 'Rectangular', 'Garder', 'Beam', 'Pipe', 'Sheet', 'Plate', 'Welding', 'CNC'];
 
-                                        for (const type of KNOWN_TYPES) {
-                                            if (name.startsWith(type)) return type;
-                                        }
+                                            for (const type of KNOWN_TYPES) {
+                                                if (name.startsWith(type)) return type;
+                                            }
 
-                                        return 'Hardware';
-                                    }))).sort().map(cat => (
-                                        // @ts-ignore
-                                        <option key={cat} value={cat} className="bg-black text-white">{cat}</option>
-                                    ))}
-                                </select>
+                                            return 'Hardware';
+                                        }))).sort().map(cat => ({ value: cat, label: cat as string }))
+                                    ]}
+                                />
 
                                 {/* Dimensions */}
-                                <select
-                                    className="input-field bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-[var(--accent)] focus:outline-none w-full text-white"
+                                <CustomSelect
+                                    placeholder="Select Size"
                                     value={item.inventory_id || ''}
-                                    onChange={(e) => {
-                                        const newId = e.target.value;
+                                    onChange={val => {
+                                        const newId = val as string;
                                         if (!newId) return;
                                         // @ts-ignore
                                         const selected = inventory.find(i => String(i.id) === String(newId));
@@ -277,34 +283,35 @@ export default function CreateBillPage() {
                                         setItems(newItems);
                                     }}
                                     disabled={!item.category}
-                                >
-                                    <option value="" className="bg-black text-white">Select Size</option>
-                                    {/* @ts-ignore */}
-                                    {inventory?.filter(i => {
-                                        let type = i.category;
-                                        if (!type || type === 'Raw Material' || type === 'Hardware') {
-                                            const name = i.item_name || '';
-                                            const KNOWN_TYPES = ['Angle', 'Channel', 'Flat Bar', 'Round', 'Square', 'Rectangular', 'Garder', 'Beam', 'Pipe', 'Sheet', 'Plate', 'Welding', 'CNC'];
-                                            let found = false;
-                                            for (const t of KNOWN_TYPES) {
-                                                if (name.startsWith(t)) {
-                                                    type = t;
-                                                    found = true;
-                                                    break;
+                                    triggerClassName="px-3 py-2 text-sm"
+                                    options={[
+                                        { value: "", label: "Select Size" },
+                                        ...inventory?.filter(i => {
+                                            let type = i.category;
+                                            if (!type || type === 'Raw Material' || type === 'Hardware') {
+                                                const name = i.item_name || '';
+                                                const KNOWN_TYPES = ['Angle', 'Channel', 'Flat Bar', 'Round', 'Square', 'Rectangular', 'Garder', 'Beam', 'Pipe', 'Sheet', 'Plate', 'Welding', 'CNC'];
+                                                let found = false;
+                                                for (const t of KNOWN_TYPES) {
+                                                    if (name.startsWith(t)) {
+                                                        type = t;
+                                                        found = true;
+                                                        break;
+                                                    }
                                                 }
+                                                if (!found) type = 'Hardware';
                                             }
-                                            if (!found) type = 'Hardware';
-                                        }
-                                        return type === item.category;
-                                    }).map(i => {
-                                        let display = i.item_name;
-                                        // Only strip type if it matches strictly
-                                        if (item.category && display.startsWith(item.category)) {
-                                            display = display.replace(item.category, '').trim();
-                                        }
-                                        return <option key={i.id} value={i.id} className="bg-black text-white">{display}</option>;
-                                    })}
-                                </select>
+                                            return type === item.category;
+                                        }).map(i => {
+                                            let display = i.item_name;
+                                            // Only strip type if it matches strictly
+                                            if (item.category && display.startsWith(item.category)) {
+                                                display = display.replace(item.category, '').trim();
+                                            }
+                                            return { value: i.id, label: display };
+                                        })
+                                    ]}
+                                />
 
                                 {/* Qty */}
                                 <input
