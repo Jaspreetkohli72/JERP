@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useFinance } from "@/context/FinanceContext";
 import CustomSelect from "@/components/CustomSelect";
-import { ArrowLeft, ShoppingCart, Settings, Plus, Check, X, DollarSign, Wallet, ClipboardList, Clock, ChevronDown } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Settings, Plus, Check, X, DollarSign, Wallet, ClipboardList, Clock, ChevronDown, IndianRupee } from "lucide-react";
 import Link from "next/link";
 
 const DEFAULT_RATES_KEY = "gfe_sales_default_rates";
@@ -777,9 +777,14 @@ export default function SalesPage() {
                     <h2 className="text-xl font-bold text-gray-200 flex items-center gap-2">
                         <ClipboardList className="text-yellow-400" size={22} /> Outstanding Collections
                     </h2>
-                    <span className="text-[10px] uppercase font-bold tracking-widest bg-yellow-400/10 text-yellow-400 px-3 py-1 rounded-full flex items-center gap-1">
-                        <Clock size={12} /> {unpaidSales.length} Pending
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs uppercase font-bold tracking-widest bg-yellow-400/10 text-yellow-400 px-3.5 py-1.5 rounded-full flex items-center gap-1.5">
+                            <Clock size={14} /> {unpaidSales.length} Pending
+                        </span>
+                        <span className="text-xs uppercase font-bold tracking-widest bg-emerald-400/10 text-emerald-400 px-3.5 py-1.5 rounded-full flex items-center gap-1.5">
+                            <IndianRupee size={14} /> {unpaidSales.reduce((sum, s) => sum + Number(s.total_amount), 0).toLocaleString()} Due
+                        </span>
+                    </div>
                 </div>
 
                 <div className="flex flex-col gap-2">

@@ -17,6 +17,7 @@ export default function CustomSelect({
     const [dropdownStyle, setDropdownStyle] = useState({});
     const [mounted, setMounted] = useState(false);
     const containerRef = useRef(null);
+    const dropdownRef = useRef(null);
 
     useEffect(() => { setMounted(true); }, []);
 
@@ -59,7 +60,12 @@ export default function CustomSelect({
     useEffect(() => {
         if (!isOpen) return;
         function handleClickOutside(event) {
-            if (containerRef.current && !containerRef.current.contains(event.target)) {
+            if (
+                containerRef.current && 
+                !containerRef.current.contains(event.target) &&
+                dropdownRef.current &&
+                !dropdownRef.current.contains(event.target)
+            ) {
                 setIsOpen(false);
             }
         }
@@ -100,6 +106,7 @@ export default function CustomSelect({
 
     const dropdown = isOpen && mounted ? createPortal(
         <div
+            ref={dropdownRef}
             style={dropdownStyle}
             className={`bg-[#1e1e2e] border border-white/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto custom-scrollbar ${dropdownClassName}`}
         >
