@@ -1358,7 +1358,7 @@ export function FinanceProvider({ children }) {
     // 7. Projects
     const addProject = async (projectData) => {
         try {
-            const { data, error } = await supabase.from(TABLES.PROJECTS).insert([projectData]).select().single();
+            const { data, error } = await supabase.from(TABLES.PROJECTS).insert([projectData]).select(`*, contacts(name)`).single();
             if (error) throw error;
             setProjects(prev => [data, ...prev]);
             return { success: true, id: data.id };
@@ -1370,7 +1370,7 @@ export function FinanceProvider({ children }) {
 
     const updateProject = async (id, updates) => {
         try {
-            const { data, error } = await supabase.from(TABLES.PROJECTS).update(updates).eq('id', id).select(`*, clients(name)`).single();
+            const { data, error } = await supabase.from(TABLES.PROJECTS).update(updates).eq('id', id).select(`*, contacts(name)`).single();
             if (error) throw error;
             setProjects(prev => prev.map(p => p.id === id ? data : p));
             return { success: true };

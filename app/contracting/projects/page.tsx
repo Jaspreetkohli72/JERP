@@ -143,21 +143,46 @@ export default function ProjectsPage() {
 }
 
 function ProjectModal({ isOpen, onClose, project, onSubmit, contacts }: { isOpen: any, onClose: any, project: any, onSubmit: any, contacts: any }) {
+    const { addContact } = useFinance();
     const [formData, setFormData] = useState({
         name: project?.name || '',
         contact_id: project?.contact_id || '',
         status: project?.status || 'active',
         start_date: project?.start_date || new Date().toISOString().split('T')[0],
-        description: project?.description || ''
+        description: project?.measurements || project?.description || ''
     });
     const [loading, setLoading] = useState(false);
+    const [isCreatingClient, setIsCreatingClient] = useState(false);
+    const [newClientName, setNewClientName] = useState('');
+
+    const handleCreateClient = async () => {
+        const trimmed = newClientName.trim();
+        if (!trimmed) return;
+        setLoading(true);
+        const res = await addContact({ name: trimmed });
+        setLoading(false);
+        if (res.success && res.data) {
+            setFormData(prev => ({ ...prev, contact_id: res.data.id }));
+            setIsCreatingClient(false);
+            setNewClientName('');
+        } else {
+            alert(res.error?.message || "Failed to create client");
+        }
+    };
 
     const handleSubmit = async (e: any) => {
         e.preventDefault();
         setLoading(true);
+        const payload = {
+            name: formData.name,
+            contact_id: formData.contact_id || null,
+            status: formData.status,
+            start_date: formData.start_date,
+            measurements: formData.description || null
+        };
         const res = project
-            ? await onSubmit(project.id, formData)
-            : await onSubmit(formData);
+            ? await onSubmit(project.id, payload)
+            : await onSubmit(payload);
 
         if (res.success) {
             onClose();
@@ -192,16 +217,59 @@ function ProjectModal({ isOpen, onClose, project, onSubmit, contacts }: { isOpen
 
                     <div>
                         <label className="block text-xs font-medium text-muted uppercase tracking-wider mb-1.5">Client</label>
-                        <select
-                            value={formData.contact_id}
-                            onChange={e => setFormData({ ...formData, contact_id: e.target.value })}
-                            className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-[var(--accent)] transition-colors"
-                        >
-                            <option value="">Select Client</option>
-                            {contacts.map((c: any) => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                        </select>
+                        {!isCreatingClient ? (
+                            <select
+                                value={formData.contact_id}
+                                onChange={e => {
+                                    if (e.target.value === 'create_new') {
+                                        setIsCreatingClient(true);
+                                    } else {
+                                        setFormData({ ...formData, contact_id: e.target.value });
+                                    }
+                                }}
+                                className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-[var(--accent)] transition-colors"
+                            >
+                                <option value="">Select Client (Optional)</option>
+                                {contacts.map((c: any) => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                                <option value="create_new" className="text-[var(--accent)] font-semibold">+ Create New Client...</option>
+                            </select>
+                        ) : (
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={newClientName}
+                                    onChange={e => setNewClientName(e.target.value)}
+                                    placeholder="Enter client name..."
+                                    className="flex-1 bg-black/40 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-[var(--accent)] transition-colors"
+                                    onKeyDown={async (e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            await handleCreateClient();
+                                        }
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleCreateClient}
+                                    disabled={!newClientName.trim() || loading}
+                                    className="px-4 py-3 bg-[var(--accent)]/20 text-[var(--accent)] rounded-xl hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsCreatingClient(false);
+                                        setNewClientName('');
+                                    }}
+                                    className="px-4 py-3 bg-white/5 text-muted rounded-xl hover:bg-white/10 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
