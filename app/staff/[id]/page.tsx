@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFinance } from '@/context/FinanceContext';
-import { ArrowLeft, Wallet, Calendar as CalendarIcon, Save, Trash2, Pencil } from 'lucide-react';
+import { ArrowLeft, Wallet, Calendar as CalendarIcon, Save, Trash2, Pencil, Share2 } from 'lucide-react';
 import Link from 'next/link';
 import CustomSelect from '@/components/CustomSelect';
 import { supabase } from '@/lib/supabase';
@@ -273,9 +273,98 @@ export default function StaffDetailsPage() {
         }
     };
 
-    if (!staff) return <div className="p-10 text-center text-white">Loading staff...</div>;
-
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+    const handleShareAttendance = async () => {
+        if (!data.attendance || data.attendance.length === 0) {
+            alert("No attendance records to share.");
+            return;
+        }
+
+        const sortedAttendance = [...data.attendance].sort((a: any, b: any) => (a.date || '').localeCompare(b.date || ''));
+        const monthName = monthNames[month];
+        const title = `${staff.name} - Attendance Log (${monthName} ${year})`;
+        const divider = "=".repeat(title.length);
+        
+        const listText = sortedAttendance.map((rec: any) => {
+            const dateStr = new Date(rec.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
+            return `${dateStr}: ${rec.status}`;
+        }).join('\n');
+
+        const shareContent = `${title}\n${divider}\n${listText}`;
+
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: title,
+                    text: shareContent,
+                });
+            } catch (err: any) {
+                if (err.name !== 'AbortError') {
+                    try {
+                        await navigator.clipboard.writeText(shareContent);
+                        alert("Attendance log copied to clipboard!");
+                    } catch (clipboardErr) {
+                        alert("Failed to share or copy text.");
+                    }
+                }
+            }
+        } else {
+            try {
+                await navigator.clipboard.writeText(shareContent);
+                alert("Attendance log copied to clipboard!");
+            } catch (err) {
+                alert("Sharing not supported, and failed to copy to clipboard.");
+            }
+        }
+    };
+
+    const handleSharePayments = async () => {
+        if (!data.advances || data.advances.length === 0) {
+            alert("No payment records to share.");
+            return;
+        }
+
+        const sortedAdvances = [...data.advances].sort((a: any, b: any) => (a.date || '').localeCompare(b.date || ''));
+        const monthName = monthNames[month];
+        const title = `${staff.name} - Payments/Advances (${monthName} ${year})`;
+        const divider = "=".repeat(title.length);
+
+        const listText = sortedAdvances.map((rec: any) => {
+            const dateStr = new Date(rec.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
+            const notesStr = rec.notes ? ` - ${rec.notes}` : '';
+            return `${dateStr}: ₹${rec.amount}${notesStr}`;
+        }).join('\n');
+
+        const shareContent = `${title}\n${divider}\n${listText}`;
+
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: title,
+                    text: shareContent,
+                });
+            } catch (err: any) {
+                if (err.name !== 'AbortError') {
+                    try {
+                        await navigator.clipboard.writeText(shareContent);
+                        alert("Payments log copied to clipboard!");
+                    } catch (clipboardErr) {
+                        alert("Failed to share or copy text.");
+                    }
+                }
+            }
+        } else {
+            try {
+                await navigator.clipboard.writeText(shareContent);
+                alert("Payments log copied to clipboard!");
+            } catch (err) {
+                alert("Sharing not supported, and failed to copy to clipboard.");
+            }
+        }
+    };
+
+    if (!staff) return <div className="p-10 text-center text-white">Loading staff...</div>;
 
     return (
         <div className="flex flex-col gap-6 p-4 md:p-8 text-white max-w-[1000px] mx-auto mb-20">
@@ -416,9 +505,18 @@ export default function StaffDetailsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Attendance List */}
                 <div className="glass p-6 rounded-xl border border-white/5">
-                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                        <CalendarIcon size={18} className="text-blue-400" /> Attendance Log
-                    </h3>
+                    <div className="flex justify-between items-center gap-2 mb-4">
+                        <h3 className="text-lg font-bold flex items-center gap-2 min-w-0">
+                            <CalendarIcon size={18} className="text-blue-400 flex-shrink-0" />
+                            <span className="truncate">Attendance Log</span>
+                        </h3>
+                        <button 
+                            onClick={handleShareAttendance} 
+                            className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 whitespace-nowrap flex-shrink-0"
+                        >
+                            <Share2 size={12} /> Share
+                        </button>
+                    </div>
                     <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2">
                         {data.attendance.length > 0 ? (
                             [...data.attendance].sort((a: any, b: any) => (a.date || '').localeCompare(b.date || '')).map((rec: any) => (
@@ -446,17 +544,26 @@ export default function StaffDetailsPage() {
 
                 {/* Advances/Payments List */}
                 <div className="glass p-6 rounded-xl border border-white/5">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-bold flex items-center gap-2">
-                            <Wallet size={18} className="text-red-400" /> Payments/Advances
+                    <div className="flex justify-between items-center gap-2 mb-4">
+                        <h3 className="text-lg font-bold flex items-center gap-2 min-w-0">
+                            <Wallet size={18} className="text-red-400 flex-shrink-0" />
+                            <span className="truncate">Payments/Advances</span>
                         </h3>
-                        <button onClick={() => {
-                            setEditingAdvanceId(null);
-                            setAdvanceForm({ amount: '', date: new Date().toISOString().split('T')[0], notes: '', walletId: '' });
-                            setIsAdvanceModalOpen(true);
-                        }} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">
-                            + Add Payment
-                        </button>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                            <button 
+                                onClick={handleSharePayments} 
+                                className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 whitespace-nowrap"
+                            >
+                                <Share2 size={12} /> Share
+                            </button>
+                            <button onClick={() => {
+                                setEditingAdvanceId(null);
+                                setAdvanceForm({ amount: '', date: new Date().toISOString().split('T')[0], notes: '', walletId: '' });
+                                setIsAdvanceModalOpen(true);
+                            }} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+                                + Add Payment
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2">
