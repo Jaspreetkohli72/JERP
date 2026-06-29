@@ -25,7 +25,8 @@ export async function getStaffStats() {
     const staffWithPay = staffList.map(staff => {
         // Attendance
         const staffAttendance = attendance.filter(a =>
-            String(a.staff_id) === String(staff.id)
+            String(a.staff_id) === String(staff.id) &&
+            (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)
         );
 
         const daysPresent = staffAttendance.filter(a => a.status === 'Present').length;
@@ -142,7 +143,10 @@ export async function submitDailyAttendanceAction(date: string, records: any[]) 
         const upsertData = records.map(r => ({
             staff_id: parseInt(r.staff_id),
             date: date,
-            status: r.status
+            status: r.status,
+            worked_for: r.worked_for || 'Me',
+            work_done: r.work_done || '',
+            status_papa: r.status_papa || 'Absent'
         }));
         const { error } = await supabase.from('staff_attendance').upsert(upsertData, { onConflict: 'staff_id,date' });
         if (error) throw error;
@@ -261,6 +265,7 @@ export async function deleteAttendanceAction(id: string | number) {
         if (error) throw error;
         revalidatePath('/staff');
         revalidatePath('/staff/calendar');
+        revalidatePath('/staff/[id]', 'page');
         return { success: true };
     } catch (e: any) {
         return { success: false, error: e.message };

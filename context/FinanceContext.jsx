@@ -92,7 +92,8 @@ export function FinanceProvider({ children }) {
         return staffList.map(staff => {
             // 1. Calculate Attendance Accrual (All-time totals)
             const staffAttendance = (attendance || []).filter(a => {
-                return String(a.staff_id) === String(staff.id);
+                return String(a.staff_id) === String(staff.id) &&
+                    (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for);
             });
 
             const daysPresent = staffAttendance.filter(a => a.status === 'Present').length;
@@ -1070,7 +1071,10 @@ export function FinanceProvider({ children }) {
             const upsertData = records.map(r => ({
                 staff_id: parseInt(r.staff_id), // Ensure Number for BIGINT
                 date: date,
-                status: r.status
+                status: r.status,
+                worked_for: r.worked_for || 'Me',
+                work_done: r.work_done || '',
+                status_papa: r.status_papa || 'Absent'
             }));
 
             // Use onConflict to update status if record exists for same staff/date

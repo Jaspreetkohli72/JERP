@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFinance } from '@/context/FinanceContext';
-import { ArrowLeft, Wallet, Calendar as CalendarIcon, Save, Trash2, Pencil, Share2 } from 'lucide-react';
+import { ArrowLeft, Wallet, Calendar as CalendarIcon, Save, Trash2, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import CustomSelect from '@/components/CustomSelect';
 import { supabase } from '@/lib/supabase';
@@ -126,9 +126,9 @@ export default function StaffDetailsPage() {
     }, [id, month, year]);
 
     // Stats Logic
-    const presentCount = data.attendance.filter((a: any) => a.status === 'Present').length;
-    const halfDayCount = data.attendance.filter((a: any) => a.status === 'Half-Day').length;
-    const overtimeCount = data.attendance.filter((a: any) => a.status === 'Overtime').length;
+    const presentCount = data.attendance.filter((a: any) => a.status === 'Present' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
+    const halfDayCount = data.attendance.filter((a: any) => a.status === 'Half-Day' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
+    const overtimeCount = data.attendance.filter((a: any) => a.status === 'Overtime' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
     const effectiveDays = presentCount + (halfDayCount * 0.5) + overtimeCount;
     const salaryDays = presentCount + (halfDayCount * 0.5) + (overtimeCount * 1.5);
     const estimatedEarnings = staff ? salaryDays * staff.salary : 0;
@@ -137,7 +137,7 @@ export default function StaffDetailsPage() {
 
     const handleAddAdvance = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (editingAdvanceId) {
             const { success, error } = await updateStaffAdvanceAction(editingAdvanceId, {
                 amount: Number(advanceForm.amount),
@@ -170,29 +170,30 @@ export default function StaffDetailsPage() {
 
     const calculateBalanceUpTo = (dateStr: string) => {
         if (!staff) return 0;
-        
+
         const attList = globalAttendance && globalAttendance.length > 0 ? globalAttendance : data.attendance;
         const advList = globalAdvances && globalAdvances.length > 0 ? globalAdvances : data.advances;
 
-        const staffAtt = attList.filter((a: any) => 
-            String(a.staff_id) === String(id) && 
-            a.date && a.date <= dateStr
+        const staffAtt = attList.filter((a: any) =>
+            String(a.staff_id) === String(id) &&
+            a.date && a.date <= dateStr &&
+            (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)
         );
-        
+
         const present = staffAtt.filter((a: any) => a.status === 'Present').length;
         const halfDay = staffAtt.filter((a: any) => a.status === 'Half-Day').length;
         const overtime = staffAtt.filter((a: any) => a.status === 'Overtime').length;
-        
+
         const salDays = present + (halfDay * 0.5) + (overtime * 1.5);
         const earnings = salDays * (Number(staff.salary) || 0);
-        
+
         // Advances are calculated up to the current day / all-time
-        const staffAdv = advList.filter((a: any) => 
+        const staffAdv = advList.filter((a: any) =>
             String(a.staff_id) === String(id)
         );
-        
+
         const advances = staffAdv.reduce((sum: number, a: any) => sum + Number(a.amount), 0);
-        
+
         return earnings - advances;
     };
 
@@ -210,12 +211,12 @@ export default function StaffDetailsPage() {
 
     const handleSettleAccount = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (!settleForm.walletId) {
             alert('Please select a wallet.');
             return;
         }
-        
+
         const settlementAmount = Number(settleAmount);
         if (isNaN(settlementAmount) || settlementAmount <= 0) {
             alert('Settlement amount must be greater than zero.');
@@ -268,103 +269,17 @@ export default function StaffDetailsPage() {
         const { success, error } = await deleteAttendanceAction(attendanceId);
         if (success) {
             loadData();
+            if (refreshData) {
+                await refreshData();
+            }
         } else {
             alert(`Failed to delete attendance: ${error}`);
         }
     };
 
-    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-    const handleShareAttendance = async () => {
-        if (!data.attendance || data.attendance.length === 0) {
-            alert("No attendance records to share.");
-            return;
-        }
-
-        const sortedAttendance = [...data.attendance].sort((a: any, b: any) => (a.date || '').localeCompare(b.date || ''));
-        const monthName = monthNames[month];
-        const title = `${staff.name} - Attendance Log (${monthName} ${year})`;
-        const divider = "=".repeat(title.length);
-        
-        const listText = sortedAttendance.map((rec: any) => {
-            const dateStr = new Date(rec.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
-            return `${dateStr}: ${rec.status}`;
-        }).join('\n');
-
-        const shareContent = `${title}\n${divider}\n${listText}`;
-
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: title,
-                    text: shareContent,
-                });
-            } catch (err: any) {
-                if (err.name !== 'AbortError') {
-                    try {
-                        await navigator.clipboard.writeText(shareContent);
-                        alert("Attendance log copied to clipboard!");
-                    } catch (clipboardErr) {
-                        alert("Failed to share or copy text.");
-                    }
-                }
-            }
-        } else {
-            try {
-                await navigator.clipboard.writeText(shareContent);
-                alert("Attendance log copied to clipboard!");
-            } catch (err) {
-                alert("Sharing not supported, and failed to copy to clipboard.");
-            }
-        }
-    };
-
-    const handleSharePayments = async () => {
-        if (!data.advances || data.advances.length === 0) {
-            alert("No payment records to share.");
-            return;
-        }
-
-        const sortedAdvances = [...data.advances].sort((a: any, b: any) => (a.date || '').localeCompare(b.date || ''));
-        const monthName = monthNames[month];
-        const title = `${staff.name} - Payments/Advances (${monthName} ${year})`;
-        const divider = "=".repeat(title.length);
-
-        const listText = sortedAdvances.map((rec: any) => {
-            const dateStr = new Date(rec.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
-            const notesStr = rec.notes ? ` - ${rec.notes}` : '';
-            return `${dateStr}: ₹${rec.amount}${notesStr}`;
-        }).join('\n');
-
-        const shareContent = `${title}\n${divider}\n${listText}`;
-
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: title,
-                    text: shareContent,
-                });
-            } catch (err: any) {
-                if (err.name !== 'AbortError') {
-                    try {
-                        await navigator.clipboard.writeText(shareContent);
-                        alert("Payments log copied to clipboard!");
-                    } catch (clipboardErr) {
-                        alert("Failed to share or copy text.");
-                    }
-                }
-            }
-        } else {
-            try {
-                await navigator.clipboard.writeText(shareContent);
-                alert("Payments log copied to clipboard!");
-            } catch (err) {
-                alert("Sharing not supported, and failed to copy to clipboard.");
-            }
-        }
-    };
-
     if (!staff) return <div className="p-10 text-center text-white">Loading staff...</div>;
+
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
     return (
         <div className="flex flex-col gap-6 p-4 md:p-8 text-white max-w-[1000px] mx-auto mb-20">
@@ -505,31 +420,51 @@ export default function StaffDetailsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Attendance List */}
                 <div className="glass p-6 rounded-xl border border-white/5">
-                    <div className="flex justify-between items-center gap-2 mb-4">
-                        <h3 className="text-lg font-bold flex items-center gap-2 min-w-0">
-                            <CalendarIcon size={18} className="text-blue-400 flex-shrink-0" />
-                            <span className="truncate">Attendance Log</span>
-                        </h3>
-                        <button 
-                            onClick={handleShareAttendance} 
-                            className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 whitespace-nowrap flex-shrink-0"
-                        >
-                            <Share2 size={12} /> Share
-                        </button>
-                    </div>
+                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                        <CalendarIcon size={18} className="text-blue-400" /> Attendance Log
+                    </h3>
                     <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2">
                         {data.attendance.length > 0 ? (
                             [...data.attendance].sort((a: any, b: any) => (a.date || '').localeCompare(b.date || '')).map((rec: any) => (
                                 <div key={rec.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg text-sm group">
-                                    <span>{new Date(rec.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')}</span>
-                                    <div className="flex items-center gap-3">
-                                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.status === 'Present' ? 'bg-green-500/20 text-green-400' :
-                                            rec.status === 'Absent' ? 'bg-red-500/20 text-red-400' :
-                                            rec.status === 'Overtime' ? 'bg-purple-500/20 text-purple-400' :
-                                                'bg-yellow-500/20 text-yellow-400'
-                                            }`}>{rec.status}</span>
-                                        <button 
-                                            onClick={() => handleDeleteAttendance(rec.id)} 
+                                    <div className="flex flex-col flex-1 min-w-0 mr-4">
+                                        <span className="font-semibold">{new Date(rec.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')}</span>
+                                        <span className="text-xs text-gray-400 mt-0.5">
+                                            Worked for: <strong className="text-white">{rec.worked_for || 'Me'}</strong>
+                                        </span>
+                                        {rec.work_done && (
+                                            <span className="text-xs text-gray-500 italic mt-0.5 break-words" title={rec.work_done}>
+                                                "{rec.work_done}"
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-3 flex-shrink-0">
+                                        <div className="flex flex-col gap-1 items-end">
+                                            {/* Me's Status */}
+                                            {(rec.worked_for === 'Me' || rec.worked_for === 'Both' || !rec.worked_for) && (
+                                                <div className="flex items-center gap-1.5">
+                                                    {rec.worked_for === 'Both' && <span className="text-[10px] text-gray-500 uppercase font-medium">Me:</span>}
+                                                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.status === 'Present' ? 'bg-green-500/20 text-green-400' :
+                                                        rec.status === 'Absent' ? 'bg-red-500/20 text-red-400' :
+                                                            rec.status === 'Overtime' ? 'bg-purple-500/20 text-purple-400' :
+                                                                'bg-yellow-500/20 text-yellow-400'
+                                                        }`}>{rec.status}</span>
+                                                </div>
+                                            )}
+                                            {/* Papa's Status */}
+                                            {(rec.worked_for === 'Papa' || rec.worked_for === 'Both') && (
+                                                <div className="flex items-center gap-1.5">
+                                                    {rec.worked_for === 'Both' && <span className="text-[10px] text-gray-500 uppercase font-medium">Papa:</span>}
+                                                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.status_papa === 'Present' ? 'bg-blue-500/20 text-blue-400' :
+                                                        rec.status_papa === 'Absent' ? 'bg-red-500/20 text-red-400' :
+                                                            rec.status_papa === 'Overtime' ? 'bg-purple-500/20 text-purple-400' :
+                                                                'bg-yellow-500/20 text-yellow-400'
+                                                        }`}>{rec.status_papa || 'Present'}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <button
+                                            onClick={() => handleDeleteAttendance(rec.id)}
                                             className="p-1 text-red-400 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-opacity"
                                             title="Delete Attendance"
                                         >
@@ -544,26 +479,17 @@ export default function StaffDetailsPage() {
 
                 {/* Advances/Payments List */}
                 <div className="glass p-6 rounded-xl border border-white/5">
-                    <div className="flex justify-between items-center gap-2 mb-4">
-                        <h3 className="text-lg font-bold flex items-center gap-2 min-w-0">
-                            <Wallet size={18} className="text-red-400 flex-shrink-0" />
-                            <span className="truncate">Payments/Advances</span>
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-bold flex items-center gap-2">
+                            <Wallet size={18} className="text-red-400" /> Payments/Advances
                         </h3>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                            <button 
-                                onClick={handleSharePayments} 
-                                className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 whitespace-nowrap"
-                            >
-                                <Share2 size={12} /> Share
-                            </button>
-                            <button onClick={() => {
-                                setEditingAdvanceId(null);
-                                setAdvanceForm({ amount: '', date: new Date().toISOString().split('T')[0], notes: '', walletId: '' });
-                                setIsAdvanceModalOpen(true);
-                            }} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
-                                + Add Payment
-                            </button>
-                        </div>
+                        <button onClick={() => {
+                            setEditingAdvanceId(null);
+                            setAdvanceForm({ amount: '', date: new Date().toISOString().split('T')[0], notes: '', walletId: '' });
+                            setIsAdvanceModalOpen(true);
+                        }} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">
+                            + Add Payment
+                        </button>
                     </div>
 
                     <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2">
@@ -677,12 +603,12 @@ export default function StaffDetailsPage() {
                         <form onSubmit={handleTerminate} className="flex flex-col gap-4">
                             <div className="flex flex-col gap-1">
                                 <label className="text-xs text-gray-400 uppercase">Termination Date</label>
-                                <input 
-                                    type="date" 
-                                    className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 [color-scheme:dark]" 
-                                    value={terminationDate} 
-                                    onChange={e => setTerminationDate(e.target.value)} 
-                                    required 
+                                <input
+                                    type="date"
+                                    className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3 [color-scheme:dark]"
+                                    value={terminationDate}
+                                    onChange={e => setTerminationDate(e.target.value)}
+                                    required
                                 />
                             </div>
 
