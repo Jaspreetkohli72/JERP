@@ -27,17 +27,17 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
         router.push(`/staff/calendar?month=${nextStr}`);
     };
 
-    const getStatus = (staffId: any, day: number) => {
+    const getAttendanceRecord = (staffId: any, day: number) => {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const record = (attendance || []).find((a: any) => String(a.staff_id) === String(staffId) && a.date === dateStr);
-        if (record) return record.status;
+        if (record) return record;
 
         // If no attendance record, check if staff is currently Terminated
         const staff = (staffList || []).find((s: any) => String(s.id) === String(staffId));
         if (staff && staff.status?.startsWith('Terminated')) {
             const termDateStr = staff.status.split(':')[1];
             if (!termDateStr || dateStr >= termDateStr) {
-                return 'Terminated';
+                return { status: 'Terminated', isTerminated: true };
             }
         }
         return null;
@@ -50,24 +50,100 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
         return status;
     };
 
-    const getStatusColor = (rawStatus: string) => {
-        const status = normalizeStatus(rawStatus);
-        if (status === 'Present') return 'bg-green-500 text-black shadow-[0_0_10px_rgba(34,197,94,0.4)]';
-        if (status === 'Absent') return 'bg-red-500 text-black shadow-[0_0_10px_rgba(239,68,68,0.4)]';
-        if (status === 'Half-Day') return 'bg-yellow-500 text-black shadow-[0_0_10px_rgba(234,179,8,0.4)]';
-        if (status === 'Overtime') return 'bg-purple-500 text-black shadow-[0_0_10px_rgba(168,85,247,0.4)]';
-        if (status === 'Terminated') return 'bg-gray-600/40 text-gray-400 border border-white/10 shadow-[0_0_10px_rgba(100,100,100,0.1)]';
-        return '';
-    };
+    const getCellDetails = (record: any) => {
+        if (!record) return null;
+        if (record.isTerminated) {
+            return {
+                bgColor: 'bg-gray-600/40 text-gray-400 border border-white/10 shadow-[0_0_10px_rgba(100,100,100,0.1)]',
+                text: 'T',
+                tooltip: 'Terminated',
+                textClass: 'text-xs'
+            };
+        }
 
-    const getStatusIcon = (rawStatus: string) => {
-        const status = normalizeStatus(rawStatus);
-        if (status === 'Present') return 'P';
-        if (status === 'Absent') return 'A';
-        if (status === 'Half-Day') return 'H';
-        if (status === 'Overtime') return 'OT';
-        if (status === 'Terminated') return 'T';
-        return '';
+        const workedFor = record.worked_for || 'Me';
+        const status = normalizeStatus(record.status);
+        const statusPapa = normalizeStatus(record.status_papa);
+        const workDone = record.work_done;
+
+        let bgColor = '';
+        let text = '';
+        let tooltip = '';
+        let textClass = 'text-xs';
+
+        if (workedFor === 'Me') {
+            tooltip = `Worked for Me: ${status}`;
+            if (status === 'Present') {
+                bgColor = 'bg-green-500 text-black shadow-[0_0_10px_rgba(34,197,94,0.4)]';
+                text = 'P';
+            } else if (status === 'Half-Day') {
+                bgColor = 'bg-yellow-500 text-black shadow-[0_0_10px_rgba(234,179,8,0.4)]';
+                text = 'H';
+            } else if (status === 'Overtime') {
+                bgColor = 'bg-purple-500 text-black shadow-[0_0_10px_rgba(168,85,247,0.4)]';
+                text = 'OT';
+            } else {
+                bgColor = 'bg-red-500 text-black shadow-[0_0_10px_rgba(239,68,68,0.4)]';
+                text = 'A';
+            }
+        } else if (workedFor === 'Papa') {
+            const actualStatusPapa = statusPapa || 'Present';
+            tooltip = `Worked for Papa: ${actualStatusPapa}`;
+            if (actualStatusPapa === 'Present') {
+                bgColor = 'bg-blue-500 text-black shadow-[0_0_10px_rgba(59,130,246,0.4)]';
+                text = 'P';
+            } else if (actualStatusPapa === 'Half-Day') {
+                bgColor = 'bg-cyan-500 text-black shadow-[0_0_10px_rgba(6,182,212,0.4)]';
+                text = 'H';
+            } else if (actualStatusPapa === 'Overtime') {
+                bgColor = 'bg-indigo-500 text-black shadow-[0_0_10px_rgba(99,102,241,0.4)]';
+                text = 'OT';
+            } else {
+                bgColor = 'bg-red-500 text-black shadow-[0_0_10px_rgba(239,68,68,0.4)]';
+                text = 'A';
+            }
+        } else if (workedFor === 'Both') {
+            const displayStatusMe = status || 'Present';
+            const displayStatusPapa = statusPapa || 'Present';
+            tooltip = `Worked for Both: Me (${displayStatusMe}) | Papa (${displayStatusPapa})`;
+            
+            let fromColor = 'from-green-500';
+            let toColor = 'to-blue-500';
+            let meChar = 'P';
+            let papaChar = 'P';
+
+            if (displayStatusMe === 'Half-Day') {
+                fromColor = 'from-yellow-500';
+                meChar = 'H';
+            } else if (displayStatusMe === 'Absent') {
+                fromColor = 'from-red-500';
+                meChar = 'A';
+            } else if (displayStatusMe === 'Overtime') {
+                fromColor = 'from-purple-500';
+                meChar = 'OT';
+            }
+
+            if (displayStatusPapa === 'Half-Day') {
+                toColor = 'to-cyan-500';
+                papaChar = 'H';
+            } else if (displayStatusPapa === 'Absent') {
+                toColor = 'to-red-500';
+                papaChar = 'A';
+            } else if (displayStatusPapa === 'Overtime') {
+                toColor = 'to-indigo-500';
+                papaChar = 'OT';
+            }
+
+            bgColor = `bg-gradient-to-br ${fromColor} ${toColor} text-black font-semibold`;
+            text = `${meChar}/${papaChar}`;
+            textClass = 'text-[9px] leading-none';
+        }
+
+        if (workDone) {
+            tooltip += ` (Work: ${workDone})`;
+        }
+
+        return { bgColor, text, tooltip, textClass };
     };
 
     return (
@@ -116,12 +192,17 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
                                         <div className="text-xs text-gray-500">{staff.role}</div>
                                     </td>
                                     {daysArray.map(day => {
-                                        const status = getStatus(staff.id, day);
+                                        const record = getAttendanceRecord(staff.id, day);
+                                        const cell = getCellDetails(record);
                                         return (
                                             <td key={day} className="p-1 text-center min-w-[40px]">
-                                                {status && (
-                                                    <div className={`w-8 h-8 mx-auto rounded-lg flex items-center justify-center text-xs font-bold transition-all hover:scale-110 cursor-default group/cell relative ${getStatusColor(status)}`}>
-                                                        {getStatusIcon(status)}
+                                                {cell && (
+                                                    <div className={`w-8 h-8 mx-auto rounded-lg flex items-center justify-center font-bold transition-all hover:scale-110 cursor-default group/cell relative ${cell.textClass} ${cell.bgColor}`}>
+                                                        {cell.text}
+                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/cell:block z-30 bg-[#0e0e0e] border border-white/10 text-xs px-3 py-2 rounded-lg whitespace-normal w-max max-w-[200px] break-words shadow-xl pointer-events-none text-left">
+                                                            <div className="font-semibold text-gray-300 mb-0.5">{year}-{String(month + 1).padStart(2, '0')}-{String(day).padStart(2, '0')}</div>
+                                                            <div className="text-gray-400">{cell.tooltip}</div>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </td>
@@ -134,22 +215,30 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
                 </div>
             </div>
             {/* Legend */}
-            <div className="flex gap-6 mt-4 justify-center">
+            <div className="flex flex-wrap gap-6 mt-4 justify-center">
                 <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-green-500/50"></div>
-                    <span className="text-sm text-gray-400">Present</span>
+                    <span className="text-sm text-gray-400">Present (Mine)</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-yellow-500/50"></div>
-                    <span className="text-sm text-gray-400">Half Day</span>
+                    <span className="text-sm text-gray-400">Half Day (Mine)</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-purple-500/50"></div>
-                    <span className="text-sm text-gray-400">Overtime</span>
+                    <span className="text-sm text-gray-400">Overtime (Mine)</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-red-500/50"></div>
-                    <span className="text-sm text-gray-400">Absent</span>
+                    <span className="text-sm text-gray-400">Absent (Mine)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-blue-500/50"></div>
+                    <span className="text-sm text-gray-400">Worked for Papa</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-gradient-to-br from-green-500/50 to-blue-500/50"></div>
+                    <span className="text-sm text-gray-400">Worked for Both</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-gray-500/50"></div>
