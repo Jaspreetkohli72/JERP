@@ -12,7 +12,6 @@ export default function MobileNav() {
 
     const navItems = [
         { name: "Overview", icon: Home, href: "/" }, // Home -> Overview
-        { name: "Wallets", icon: CreditCard, href: "/wallets" }, // New
         { name: "Sales", icon: ShoppingCart, href: "/sales" },
         { name: "Ops", icon: Target, href: "/operations" },
         { name: "Work", icon: BarChart2, href: "/contracting" }, // "Contracting" -> Work (Short name ok)
@@ -20,6 +19,7 @@ export default function MobileNav() {
         { name: "Mktg", icon: Target, href: "/marketing" }, // New
         { name: "Reports", icon: BarChart2, href: "/reports" }, // New
         { name: "Pending", icon: CreditCard, href: "/pending" }, // New
+        { name: "Wallets", icon: CreditCard, href: "/wallets" }, // New
         { name: "Transactions", icon: CreditCard, href: "/transactions" }, // New
         { name: "Settings", icon: Settings, href: "/contracting/settings" }, // New (using Settings icon if available import)
     ];

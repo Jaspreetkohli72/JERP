@@ -19,7 +19,6 @@ export default function Sidebar() {
 
     const navItems = [
         { name: "Overview", icon: Home, href: "/" },
-        { name: "Wallets", icon: CreditCard, href: "/wallets" },
         { name: "Sales", icon: ShoppingCart, href: "/sales" },
         { name: "Operations", icon: Target, href: "/operations" },
         { name: "Contracting", icon: BarChart2, href: "/contracting" },
@@ -27,6 +26,7 @@ export default function Sidebar() {
         { name: "Marketing", icon: Target, href: "/marketing" },
         { name: "Reports", icon: BarChart2, href: "/reports" },
         { name: "Pending", icon: CreditCard, href: "/pending" },
+        { name: "Wallets", icon: CreditCard, href: "/wallets" },
         { name: "Contacts", icon: Users, href: "/contacts" },
         { name: "Transactions", icon: CreditCard, href: "/transactions" },
         { name: "Settings", icon: Settings, href: "/contracting/settings" },
