@@ -197,7 +197,7 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
                                         return (
                                             <td key={day} className="p-1 text-center min-w-[40px]">
                                                 {cell && (
-                                                    <div className={`w-8 h-8 mx-auto rounded-lg flex items-center justify-center font-bold transition-all hover:scale-110 cursor-default group/cell relative ${cell.textClass} ${cell.bgColor}`}>
+                                                    <div className={`w-8 h-8 mx-auto rounded-lg flex items-center justify-center font-bold transition-all hover:scale-110 cursor-default group/cell relative hover:z-30 ${cell.textClass} ${cell.bgColor}`}>
                                                         {cell.text}
                                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/cell:block z-30 bg-[#0e0e0e] border border-white/10 text-xs px-3 py-2 rounded-lg whitespace-normal w-max max-w-[200px] break-words shadow-xl pointer-events-none text-left">
                                                             <div className="font-semibold text-gray-300 mb-0.5">{year}-{String(month + 1).padStart(2, '0')}-{String(day).padStart(2, '0')}</div>

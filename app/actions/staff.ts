@@ -23,22 +23,39 @@ export async function getStaffStats() {
 
     // 2. Calculate Payroll Logic (Ported from FinanceContext)
     const staffWithPay = staffList.map(staff => {
+        // Find latest settlement date
+        let latestSettleDate = '';
+        allStaffAdvances.forEach(adv => {
+            if (String(adv.staff_id) === String(staff.id) && adv.notes) {
+                const match = adv.notes.match(/Account Settlement up to\s*:?\s*(\d{4}-\d{2}-\d{2})/i);
+                if (match) {
+                    const dStr = match[1];
+                    if (dStr > latestSettleDate) {
+                        latestSettleDate = dStr;
+                    }
+                }
+            }
+        });
+
         // Attendance
         const staffAttendance = attendance.filter(a =>
             String(a.staff_id) === String(staff.id) &&
+            (!latestSettleDate || a.date > latestSettleDate) &&
             (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)
         );
 
         const daysPresent = staffAttendance.filter(a => a.status === 'Present').length;
         const halfDays = staffAttendance.filter(a => a.status === 'Half-Day').length;
         const overtimeDays = staffAttendance.filter(a => a.status === 'Overtime').length;
-        const totalDays = daysPresent + (halfDays * 0.5) + overtimeDays;
-        const salaryDays = daysPresent + (halfDays * 0.5) + (overtimeDays * 1.5);
+        const totalDays = daysPresent + (halfDays * 0.5) + (overtimeDays * 1.5);
+        const salaryDays = totalDays;
         const salaryAccrued = salaryDays * (Number(staff.salary) || 0);
 
         // Advances
         const staffAdvances = allStaffAdvances.filter(adv =>
-            String(adv.staff_id) === String(staff.id)
+            String(adv.staff_id) === String(staff.id) &&
+            (!latestSettleDate || adv.date > latestSettleDate) &&
+            !(adv.notes && /Account Settlement up to/i.test(adv.notes))
         );
         const totalAdvances = staffAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0);
         const netPayable = salaryAccrued - totalAdvances;

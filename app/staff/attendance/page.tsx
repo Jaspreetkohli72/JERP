@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useFinance } from '@/context/FinanceContext';
-import { ArrowLeft, Save, CheckCircle, XCircle, Clock, Zap, Pencil } from 'lucide-react';
+import { ArrowLeft, Save, CheckCircle, XCircle, Clock, Zap, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
 import { submitDailyAttendanceAction } from '@/app/actions/staff';
 
 interface AttendanceRecord {
@@ -20,6 +20,19 @@ export default function AttendancePage() {
         d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
         return d.toISOString().split('T')[0];
     });
+
+    const handlePrevDay = () => {
+        const d = new Date(date);
+        d.setDate(d.getDate() - 1);
+        setDate(d.toISOString().split('T')[0]);
+    };
+
+    const handleNextDay = () => {
+        const d = new Date(date);
+        d.setDate(d.getDate() + 1);
+        setDate(d.toISOString().split('T')[0]);
+    };
+
     const [loading, setLoading] = useState(false);
     const [attendance, setAttendance] = useState<Record<string, AttendanceRecord>>({});
 
@@ -175,12 +188,30 @@ export default function AttendancePage() {
                 <div className="flex-1">
                     <h1 className="text-2xl font-bold">Mark Attendance</h1>
                 </div>
-                <input
-                    type="date"
-                    className="bg-black/30 border border-white/10 rounded-lg px-4 py-2 text-sm focus:border-[var(--accent)] focus:outline-none [color-scheme:dark]"
-                    value={date}
-                    onChange={e => setDate(e.target.value)}
-                />
+                <div className="flex items-center gap-1 bg-black/30 border border-white/10 rounded-lg p-1">
+                    <button
+                        type="button"
+                        onClick={handlePrevDay}
+                        className="p-1.5 hover:bg-white/5 rounded transition-colors text-gray-400 hover:text-white"
+                        title="Previous Day"
+                    >
+                        <ChevronLeft size={16} />
+                    </button>
+                    <input
+                        type="date"
+                        className="bg-transparent border-0 text-sm focus:outline-none [color-scheme:dark] px-2 py-1 cursor-pointer"
+                        value={date}
+                        onChange={e => setDate(e.target.value)}
+                    />
+                    <button
+                        type="button"
+                        onClick={handleNextDay}
+                        className="p-1.5 hover:bg-white/5 rounded transition-colors text-gray-400 hover:text-white"
+                        title="Next Day"
+                    >
+                        <ChevronRight size={16} />
+                    </button>
+                </div>
             </div>
 
             {/* List */}

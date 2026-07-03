@@ -90,9 +90,24 @@ export function FinanceProvider({ children }) {
     // Derived Staff with Pay Logic
     const staffWithPay = React.useMemo(() => {
         return staffList.map(staff => {
-            // 1. Calculate Attendance Accrual (All-time totals)
+            // Find latest settlement date for this staff
+            let latestSettleDate = '';
+            (allStaffAdvances || []).forEach(adv => {
+                if (String(adv.staff_id) === String(staff.id) && adv.notes) {
+                    const match = adv.notes.match(/Account Settlement up to\s*:?\s*(\d{4}-\d{2}-\d{2})/i);
+                    if (match) {
+                        const dStr = match[1];
+                        if (dStr > latestSettleDate) {
+                            latestSettleDate = dStr;
+                        }
+                    }
+                }
+            });
+
+            // 1. Calculate Attendance Accrual (All-time totals post-settlement)
             const staffAttendance = (attendance || []).filter(a => {
                 return String(a.staff_id) === String(staff.id) &&
+                    (!latestSettleDate || a.date > latestSettleDate) &&
                     (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for);
             });
 
@@ -100,13 +115,15 @@ export function FinanceProvider({ children }) {
             const halfDays = staffAttendance.filter(a => a.status === 'Half-Day').length;
             const overtimeDays = staffAttendance.filter(a => a.status === 'Overtime').length;
 
-            const totalDays = daysPresent + (halfDays * 0.5) + overtimeDays;
-            const salaryDays = daysPresent + (halfDays * 0.5) + (overtimeDays * 1.5);
+            const totalDays = daysPresent + (halfDays * 0.5) + (overtimeDays * 1.5);
+            const salaryDays = totalDays;
             const salaryAccrued = salaryDays * (Number(staff.salary) || 0);
 
-            // 2. Calculate Advances Taken (All-time totals)
+            // 2. Calculate Advances Taken (All-time totals post-settlement)
             const staffAdvances = allStaffAdvances.filter(adv => {
-                return String(adv.staff_id) === String(staff.id);
+                return String(adv.staff_id) === String(staff.id) &&
+                    (!latestSettleDate || adv.date > latestSettleDate) &&
+                    !(adv.notes && /Account Settlement up to/i.test(adv.notes));
             });
 
             const totalAdvances = staffAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0);

@@ -125,15 +125,58 @@ export default function StaffDetailsPage() {
         if (id) loadData();
     }, [id, month, year]);
 
-    // Stats Logic
+    const formatDateFriendly = (dateStr: string) => {
+        if (!dateStr) return '';
+        const parts = dateStr.split('-');
+        if (parts.length !== 3) return dateStr;
+        const [y, m, d] = parts;
+        const monthNamesShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        return `${d}-${monthNamesShort[parseInt(m) - 1]}-${y}`;
+    };
+
+    // Find the latest settlement info
+    const latestSettlementInfo = (() => {
+        let latestSettleDate = '';
+        let paymentDate = '';
+        data.advances.forEach((adv: any) => {
+            if (adv.notes) {
+                const match = adv.notes.match(/Account Settlement up to\s*:?\s*(\d{4}-\d{2}-\d{2})/i);
+                if (match) {
+                    const dateStr = match[1];
+                    if (dateStr > latestSettleDate) {
+                        latestSettleDate = dateStr;
+                        paymentDate = adv.date;
+                    }
+                }
+            }
+        });
+        return { settleDate: latestSettleDate, paymentDate };
+    })();
+
+    // Filter advances to exclude those on/before latestSettlementInfo.paymentDate and any settlement entries
+    const activeAdvancesForSum = data.advances.filter((adv: any) => {
+        const isSettlement = adv.notes && /Account Settlement up to/i.test(adv.notes);
+        if (isSettlement) return false;
+        if (latestSettlementInfo.paymentDate && adv.date <= latestSettlementInfo.paymentDate) return false;
+        return true;
+    });
+
+    // Stats Logic (Me)
     const presentCount = data.attendance.filter((a: any) => a.status === 'Present' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
     const halfDayCount = data.attendance.filter((a: any) => a.status === 'Half-Day' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
     const overtimeCount = data.attendance.filter((a: any) => a.status === 'Overtime' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
-    const effectiveDays = presentCount + (halfDayCount * 0.5) + overtimeCount;
     const salaryDays = presentCount + (halfDayCount * 0.5) + (overtimeCount * 1.5);
     const estimatedEarnings = staff ? salaryDays * staff.salary : 0;
-    const totalAdvances = data.advances.reduce((sum, a: any) => sum + Number(a.amount), 0);
+    const totalAdvances = activeAdvancesForSum.reduce((sum, a: any) => sum + Number(a.amount), 0);
     const balance = estimatedEarnings - totalAdvances;
+
+    // Papa Stats
+    const presentPapa = data.attendance.filter((a: any) => a.status_papa === 'Present' && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
+    const halfDayPapa = data.attendance.filter((a: any) => a.status_papa === 'Half-Day' && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
+    const overtimePapa = data.attendance.filter((a: any) => a.status_papa === 'Overtime' && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
+    const salaryDaysPapa = presentPapa + (halfDayPapa * 0.5) + (overtimePapa * 1.5);
+
+    const totalAttendanceDays = salaryDays + salaryDaysPapa;
 
     const handleAddAdvance = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -174,9 +217,26 @@ export default function StaffDetailsPage() {
         const attList = globalAttendance && globalAttendance.length > 0 ? globalAttendance : data.attendance;
         const advList = globalAdvances && globalAdvances.length > 0 ? globalAdvances : data.advances;
 
+        // Find latest settlement date from advList
+        let latestSettleDate = '';
+        let latestSettlePaymentDate = '';
+        advList.forEach((adv: any) => {
+            if (String(adv.staff_id) === String(id) && adv.notes) {
+                const match = adv.notes.match(/Account Settlement up to\s*:?\s*(\d{4}-\d{2}-\d{2})/i);
+                if (match) {
+                    const dStr = match[1];
+                    if (dStr > latestSettleDate) {
+                        latestSettleDate = dStr;
+                        latestSettlePaymentDate = adv.date;
+                    }
+                }
+            }
+        });
+
         const staffAtt = attList.filter((a: any) =>
             String(a.staff_id) === String(id) &&
             a.date && a.date <= dateStr &&
+            (!latestSettleDate || a.date > latestSettleDate) &&
             (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)
         );
 
@@ -187,9 +247,11 @@ export default function StaffDetailsPage() {
         const salDays = present + (halfDay * 0.5) + (overtime * 1.5);
         const earnings = salDays * (Number(staff.salary) || 0);
 
-        // Advances are calculated up to the current day / all-time
+        // Advances
         const staffAdv = advList.filter((a: any) =>
-            String(a.staff_id) === String(id)
+            String(a.staff_id) === String(id) &&
+            (!latestSettlePaymentDate || a.date > latestSettlePaymentDate) &&
+            !(a.notes && /Account Settlement up to/i.test(a.notes))
         );
 
         const advances = staffAdv.reduce((sum: number, a: any) => sum + Number(a.amount), 0);
@@ -368,11 +430,10 @@ export default function StaffDetailsPage() {
                         <CalendarIcon size={20} />
                         <h3 className="font-bold text-sm uppercase tracking-wider">Attendance ({monthNames[month]})</h3>
                     </div>
-                    <div className="text-2xl font-bold">{effectiveDays} Days</div>
-                    <div className="flex gap-2 text-xs text-gray-500 mt-1">
-                        <span>P: {presentCount}</span>
-                        <span>HD: {halfDayCount}</span>
-                        <span>OT: {overtimeCount}</span>
+                    <div className="text-2xl font-bold">{totalAttendanceDays} Days</div>
+                    <div className="flex flex-col gap-1 text-[11px] text-gray-500 mt-2">
+                        <div>Me: P: {presentCount} HD: {halfDayCount} OT: {overtimeCount}</div>
+                        <div>Papa: P: {presentPapa} HD: {halfDayPapa} OT: {overtimePapa}</div>
                     </div>
                 </div>
 
@@ -393,6 +454,12 @@ export default function StaffDetailsPage() {
                         </div>
                         <div className="text-2xl font-bold">₹{totalAdvances.toLocaleString()}</div>
                         <p className="text-xs text-gray-500 mt-1">Balance: ₹{overallBalance.toLocaleString()}</p>
+                        {latestSettlementInfo.settleDate && (
+                            <div className="text-[10px] text-gray-500 mt-2 flex flex-col gap-0.5 border-t border-white/5 pt-2">
+                                <div>Last Settled: <strong className="text-gray-400">{formatDateFriendly(latestSettlementInfo.paymentDate)}</strong></div>
+                                <div>Settled Till: <strong className="text-gray-400">{formatDateFriendly(latestSettlementInfo.settleDate)}</strong></div>
+                            </div>
+                        )}
                     </div>
                     {overallBalance > 0 && (
                         <button
