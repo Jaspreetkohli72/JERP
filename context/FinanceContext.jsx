@@ -90,8 +90,9 @@ export function FinanceProvider({ children }) {
     // Derived Staff with Pay Logic
     const staffWithPay = React.useMemo(() => {
         return staffList.map(staff => {
-            // Find latest settlement date for this staff
+            // Find latest settlement date and payment date for this staff
             let latestSettleDate = '';
+            let paymentDate = '';
             (allStaffAdvances || []).forEach(adv => {
                 if (String(adv.staff_id) === String(staff.id) && adv.notes) {
                     const match = adv.notes.match(/Account Settlement up to\s*:?\s*(\d{4}-\d{2}-\d{2})/i);
@@ -99,15 +100,16 @@ export function FinanceProvider({ children }) {
                         const dStr = match[1];
                         if (dStr > latestSettleDate) {
                             latestSettleDate = dStr;
+                            paymentDate = adv.date;
                         }
                     }
                 }
             });
 
-            // 1. Calculate Attendance Accrual (All-time totals post-settlement)
+            // 1. Calculate Attendance Accrual (All-time totals post-settlement payment)
             const staffAttendance = (attendance || []).filter(a => {
                 return String(a.staff_id) === String(staff.id) &&
-                    (!latestSettleDate || a.date > latestSettleDate);
+                    (!paymentDate || a.date > paymentDate);
             });
 
             const daysPresentMe = staffAttendance.filter(a => a.status === 'Present' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
@@ -127,10 +129,10 @@ export function FinanceProvider({ children }) {
             const salaryDays = totalDays;
             const salaryAccrued = salaryDays * (Number(staff.salary) || 0);
 
-            // 2. Calculate Advances Taken (All-time totals post-settlement)
+            // 2. Calculate Advances Taken (All-time totals post-settlement payment)
             const staffAdvances = allStaffAdvances.filter(adv => {
                 return String(adv.staff_id) === String(staff.id) &&
-                    (!latestSettleDate || adv.date > latestSettleDate) &&
+                    (!paymentDate || adv.date > paymentDate) &&
                     !(adv.notes && /Account Settlement up to/i.test(adv.notes));
             });
 

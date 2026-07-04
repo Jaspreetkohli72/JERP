@@ -153,11 +153,11 @@ export default function StaffDetailsPage() {
         return { settleDate: latestSettleDate, paymentDate };
     })();
 
-    // Filter advances to exclude those on/before latestSettlementInfo.settleDate and any settlement entries
+    // Filter advances to exclude those on/before latestSettlementInfo.paymentDate and any settlement entries
     const activeAdvancesForSum = data.advances.filter((adv: any) => {
         const isSettlement = adv.notes && /Account Settlement up to/i.test(adv.notes);
         if (isSettlement) return false;
-        if (latestSettlementInfo.settleDate && adv.date <= latestSettlementInfo.settleDate) return false;
+        if (latestSettlementInfo.paymentDate && adv.date <= latestSettlementInfo.paymentDate) return false;
         return true;
     });
 
@@ -218,8 +218,9 @@ export default function StaffDetailsPage() {
         const attList = globalAttendance && globalAttendance.length > 0 ? globalAttendance : data.attendance;
         const advList = globalAdvances && globalAdvances.length > 0 ? globalAdvances : data.advances;
 
-        // Find latest settlement date from advList
+        // Find latest settlement date and payment date from advList
         let latestSettleDate = '';
+        let paymentDate = '';
         advList.forEach((adv: any) => {
             if (String(adv.staff_id) === String(id) && adv.notes) {
                 const match = adv.notes.match(/Account Settlement up to\s*:?\s*(\d{4}-\d{2}-\d{2})/i);
@@ -227,6 +228,7 @@ export default function StaffDetailsPage() {
                     const dStr = match[1];
                     if (dStr > latestSettleDate) {
                         latestSettleDate = dStr;
+                        paymentDate = adv.date;
                     }
                 }
             }
@@ -235,7 +237,7 @@ export default function StaffDetailsPage() {
         const staffAtt = attList.filter((a: any) =>
             String(a.staff_id) === String(id) &&
             a.date && a.date <= dateStr &&
-            (!latestSettleDate || a.date > latestSettleDate)
+            (!paymentDate || a.date > paymentDate)
         );
 
         const salDays = staffAtt.reduce((sum: number, a: any) => {
@@ -258,7 +260,7 @@ export default function StaffDetailsPage() {
         // Advances
         const staffAdv = advList.filter((a: any) =>
             String(a.staff_id) === String(id) &&
-            (!latestSettleDate || a.date > latestSettleDate) &&
+            (!paymentDate || a.date > paymentDate) &&
             !(a.notes && /Account Settlement up to/i.test(a.notes))
         );
 
@@ -461,7 +463,7 @@ export default function StaffDetailsPage() {
                             <h3 className="font-bold text-sm uppercase tracking-wider">Advances/Paid</h3>
                         </div>
                         <div className="text-2xl font-bold">₹{totalAdvances.toLocaleString()}</div>
-                        <p className="text-xs text-gray-500 mt-1">Balance: ₹{overallBalance.toLocaleString()}</p>
+                        <p className="text-xs text-gray-500 mt-1">Balance: ₹{balance.toLocaleString()}</p>
                         {latestSettlementInfo.settleDate && (
                             <div className="text-[10px] text-gray-500 mt-2 flex flex-col gap-0.5 border-t border-white/5 pt-2">
                                 <div>Last Settled: <strong className="text-gray-400">{formatDateFriendly(latestSettlementInfo.paymentDate)}</strong></div>

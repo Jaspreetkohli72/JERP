@@ -25,6 +25,7 @@ export async function getStaffStats() {
     const staffWithPay = staffList.map(staff => {
         // Find latest settlement date
         let latestSettleDate = '';
+        let paymentDate = '';
         allStaffAdvances.forEach(adv => {
             if (String(adv.staff_id) === String(staff.id) && adv.notes) {
                 const match = adv.notes.match(/Account Settlement up to\s*:?\s*(\d{4}-\d{2}-\d{2})/i);
@@ -32,6 +33,7 @@ export async function getStaffStats() {
                     const dStr = match[1];
                     if (dStr > latestSettleDate) {
                         latestSettleDate = dStr;
+                        paymentDate = adv.date;
                     }
                 }
             }
@@ -40,7 +42,7 @@ export async function getStaffStats() {
         // Attendance
         const staffAttendance = attendance.filter(a =>
             String(a.staff_id) === String(staff.id) &&
-            (!latestSettleDate || a.date > latestSettleDate)
+            (!paymentDate || a.date > paymentDate)
         );
 
         const daysPresentMe = staffAttendance.filter(a => a.status === 'Present' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
@@ -63,7 +65,7 @@ export async function getStaffStats() {
         // Advances
         const staffAdvances = allStaffAdvances.filter(adv =>
             String(adv.staff_id) === String(staff.id) &&
-            (!latestSettleDate || adv.date > latestSettleDate) &&
+            (!paymentDate || adv.date > paymentDate) &&
             !(adv.notes && /Account Settlement up to/i.test(adv.notes))
         );
         const totalAdvances = staffAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0);
