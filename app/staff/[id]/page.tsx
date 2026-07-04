@@ -153,11 +153,11 @@ export default function StaffDetailsPage() {
         return { settleDate: latestSettleDate, paymentDate };
     })();
 
-    // Filter advances to exclude those on/before latestSettlementInfo.paymentDate and any settlement entries
+    // Filter advances to exclude those on/before latestSettlementInfo.settleDate and any settlement entries
     const activeAdvancesForSum = data.advances.filter((adv: any) => {
         const isSettlement = adv.notes && /Account Settlement up to/i.test(adv.notes);
         if (isSettlement) return false;
-        if (latestSettlementInfo.paymentDate && adv.date <= latestSettlementInfo.paymentDate) return false;
+        if (latestSettlementInfo.settleDate && adv.date <= latestSettlementInfo.settleDate) return false;
         return true;
     });
 
@@ -220,7 +220,6 @@ export default function StaffDetailsPage() {
 
         // Find latest settlement date from advList
         let latestSettleDate = '';
-        let latestSettlePaymentDate = '';
         advList.forEach((adv: any) => {
             if (String(adv.staff_id) === String(id) && adv.notes) {
                 const match = adv.notes.match(/Account Settlement up to\s*:?\s*(\d{4}-\d{2}-\d{2})/i);
@@ -228,7 +227,6 @@ export default function StaffDetailsPage() {
                     const dStr = match[1];
                     if (dStr > latestSettleDate) {
                         latestSettleDate = dStr;
-                        latestSettlePaymentDate = adv.date;
                     }
                 }
             }
@@ -260,7 +258,7 @@ export default function StaffDetailsPage() {
         // Advances
         const staffAdv = advList.filter((a: any) =>
             String(a.staff_id) === String(id) &&
-            (!latestSettlePaymentDate || a.date > latestSettlePaymentDate) &&
+            (!latestSettleDate || a.date > latestSettleDate) &&
             !(a.notes && /Account Settlement up to/i.test(a.notes))
         );
 
