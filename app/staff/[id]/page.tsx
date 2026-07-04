@@ -165,10 +165,7 @@ export default function StaffDetailsPage() {
     const presentCount = data.attendance.filter((a: any) => a.status === 'Present' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
     const halfDayCount = data.attendance.filter((a: any) => a.status === 'Half-Day' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
     const overtimeCount = data.attendance.filter((a: any) => a.status === 'Overtime' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
-    const salaryDays = presentCount + (halfDayCount * 0.5) + (overtimeCount * 1.5);
-    const estimatedEarnings = staff ? salaryDays * staff.salary : 0;
-    const totalAdvances = activeAdvancesForSum.reduce((sum, a: any) => sum + Number(a.amount), 0);
-    const balance = estimatedEarnings - totalAdvances;
+    const salaryDaysMe = presentCount + (halfDayCount * 0.5) + (overtimeCount * 1.5);
 
     // Papa Stats
     const presentPapa = data.attendance.filter((a: any) => a.status_papa === 'Present' && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
@@ -176,7 +173,11 @@ export default function StaffDetailsPage() {
     const overtimePapa = data.attendance.filter((a: any) => a.status_papa === 'Overtime' && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
     const salaryDaysPapa = presentPapa + (halfDayPapa * 0.5) + (overtimePapa * 1.5);
 
-    const totalAttendanceDays = salaryDays + salaryDaysPapa;
+    const totalAttendanceDays = salaryDaysMe + salaryDaysPapa;
+    const salaryDays = totalAttendanceDays;
+    const estimatedEarnings = staff ? salaryDays * staff.salary : 0;
+    const totalAdvances = activeAdvancesForSum.reduce((sum, a: any) => sum + Number(a.amount), 0);
+    const balance = estimatedEarnings - totalAdvances;
 
     const handleAddAdvance = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -236,15 +237,24 @@ export default function StaffDetailsPage() {
         const staffAtt = attList.filter((a: any) =>
             String(a.staff_id) === String(id) &&
             a.date && a.date <= dateStr &&
-            (!latestSettleDate || a.date > latestSettleDate) &&
-            (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)
+            (!latestSettleDate || a.date > latestSettleDate)
         );
 
-        const present = staffAtt.filter((a: any) => a.status === 'Present').length;
-        const halfDay = staffAtt.filter((a: any) => a.status === 'Half-Day').length;
-        const overtime = staffAtt.filter((a: any) => a.status === 'Overtime').length;
+        const salDays = staffAtt.reduce((sum: number, a: any) => {
+            let days = 0;
+            if (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for) {
+                if (a.status === 'Present') days += 1.0;
+                else if (a.status === 'Half-Day') days += 0.5;
+                else if (a.status === 'Overtime') days += 1.5;
+            }
+            if (a.worked_for === 'Papa' || a.worked_for === 'Both') {
+                if (a.status_papa === 'Present') days += 1.0;
+                else if (a.status_papa === 'Half-Day') days += 0.5;
+                else if (a.status_papa === 'Overtime') days += 1.5;
+            }
+            return sum + days;
+        }, 0);
 
-        const salDays = present + (halfDay * 0.5) + (overtime * 1.5);
         const earnings = salDays * (Number(staff.salary) || 0);
 
         // Advances

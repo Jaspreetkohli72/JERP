@@ -40,14 +40,23 @@ export async function getStaffStats() {
         // Attendance
         const staffAttendance = attendance.filter(a =>
             String(a.staff_id) === String(staff.id) &&
-            (!latestSettleDate || a.date > latestSettleDate) &&
-            (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)
+            (!latestSettleDate || a.date > latestSettleDate)
         );
 
-        const daysPresent = staffAttendance.filter(a => a.status === 'Present').length;
-        const halfDays = staffAttendance.filter(a => a.status === 'Half-Day').length;
-        const overtimeDays = staffAttendance.filter(a => a.status === 'Overtime').length;
-        const totalDays = daysPresent + (halfDays * 0.5) + (overtimeDays * 1.5);
+        const daysPresentMe = staffAttendance.filter(a => a.status === 'Present' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
+        const halfDaysMe = staffAttendance.filter(a => a.status === 'Half-Day' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
+        const overtimeDaysMe = staffAttendance.filter(a => a.status === 'Overtime' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
+
+        const daysPresentPapa = staffAttendance.filter(a => a.status_papa === 'Present' && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
+        const halfDaysPapa = staffAttendance.filter(a => a.status_papa === 'Half-Day' && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
+        const overtimeDaysPapa = staffAttendance.filter(a => a.status_papa === 'Overtime' && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
+
+        const daysPresent = daysPresentMe + daysPresentPapa;
+        const halfDays = halfDaysMe + halfDaysPapa;
+        const overtimeDays = overtimeDaysMe + overtimeDaysPapa;
+
+        const totalDays = (daysPresentMe + (halfDaysMe * 0.5) + (overtimeDaysMe * 1.5)) +
+                          (daysPresentPapa + (halfDaysPapa * 0.5) + (overtimeDaysPapa * 1.5));
         const salaryDays = totalDays;
         const salaryAccrued = salaryDays * (Number(staff.salary) || 0);
 
