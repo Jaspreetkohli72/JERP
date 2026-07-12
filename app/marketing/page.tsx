@@ -20,11 +20,12 @@ export default function MarketingPage() {
     const [isAddInventoryOpen, setIsAddInventoryOpen] = useState(false);
     const [isAddShoppingOpen, setIsAddShoppingOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null);
+    const [editingShoppingItem, setEditingShoppingItem] = useState<any>(null);
 
     // Forms
     const [newSupplier, setNewSupplier] = useState({ name: '', phone: '', address: '', gstin: '' });
-    const [newItem, setNewItem] = useState({ item_name: '', unit: 'pcs', category: 'Raw Material', base_rate: '' });
-    const [newShoppingItem, setNewShoppingItem] = useState({ item_name: '', quantity: '1', unit: 'pcs', date_needed: new Date().toISOString().split('T')[0], notes: '' });
+    const [newItem, setNewItem] = useState({ item_name: '', unit: 'box', category: 'Raw Material', base_rate: '' });
+    const [newShoppingItem, setNewShoppingItem] = useState({ item_name: '', quantity: '1', unit: 'box', date_needed: new Date().toISOString().split('T')[0], notes: '' });
 
     // Inventory CRUD
     const handleAddOrUpdateItem = async (e: React.FormEvent) => {
@@ -44,7 +45,7 @@ export default function MarketingPage() {
             await addInventoryItem(payload);
         }
         setIsAddInventoryOpen(false);
-        setNewItem({ item_name: '', unit: 'pcs', category: 'Raw Material', base_rate: '' });
+        setNewItem({ item_name: '', unit: 'box', category: 'Raw Material', base_rate: '' });
     };
 
     const deleteItem = async (id: string, name: string) => {
@@ -62,14 +63,35 @@ export default function MarketingPage() {
     // Shopping List Actions
     const handleAddShoppingItem = async (e: React.FormEvent) => {
         e.preventDefault();
-        await addToShoppingList(newShoppingItem);
+        const payload = {
+            ...newShoppingItem,
+            quantity: Number(newShoppingItem.quantity) || 1
+        };
+        if (editingShoppingItem) {
+            await updateShoppingListItem(editingShoppingItem.id, payload);
+            setEditingShoppingItem(null);
+        } else {
+            await addToShoppingList(payload);
+        }
         setIsAddShoppingOpen(false);
-        setNewShoppingItem({ item_name: '', quantity: '1', unit: 'pcs', date_needed: new Date().toISOString().split('T')[0], notes: '' });
+        setNewShoppingItem({ item_name: '', quantity: '1', unit: 'box', date_needed: new Date().toISOString().split('T')[0], notes: '' });
     };
 
     const toggleShoppingStatus = async (item: any) => {
         const newStatus = item.status === 'Pending' ? 'Bought' : 'Pending';
         await updateShoppingListItem(item.id, { status: newStatus });
+    };
+
+    const openEditShoppingItem = (item: any) => {
+        setNewShoppingItem({
+            item_name: item.item_name,
+            quantity: String(item.quantity),
+            unit: item.unit,
+            date_needed: item.date_needed ? new Date(item.date_needed).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+            notes: item.notes || ''
+        });
+        setEditingShoppingItem(item);
+        setIsAddShoppingOpen(true);
     };
 
     return (
@@ -121,7 +143,11 @@ export default function MarketingPage() {
                     <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="flex justify-between items-center">
                             <h2 className="text-xl font-bold flex items-center gap-2"><CheckCircle className="text-[var(--accent)]" /> Shopping List</h2>
-                            <button onClick={() => setIsAddShoppingOpen(true)} className="bg-[var(--accent)] text-black px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:opacity-90">
+                            <button onClick={() => {
+                                setEditingShoppingItem(null);
+                                setNewShoppingItem({ item_name: '', quantity: '1', unit: 'box', date_needed: new Date().toISOString().split('T')[0], notes: '' });
+                                setIsAddShoppingOpen(true);
+                            }} className="bg-[var(--accent)] text-black px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:opacity-90">
                                 <Plus size={16} /> Add Item
                             </button>
                         </div>
@@ -147,9 +173,18 @@ export default function MarketingPage() {
                                                     </p>
                                                 </div>
                                             </div>
-                                            <button onClick={() => deleteShoppingListItem(item.id)} className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Trash2 size={18} />
-                                            </button>
+                                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => openEditShoppingItem(item)} className="text-gray-600 hover:text-blue-400 transition-colors">
+                                                    <Edit2 size={18} />
+                                                </button>
+                                                <button onClick={() => {
+                                                    if (confirm(`Delete "${item.item_name}" from shopping list?`)) {
+                                                        deleteShoppingListItem(item.id);
+                                                    }
+                                                }} className="text-gray-600 hover:text-red-400 transition-colors">
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -162,7 +197,7 @@ export default function MarketingPage() {
                     <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="flex justify-between items-center">
                             <h2 className="text-xl font-bold flex items-center gap-2"><Package className="text-blue-400" /> Inventory Management</h2>
-                            <button onClick={() => { setEditingItem(null); setNewItem({ item_name: '', unit: 'pcs', category: 'Raw Material', base_rate: '' }); setIsAddInventoryOpen(true); }} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors">
+                            <button onClick={() => { setEditingItem(null); setNewItem({ item_name: '', unit: 'box', category: 'Raw Material', base_rate: '' }); setIsAddInventoryOpen(true); }} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors">
                                 <Plus size={16} /> Add Item
                             </button>
                         </div>
@@ -292,6 +327,7 @@ export default function MarketingPage() {
                                     value={newItem.unit}
                                     onChange={val => setNewItem({ ...newItem, unit: val as string })}
                                     options={[
+                                        { value: "box", label: "Box" },
                                         { value: "pcs", label: "Pcs" },
                                         { value: "kg", label: "Kg" },
                                         { value: "ltr", label: "Litre" },
@@ -328,7 +364,7 @@ export default function MarketingPage() {
             {isAddShoppingOpen && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-[#0a0a0a] border border-white/10 p-6 rounded-2xl w-full max-w-md shadow-2xl">
-                        <h2 className="text-xl font-bold mb-4">Add to Shopping List</h2>
+                        <h2 className="text-xl font-bold mb-4">{editingShoppingItem ? 'Edit Shopping Item' : 'Add to Shopping List'}</h2>
                         <form onSubmit={handleAddShoppingItem} className="flex flex-col gap-4">
                             <input required autoFocus type="text" placeholder="Item Name" className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3" value={newShoppingItem.item_name} onChange={e => setNewShoppingItem({ ...newShoppingItem, item_name: e.target.value })} />
 
@@ -340,6 +376,7 @@ export default function MarketingPage() {
                                     value={newShoppingItem.unit}
                                     onChange={val => setNewShoppingItem({ ...newShoppingItem, unit: val as string })}
                                     options={[
+                                        { value: "box", label: "Box" },
                                         { value: "pcs", label: "Pcs" },
                                         { value: "kg", label: "Kg" },
                                         { value: "ltr", label: "Litre" },
@@ -357,8 +394,12 @@ export default function MarketingPage() {
                             <input type="text" placeholder="Notes (Optional)" className="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3" value={newShoppingItem.notes} onChange={e => setNewShoppingItem({ ...newShoppingItem, notes: e.target.value })} />
 
                             <div className="flex gap-3 mt-4">
-                                <button type="button" onClick={() => setIsAddShoppingOpen(false)} className="flex-1 py-3 text-gray-400 hover:text-white transition-colors">Cancel</button>
-                                <button type="submit" className="flex-1 bg-[var(--accent)] text-black font-bold rounded-lg py-3">Add to List</button>
+                                <button type="button" onClick={() => {
+                                    setIsAddShoppingOpen(false);
+                                    setEditingShoppingItem(null);
+                                    setNewShoppingItem({ item_name: '', quantity: '1', unit: 'box', date_needed: new Date().toISOString().split('T')[0], notes: '' });
+                                }} className="flex-1 py-3 text-gray-400 hover:text-white transition-colors">Cancel</button>
+                                <button type="submit" className="flex-1 bg-[var(--accent)] text-black font-bold rounded-lg py-3">{editingShoppingItem ? 'Update' : 'Add to List'}</button>
                             </div>
                         </form>
                     </div>
