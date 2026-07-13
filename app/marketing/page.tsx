@@ -36,7 +36,7 @@ export default function MarketingPage() {
 
     const openShareSheet = () => {
         const pendingItems = shoppingList.filter((item: any) => item.status === 'Pending');
-        let text = "🛒 JERP Shopping List:\n";
+        let text = "🛒 GFE Shopping List:\n";
         text += "--------------------------------------\n";
         if (pendingItems.length === 0) {
             text += "All items bought! 🎉\n";
@@ -64,16 +64,11 @@ export default function MarketingPage() {
         }
     };
 
-    const handleShareWhatsApp = () => {
-        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
-        window.open(url, '_blank');
-    };
-
     const handleNativeShare = async () => {
         if (navigator.share) {
             try {
                 await navigator.share({
-                    title: 'JERP Shopping List',
+                    title: 'GFE Shopping List',
                     text: shareText
                 });
             } catch (err) {
@@ -510,16 +505,6 @@ export default function MarketingPage() {
                                             <span>Copy to Clipboard</span>
                                         </>
                                     )}
-                                </button>
-
-                                <button
-                                    onClick={handleShareWhatsApp}
-                                    className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20ba56] text-black rounded-lg py-3 font-bold transition-all shadow-[0_0_15px_rgba(37,211,102,0.2)]"
-                                >
-                                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                                        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.513 2.262 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.97C16.59 2.002 14.113.973 11.488.973c-5.448 0-9.877 4.369-9.881 9.8c-.002 1.76.467 3.48 1.357 5.02L1.993 21.53l6.09-1.597.564-.32zm10.706-7.554c-.3-.15-1.776-.875-2.05-1.002-.275-.1-.475-.15-.676.15-.2.3-.775.975-.95 1.175-.175.2-.35.225-.65.075-.3-.15-1.265-.467-2.41-1.485-.89-.794-1.49-1.775-1.665-2.075-.175-.3-.018-.462.13-.61.135-.133.3-.35.45-.525.15-.175.2-.3.3-.5s.05-.375-.025-.525C9.378 5.7 8.1 2.625 7.575 1.35c-.513-1.233-1.037-1.013-1.425-1.033-.375-.02-1.05-.02-1.65-.02-.6 0-1.575.225-2.4 1.12-.825.9-3.15 3.075-3.15 7.5s3.225 8.7 3.675 9.3c.45.6 6.346 9.685 15.372 13.57 2.147.925 3.824 1.478 5.132 1.892 2.155.683 4.115.587 5.664.356 1.728-.258 3.55-1.45 4.05-2.85.5-1.4 0-2.6-.075-2.85-.275-.25-.475-.375-.775-.525z" />
-                                    </svg>
-                                    <span>Share on WhatsApp</span>
                                 </button>
 
                                 {isNativeShareSupported && (
