@@ -1,7 +1,7 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFinance } from '@/context/FinanceContext';
-import { Store, Package, ShoppingCart, Plus, Calendar, Search, Trash2, Edit2, CheckCircle, Clock } from 'lucide-react';
+import { Store, Package, ShoppingCart, Plus, Calendar, Search, Trash2, Edit2, CheckCircle, Clock, Share2, Copy, Check, X } from 'lucide-react';
 import Link from 'next/link';
 import CustomSelect from '@/components/CustomSelect';
 
@@ -21,6 +21,66 @@ export default function MarketingPage() {
     const [isAddShoppingOpen, setIsAddShoppingOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null);
     const [editingShoppingItem, setEditingShoppingItem] = useState<any>(null);
+
+    // Share Sheet States & Handlers
+    const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
+    const [shareText, setShareText] = useState('');
+    const [copied, setCopied] = useState(false);
+    const [isNativeShareSupported, setIsNativeShareSupported] = useState(false);
+
+    useEffect(() => {
+        if (typeof navigator !== 'undefined' && navigator.share) {
+            setIsNativeShareSupported(true);
+        }
+    }, []);
+
+    const openShareSheet = () => {
+        const pendingItems = shoppingList.filter((item: any) => item.status === 'Pending');
+        let text = "🛒 JERP Shopping List:\n";
+        text += "--------------------------------------\n";
+        if (pendingItems.length === 0) {
+            text += "All items bought! 🎉\n";
+        } else {
+            pendingItems.forEach((item: any) => {
+                text += `• ${item.item_name} - ${item.quantity} ${item.unit}`;
+                if (item.notes) {
+                    text += `\n  Note: ${item.notes}`;
+                }
+                text += "\n";
+            });
+        }
+        setShareText(text.trim());
+        setCopied(false);
+        setIsShareSheetOpen(true);
+    };
+
+    const handleCopyToClipboard = async () => {
+        try {
+            await navigator.clipboard.writeText(shareText);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+        }
+    };
+
+    const handleShareWhatsApp = () => {
+        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+        window.open(url, '_blank');
+    };
+
+    const handleNativeShare = async () => {
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: 'JERP Shopping List',
+                    text: shareText
+                });
+            } catch (err) {
+                console.log('User cancelled or sharing failed', err);
+            }
+        }
+    };
 
     // Forms
     const [newSupplier, setNewSupplier] = useState({ name: '', phone: '', address: '', gstin: '' });
@@ -143,13 +203,18 @@ export default function MarketingPage() {
                     <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="flex justify-between items-center">
                             <h2 className="text-xl font-bold flex items-center gap-2"><CheckCircle className="text-[var(--accent)]" /> Shopping List</h2>
-                            <button onClick={() => {
-                                setEditingShoppingItem(null);
-                                setNewShoppingItem({ item_name: '', quantity: '1', unit: 'box', date_needed: new Date().toISOString().split('T')[0], notes: '' });
-                                setIsAddShoppingOpen(true);
-                            }} className="bg-[var(--accent)] text-black px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:opacity-90">
-                                <Plus size={16} /> Add Item
-                            </button>
+                            <div className="flex gap-2">
+                                <button onClick={openShareSheet} className="bg-white/10 hover:bg-white/20 border border-white/10 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors">
+                                    <Share2 size={16} /> Share List
+                                </button>
+                                <button onClick={() => {
+                                    setEditingShoppingItem(null);
+                                    setNewShoppingItem({ item_name: '', quantity: '1', unit: 'box', date_needed: new Date().toISOString().split('T')[0], notes: '' });
+                                    setIsAddShoppingOpen(true);
+                                }} className="bg-[var(--accent)] text-black px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:opacity-90">
+                                    <Plus size={16} /> Add Item
+                                </button>
+                            </div>
                         </div>
 
                         <div className="glass rounded-xl overflow-hidden border border-white/5">
@@ -402,6 +467,72 @@ export default function MarketingPage() {
                                 <button type="submit" className="flex-1 bg-[var(--accent)] text-black font-bold rounded-lg py-3">{editingShoppingItem ? 'Update' : 'Add to List'}</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Share Shopping List Modal */}
+            {isShareSheetOpen && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-[#0a0a0a] border border-white/10 p-6 rounded-2xl w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <Share2 size={20} className="text-[var(--accent)]" /> Share Shopping List
+                            </h2>
+                            <button onClick={() => setIsShareSheetOpen(false)} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="flex flex-col gap-4">
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs text-gray-500 font-bold uppercase tracking-wider">Message Preview</label>
+                                <textarea
+                                    className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-sm text-gray-200 h-40 resize-none focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]"
+                                    value={shareText}
+                                    onChange={(e) => setShareText(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-2 mt-2">
+                                <button
+                                    onClick={handleCopyToClipboard}
+                                    className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white rounded-lg py-3 font-bold transition-all"
+                                >
+                                    {copied ? (
+                                        <>
+                                            <Check size={18} className="text-green-400" />
+                                            <span className="text-green-400">Copied to Clipboard!</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Copy size={18} />
+                                            <span>Copy to Clipboard</span>
+                                        </>
+                                    )}
+                                </button>
+
+                                <button
+                                    onClick={handleShareWhatsApp}
+                                    className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20ba56] text-black rounded-lg py-3 font-bold transition-all shadow-[0_0_15px_rgba(37,211,102,0.2)]"
+                                >
+                                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                                        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.513 2.262 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.97C16.59 2.002 14.113.973 11.488.973c-5.448 0-9.877 4.369-9.881 9.8c-.002 1.76.467 3.48 1.357 5.02L1.993 21.53l6.09-1.597.564-.32zm10.706-7.554c-.3-.15-1.776-.875-2.05-1.002-.275-.1-.475-.15-.676.15-.2.3-.775.975-.95 1.175-.175.2-.35.225-.65.075-.3-.15-1.265-.467-2.41-1.485-.89-.794-1.49-1.775-1.665-2.075-.175-.3-.018-.462.13-.61.135-.133.3-.35.45-.525.15-.175.2-.3.3-.5s.05-.375-.025-.525C9.378 5.7 8.1 2.625 7.575 1.35c-.513-1.233-1.037-1.013-1.425-1.033-.375-.02-1.05-.02-1.65-.02-.6 0-1.575.225-2.4 1.12-.825.9-3.15 3.075-3.15 7.5s3.225 8.7 3.675 9.3c.45.6 6.346 9.685 15.372 13.57 2.147.925 3.824 1.478 5.132 1.892 2.155.683 4.115.587 5.664.356 1.728-.258 3.55-1.45 4.05-2.85.5-1.4 0-2.6-.075-2.85-.275-.25-.475-.375-.775-.525z" />
+                                    </svg>
+                                    <span>Share on WhatsApp</span>
+                                </button>
+
+                                {isNativeShareSupported && (
+                                    <button
+                                        onClick={handleNativeShare}
+                                        className="flex items-center justify-center gap-2 bg-[var(--accent)] hover:opacity-90 text-black rounded-lg py-3 font-bold transition-all shadow-[0_0_15px_rgba(255,215,0,0.15)]"
+                                    >
+                                        <Share2 size={18} />
+                                        <span>Share via Device / Other Apps</span>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
