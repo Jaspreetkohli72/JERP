@@ -12,7 +12,7 @@ export default function StaffDetailsPage() {
     const { id } = useParams();
     const router = useRouter();
     // @ts-ignore
-    const { staffList, getStaffDetails, addStaffAdvance, deleteStaff, updateStaff, settings, wallets, refreshData, attendance: globalAttendance, allStaffAdvances: globalAdvances } = useFinance();
+    const { staffList, getStaffDetails, addStaffAdvance, deleteStaff, updateStaff, settings, wallets, refreshData, deleteAttendance, attendance: globalAttendance, allStaffAdvances: globalAdvances } = useFinance();
 
     // State
     const [staff, setStaff] = useState<any>(null);
@@ -215,7 +215,7 @@ export default function StaffDetailsPage() {
     const calculateBalanceUpTo = (dateStr: string) => {
         if (!staff) return 0;
 
-        const attList = globalAttendance && globalAttendance.length > 0 ? globalAttendance : data.attendance;
+        const attList = data.attendance && data.attendance.length > 0 ? data.attendance : (globalAttendance || []);
         const advList = globalAdvances && globalAdvances.length > 0 ? globalAdvances : data.advances;
 
         // Find latest settlement date and payment date from advList
@@ -338,14 +338,23 @@ export default function StaffDetailsPage() {
     const handleDeleteAttendance = async (attendanceId: string | number) => {
         const confirm = window.confirm("Are you sure you want to delete this attendance record?");
         if (!confirm) return;
-        const { success, error } = await deleteAttendanceAction(attendanceId);
-        if (success) {
-            loadData();
+
+        // Optimistically update local attendance log state
+        setData(prev => ({
+            ...prev,
+            attendance: prev.attendance.filter((a: any) => String(a.id) !== String(attendanceId))
+        }));
+
+        const res = deleteAttendance ? await deleteAttendance(attendanceId) : await deleteAttendanceAction(attendanceId);
+
+        if (res.success) {
+            await loadData();
             if (refreshData) {
                 await refreshData();
             }
         } else {
-            alert(`Failed to delete attendance: ${error}`);
+            alert(`Failed to delete attendance: ${res.error?.message || res.error}`);
+            await loadData();
         }
     };
 
@@ -542,10 +551,10 @@ export default function StaffDetailsPage() {
                                         </div>
                                         <button
                                             onClick={() => handleDeleteAttendance(rec.id)}
-                                            className="p-1 text-red-400 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors flex items-center justify-center cursor-pointer ml-1"
                                             title="Delete Attendance"
                                         >
-                                            <Trash2 size={14} />
+                                            <Trash2 size={15} />
                                         </button>
                                     </div>
                                 </div>

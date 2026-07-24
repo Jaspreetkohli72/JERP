@@ -35,6 +35,7 @@ export default function AttendancePage() {
 
     const [loading, setLoading] = useState(false);
     const [attendance, setAttendance] = useState<Record<string, AttendanceRecord>>({});
+    const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     // Modal state
     const [modalStaff, setModalStaff] = useState<any>(null);
@@ -63,14 +64,31 @@ export default function AttendancePage() {
         }
     }, [date, allAttendance, staffList]);
 
+    const handleQuickStatus = (staff: any, clickedStatus: string) => {
+        const existing = attendance[staff.id];
+        const workedFor = existing?.worked_for || 'Me';
+        setAttendance(prev => ({
+            ...prev,
+            [staff.id]: {
+                status: (workedFor === 'Papa' || clickedStatus === 'Absent') ? 'Absent' : clickedStatus,
+                worked_for: workedFor,
+                work_done: existing?.work_done || '',
+                status_papa: (workedFor === 'Me' || clickedStatus === 'Absent') ? 'Absent' : clickedStatus
+            }
+        }));
+    };
+
     const handleOpenModal = (staff: any, clickedStatus?: string) => {
         const existing = attendance[staff.id];
+        const statusVal = clickedStatus || existing?.status || 'Present';
+        const statusPapaVal = clickedStatus || existing?.status_papa || (existing?.status && existing.status !== 'Absent' ? existing.status : 'Present');
+
         setModalStaff(staff);
         setModalData({
             worked_for: existing?.worked_for || 'Me',
             work_done: existing?.work_done || '',
-            status: clickedStatus || existing?.status || 'Present',
-            status_papa: existing?.status_papa || (clickedStatus === 'Absent' ? 'Absent' : 'Present')
+            status: statusVal,
+            status_papa: statusPapaVal
         });
     };
 
@@ -90,6 +108,7 @@ export default function AttendancePage() {
 
     const handleSave = async () => {
         setLoading(true);
+        setSaveMessage(null);
         const records = Object.keys(attendance).map(staffId => ({
             staff_id: staffId,
             status: attendance[staffId].status,
@@ -103,9 +122,10 @@ export default function AttendancePage() {
             if (refreshData) {
                 await refreshData();
             }
-            alert('Attendance saved successfully!');
+            setSaveMessage({ type: 'success', text: 'Attendance saved successfully!' });
+            setTimeout(() => setSaveMessage(null), 4000);
         } else {
-            alert(`Failed to save attendance: ${error}`);
+            setSaveMessage({ type: 'error', text: `Failed to save attendance: ${error}` });
         }
         setLoading(false);
     };
@@ -276,7 +296,7 @@ export default function AttendancePage() {
 
                                     {/* Absent */}
                                     <button
-                                        onClick={() => handleOpenModal(staff, 'Absent')}
+                                        onClick={() => handleQuickStatus(staff, 'Absent')}
                                         className={`flex items-center justify-center p-2 rounded-lg transition-all ${
                                             displayStatus === 'Absent'
                                                 ? (isPapaOnly ? 'bg-blue-500/30 text-blue-400 border border-blue-500/50 scale-105' : 'bg-red-500 text-black scale-110 shadow-lg shadow-red-500/20')
@@ -304,7 +324,16 @@ export default function AttendancePage() {
                 )}
             </div>
 
-            <div className="flex justify-end sticky bottom-6">
+            <div className="flex items-center justify-between sticky bottom-6 bg-black/40 backdrop-blur-md p-2 rounded-xl border border-white/10">
+                <div>
+                    {saveMessage && (
+                        <div className={`px-4 py-2 rounded-lg text-sm font-semibold animate-in fade-in duration-300 ${
+                            saveMessage.type === 'success' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                        }`}>
+                            {saveMessage.text}
+                        </div>
+                    )}
+                </div>
                 <button
                     onClick={handleSave}
                     disabled={loading}
@@ -334,7 +363,35 @@ export default function AttendancePage() {
                                             name="worked_for"
                                             value={option}
                                             checked={modalData.worked_for === option}
-                                            onChange={e => setModalData(prev => ({ ...prev, worked_for: e.target.value }))}
+                                            onChange={e => {
+                                                const newWorkedFor = e.target.value;
+                                                setModalData(prev => {
+                                                    let newStatus = prev.status;
+                                                    let newStatusPapa = prev.status_papa;
+
+                                                    if (newWorkedFor === 'Papa') {
+                                                        if (newStatusPapa === 'Absent' || !newStatusPapa || prev.worked_for === 'Me') {
+                                                            newStatusPapa = prev.status !== 'Absent' ? prev.status : 'Present';
+                                                        }
+                                                    } else if (newWorkedFor === 'Me') {
+                                                        if (newStatus === 'Absent' || !newStatus || prev.worked_for === 'Papa') {
+                                                            newStatus = prev.status_papa !== 'Absent' ? prev.status_papa : 'Present';
+                                                        }
+                                                    } else if (newWorkedFor === 'Both') {
+                                                        const activeStatus = prev.worked_for === 'Papa' ? prev.status_papa : prev.status;
+                                                        const fallback = activeStatus !== 'Absent' ? activeStatus : 'Present';
+                                                        if (newStatus === 'Absent' || !newStatus) newStatus = fallback;
+                                                        if (newStatusPapa === 'Absent' || !newStatusPapa) newStatusPapa = fallback;
+                                                    }
+
+                                                    return {
+                                                        ...prev,
+                                                        worked_for: newWorkedFor,
+                                                        status: newStatus,
+                                                        status_papa: newStatusPapa
+                                                    };
+                                                });
+                                            }}
                                             className="accent-[var(--accent)] h-4 w-4 cursor-pointer"
                                         />
                                         <span>{option}</span>

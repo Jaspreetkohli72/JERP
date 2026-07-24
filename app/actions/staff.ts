@@ -138,7 +138,7 @@ export async function getMonthlyAttendance(monthStr?: string) {
     if (attendanceRes.error) throw attendanceRes.error;
 
     return {
-        staffList: staffRes.data || [],
+        staffList: (staffRes.data || []).filter((s: any) => !s.status?.startsWith('Terminated')),
         attendance: attendanceRes.data || [],
         queryMonth: `${year}-${String(month + 1).padStart(2, '0')}` // Return normalized query month
     };

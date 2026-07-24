@@ -1135,6 +1135,18 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    const deleteAttendance = async (id) => {
+        try {
+            const { error } = await supabase.from('staff_attendance').delete().eq('id', id);
+            if (error) throw error;
+            setAttendance(prev => prev.filter(a => String(a.id) !== String(id)));
+            return { success: true };
+        } catch (error) {
+            console.error("Error deleting attendance:", error);
+            return { success: false, error };
+        }
+    };
+
     const getStaffDetails = async (id, month, year) => {
         try {
             const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
@@ -1540,6 +1552,7 @@ export function FinanceProvider({ children }) {
                 updateStaff,
 
                 submitDailyAttendance,
+                deleteAttendance,
                 getStaffDetails,
                 addStaffAdvance,
                 deleteStaff,
