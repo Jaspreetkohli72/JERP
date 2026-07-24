@@ -1480,6 +1480,10 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    const totalLiquidAssets = React.useMemo(() => {
+        return (wallets || []).reduce((sum, w) => sum + Number(w.balance || 0), 0);
+    }, [wallets]);
+
     return (
         <FinanceContext.Provider
             value={{
@@ -1490,7 +1494,7 @@ export function FinanceProvider({ children }) {
                 addProject,
                 updateProject,
                 deleteProject,
-                totalLiquidAssets: wallets.reduce((sum, w) => sum + Number(w.balance || 0), 0),
+                totalLiquidAssets,
                 addContact,
                 updateWallet,
                 updateContact,

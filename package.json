@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:pi": "NODE_OPTIONS='--max-old-space-size=1536' next build",
     "start": "next start",
+    "start:pi": "NODE_OPTIONS='--max-old-space-size=1280' node .next/standalone/server.js",
     "lint": "eslint"
   },
   "dependencies": {
