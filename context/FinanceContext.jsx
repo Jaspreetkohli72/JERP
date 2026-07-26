@@ -1033,7 +1033,14 @@ export function FinanceProvider({ children }) {
         try {
             const { data, error } = await supabase.from('bills').select('*, bill_items(*)').order('created_at', { ascending: false });
             if (error) throw error;
-            setBills(data || []);
+            const formatted = (data || []).map(bill => ({
+                ...bill,
+                bill_items: (bill.bill_items || []).map(item => ({
+                    ...item,
+                    weight: item.weight !== undefined ? item.weight : (item.unit === 'kg' ? item.length : 0)
+                }))
+            }));
+            setBills(formatted);
         } catch (error) {
             console.error("Error fetching bills:", error);
         }
@@ -1047,7 +1054,20 @@ export function FinanceProvider({ children }) {
 
             // 2. Create Bill Items
             if (items.length > 0) {
-                const itemsWithId = items.map(item => ({ ...item, bill_id: bData.id }));
+                const itemsWithId = items.map(item => {
+                    const wt = Number(item.weight) || 0;
+                    return {
+                        bill_id: bData.id,
+                        description: item.description || '',
+                        quantity: Number(item.quantity) || 0,
+                        rate: Number(item.rate) || 0,
+                        amount: Number(item.amount) || 0,
+                        length: wt || Number(item.length) || 0,
+                        breadth: Number(item.breadth) || 0,
+                        depth: Number(item.depth) || 0,
+                        unit: wt > 0 ? 'kg' : (item.unit || 'nos')
+                    };
+                });
                 const { error: itemsError } = await supabase.from('bill_items').insert(itemsWithId);
                 if (itemsError) throw itemsError;
             }

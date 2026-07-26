@@ -76,10 +76,6 @@ export default function BillDetailsPage() {
                         <p className="text-gray-500 text-sm">Industrial Area, Sector 5<br />Phone: +91 98765 43210</p>
                     </div>
                     <div className="text-right">
-                        <div className="mb-4">
-                            <span className="text-xs text-gray-500 uppercase tracking-wider block">Invoice No</span>
-                            <span className="text-xl font-bold font-mono">#{bill.id.substring(0, 8).toUpperCase()}</span>
-                        </div>
                         <div>
                             <span className="text-xs text-gray-500 uppercase tracking-wider block">Date</span>
                             <span className="font-semibold">{new Date(bill.bill_date).toLocaleDateString()}</span>
@@ -103,29 +99,26 @@ export default function BillDetailsPage() {
                 <table className="w-full mb-8 border-collapse">
                     <thead>
                         <tr className="bg-gray-100 text-gray-600 border-y border-gray-200">
-                            <th className="py-3 px-4 text-left font-bold uppercase text-xs tracking-wider w-[40%]">Description</th>
-                            <th className="py-3 px-2 text-center font-bold uppercase text-xs tracking-wider">L x W x Nos</th>
-                            <th className="py-3 px-2 text-right font-bold uppercase text-xs tracking-wider">Qty</th>
-                            <th className="py-3 px-2 text-center font-bold uppercase text-xs tracking-wider">Unit</th>
-                            <th className="py-3 px-2 text-right font-bold uppercase text-xs tracking-wider">Rate</th>
+                            <th className="py-3 px-4 text-left font-bold uppercase text-xs tracking-wider w-[40%]">Item Type</th>
+                            <th className="py-3 px-2 text-center font-bold uppercase text-xs tracking-wider">No. of Items</th>
+                            <th className="py-3 px-2 text-center font-bold uppercase text-xs tracking-wider">Weight (kg)</th>
+                            <th className="py-3 px-2 text-right font-bold uppercase text-xs tracking-wider">Rate (₹)</th>
                             <th className="py-3 px-4 text-right font-bold uppercase text-xs tracking-wider">Amount</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {bill.bill_items && bill.bill_items.map((item: any, index: number) => (
-                            <tr key={index} className="border-b border-gray-100">
-                                <td className="py-4 px-4 font-semibold text-gray-800">{item.description}</td>
-                                <td className="py-4 px-2 text-center text-gray-500 text-xs font-mono">
-                                    {Number(item.length) > 0 ? `${Number(item.length)}` : ''}
-                                    {Number(item.breadth) > 0 ? ` x ${Number(item.breadth)}` : ''}
-                                    {Number(item.depth) > 0 ? ` x ${Number(item.depth)}` : ''}
-                                </td>
-                                <td className="py-4 px-2 text-right text-gray-800">{Number(item.quantity).toLocaleString()}</td>
-                                <td className="py-4 px-2 text-center text-xs text-gray-400 uppercase">{item.unit}</td>
-                                <td className="py-4 px-2 text-right text-gray-600">₹{Number(item.rate).toLocaleString()}</td>
-                                <td className="py-4 px-4 text-right font-bold text-gray-900">₹{Number(item.amount).toLocaleString()}</td>
-                            </tr>
-                        ))}
+                        {bill.bill_items && bill.bill_items.map((item: any, index: number) => {
+                            const wt = Number(item.weight !== undefined && Number(item.weight) > 0 ? item.weight : (item.unit === 'kg' ? item.length : 0)) || 0;
+                            return (
+                                <tr key={index} className="border-b border-gray-100">
+                                    <td className="py-4 px-4 font-semibold text-gray-800">{item.description}</td>
+                                    <td className="py-4 px-2 text-center text-gray-800">{Number(item.quantity || 0).toLocaleString()}</td>
+                                    <td className="py-4 px-2 text-center text-gray-800">{wt > 0 ? `${wt.toLocaleString()} kg` : '-'}</td>
+                                    <td className="py-4 px-2 text-right text-gray-600">₹{Number(item.rate || 0).toLocaleString()}</td>
+                                    <td className="py-4 px-4 text-right font-bold text-gray-900">₹{Number(item.amount || 0).toLocaleString()}</td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
 
@@ -148,7 +141,7 @@ export default function BillDetailsPage() {
                     <div className="flex justify-between items-end">
                         <div className="text-gray-500 text-xs max-w-md">
                             <p className="font-bold uppercase mb-2 text-gray-400">Payment Terms</p>
-                            <p>Payment is due within 15 days.<br />Please quote invoice number in all transfers.</p>
+                            <p>Payment is due within 15 days.</p>
                         </div>
                         <div className="text-center">
                             <div className="h-16 w-40 border-b border-gray-800 mb-2"></div>

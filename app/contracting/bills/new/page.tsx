@@ -7,14 +7,9 @@ import Link from 'next/link';
 import CustomSelect from '@/components/CustomSelect';
 
 interface BillItem {
-    category?: string;
-    inventory_id?: string;
     description: string;
-    length?: number;
-    breadth?: number;
-    depth?: number;
-    unit?: string;
     quantity: number;
+    weight: number;
     rate: number;
     amount: number;
 }
@@ -22,7 +17,7 @@ interface BillItem {
 export default function CreateBillPage() {
     const router = useRouter();
     // @ts-ignore
-    const { createBill, estimates, inventory } = useFinance();
+    const { createBill, estimates } = useFinance();
     const [loading, setLoading] = useState(false);
 
     const [formData, setFormData] = useState({
@@ -34,15 +29,8 @@ export default function CreateBillPage() {
     });
 
     const [items, setItems] = useState<BillItem[]>([
-        { category: '', inventory_id: '', description: '', length: 0, breadth: 0, depth: 1, unit: 'sqft', quantity: 0, rate: 0, amount: 0 }
+        { description: '', quantity: 1, weight: 0, rate: 0, amount: 0 }
     ]);
-
-    // Quick Add State
-    const [quickAdd, setQuickAdd] = useState({
-        type: '',
-        dimension: '',
-        qty: 1
-    });
 
     // Import from Estimate Logic
     const handleEstimateSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -61,17 +49,19 @@ export default function CreateBillPage() {
                     }));
 
                     if (est.estimate_items) {
-                        // Map estimate items to bill items (checking for new unit fields)
-                        const mapped = est.estimate_items.map((i: any) => ({
-                            description: i.description,
-                            length: i.length || 0,
-                            breadth: i.breadth || 0,
-                            depth: i.depth || 1, // Nos
-                            unit: i.unit === 'rft' ? 'ft' : (i.unit || 'sqft'),
-                            quantity: i.quantity,
-                            rate: i.rate,
-                            amount: i.amount
-                        }));
+                        const mapped = est.estimate_items.map((i: any) => {
+                            const qty = Number(i.quantity) || 1;
+                            const wt = Number(i.total_weight || i.weight) || 0;
+                            const rate = Number(i.rate) || 0;
+                            const amount = Number(i.amount) || (wt > 0 ? wt * rate : qty * rate);
+                            return {
+                                description: i.description || i.category || '',
+                                quantity: qty,
+                                weight: wt,
+                                rate: rate,
+                                amount: amount
+                            };
+                        });
                         setItems(mapped);
                     }
                 }
@@ -79,36 +69,25 @@ export default function CreateBillPage() {
         }
     };
 
-    const handleItemChange = (index: number, field: string, value: any) => {
+    const handleItemChange = (index: number, field: keyof BillItem, value: any) => {
         const newItems = [...items];
         // @ts-ignore
         newItems[index][field] = value;
 
-        // Auto-Calc
-        if (['length', 'breadth', 'depth', 'quantity', 'rate', 'unit'].includes(field)) {
-            const l = Number(newItems[index].length) || 0;
-            const b = Number(newItems[index].breadth) || 0;
-            const nos = Number(newItems[index].depth) || 0;
-            let qty = newItems[index].quantity;
-            const u = newItems[index].unit;
+        if (['quantity', 'weight', 'rate'].includes(field)) {
+            const qty = Number(newItems[index].quantity) || 0;
+            const wt = Number(newItems[index].weight) || 0;
+            const rate = Number(newItems[index].rate) || 0;
 
-            if (field !== 'quantity' && field !== 'rate') {
-                if (u === 'nos') qty = nos;
-                else if (u === 'ft') qty = l * nos;
-                else if (u === 'in') qty = l * nos;
-                else qty = l * b * nos; // sqft
-
-                newItems[index].quantity = Math.round((qty + Number.EPSILON) * 100) / 100;
-            }
-
-            newItems[index].amount = Number(newItems[index].quantity) * Number(newItems[index].rate);
+            const calcAmount = wt > 0 ? wt * rate : qty * rate;
+            newItems[index].amount = Math.round((calcAmount + Number.EPSILON) * 100) / 100;
         }
 
         setItems(newItems);
     };
 
     const addItem = () => {
-        setItems([...items, { category: '', inventory_id: '', description: '', quantity: 1, rate: 0, amount: 0 }]);
+        setItems([...items, { description: '', quantity: 1, weight: 0, rate: 0, amount: 0 }]);
     };
 
     const removeItem = (index: number) => {
@@ -212,128 +191,57 @@ export default function CreateBillPage() {
 
                     <div className="flex flex-col gap-2">
                         {/* Header Row */}
-                        <div className="grid grid-cols-[1.5fr_3fr_0.6fr_0.8fr_1fr_40px] gap-3 mb-2 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_40px] gap-3 mb-2 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             <div>Item Type</div>
-                            <div>Dimensions</div>
-                            <div className="text-center">Qty</div>
-                            <div className="text-center">Rate</div>
+                            <div className="text-center">No. of Items</div>
+                            <div className="text-center">Weight (kg)</div>
+                            <div className="text-center">Rate (₹)</div>
                             <div className="text-right">Amount</div>
                             <div></div>
                         </div>
 
                         {items.map((item, index) => (
-                            <div key={index} className="grid grid-cols-[1.5fr_3fr_0.6fr_0.8fr_1fr_40px] gap-3 items-center mb-2">
+                            <div key={index} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_40px] gap-3 items-center mb-2">
 
                                 {/* Item Type */}
-                                <CustomSelect
-                                    placeholder="Select Type"
-                                    value={item.category || ''}
-                                    onChange={val => {
-                                        const newCategory = val as string;
-                                        const newItems = [...items];
-                                        newItems[index] = {
-                                            ...newItems[index],
-                                            category: newCategory,
-                                            inventory_id: '',
-                                            description: '',
-                                            rate: 0,
-                                            amount: 0
-                                        };
-                                        setItems(newItems);
-                                    }}
-                                    triggerClassName="px-3 py-2 text-sm"
-                                    options={[
-                                        { value: "", label: "Select Type" },
-                                        ...Array.from(new Set(inventory?.map(i => {
-                                            if (i.category && i.category !== 'Raw Material' && i.category !== 'Hardware') return i.category;
-
-                                            // Whitelist for structural types
-                                            const name = i.item_name || '';
-                                            const KNOWN_TYPES = ['Angle', 'Channel', 'Flat Bar', 'Round', 'Square', 'Rectangular', 'Garder', 'Beam', 'Pipe', 'Sheet', 'Plate', 'Welding', 'CNC'];
-
-                                            for (const type of KNOWN_TYPES) {
-                                                if (name.startsWith(type)) return type;
-                                            }
-
-                                            return 'Hardware';
-                                        }))).sort().map(cat => ({ value: cat, label: cat as string }))
-                                    ]}
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Angle 50x5"
+                                    className="input-field bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-[var(--accent)] focus:outline-none w-full text-white"
+                                    value={item.description || ''}
+                                    onChange={(e) => handleItemChange(index, 'description', e.target.value)}
                                 />
 
-                                {/* Dimensions */}
-                                <CustomSelect
-                                    placeholder="Select Size"
-                                    value={item.inventory_id || ''}
-                                    onChange={val => {
-                                        const newId = val as string;
-                                        if (!newId) return;
-                                        // @ts-ignore
-                                        const selected = inventory.find(i => String(i.id) === String(newId));
-
-                                        const newItems = [...items];
-                                        if (selected) {
-                                            newItems[index] = {
-                                                ...newItems[index],
-                                                inventory_id: newId,
-                                                description: selected.item_name,
-                                                rate: selected.base_rate || 0,
-                                                amount: (selected.base_rate || 0) * (newItems[index].quantity || 1)
-                                            };
-                                        }
-                                        setItems(newItems);
-                                    }}
-                                    disabled={!item.category}
-                                    triggerClassName="px-3 py-2 text-sm"
-                                    options={[
-                                        { value: "", label: "Select Size" },
-                                        ...inventory?.filter(i => {
-                                            let type = i.category;
-                                            if (!type || type === 'Raw Material' || type === 'Hardware') {
-                                                const name = i.item_name || '';
-                                                const KNOWN_TYPES = ['Angle', 'Channel', 'Flat Bar', 'Round', 'Square', 'Rectangular', 'Garder', 'Beam', 'Pipe', 'Sheet', 'Plate', 'Welding', 'CNC'];
-                                                let found = false;
-                                                for (const t of KNOWN_TYPES) {
-                                                    if (name.startsWith(t)) {
-                                                        type = t;
-                                                        found = true;
-                                                        break;
-                                                    }
-                                                }
-                                                if (!found) type = 'Hardware';
-                                            }
-                                            return type === item.category;
-                                        }).map(i => {
-                                            let display = i.item_name;
-                                            // Only strip type if it matches strictly
-                                            if (item.category && display.startsWith(item.category)) {
-                                                display = display.replace(item.category, '').trim();
-                                            }
-                                            return { value: i.id, label: display };
-                                        })
-                                    ]}
-                                />
-
-                                {/* Qty */}
+                                {/* Number of Items */}
                                 <input
                                     type="number"
-                                    placeholder="00"
+                                    placeholder="0"
                                     className="input-field bg-black/30 border border-white/10 rounded-lg px-2 py-2 text-sm focus:border-[var(--accent)] focus:outline-none w-full text-white text-center"
                                     value={item.quantity || ''}
-                                    onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value))}
+                                    onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
                                 />
 
-                                {/* Rate */}
+                                {/* Weight in kg */}
+                                <input
+                                    type="number"
+                                    placeholder="0 kg"
+                                    className="input-field bg-black/30 border border-white/10 rounded-lg px-2 py-2 text-sm focus:border-[var(--accent)] focus:outline-none w-full text-white text-center"
+                                    value={item.weight || ''}
+                                    onChange={(e) => handleItemChange(index, 'weight', parseFloat(e.target.value) || 0)}
+                                />
+
+                                {/* Rate in rs */}
                                 <input
                                     type="number"
                                     placeholder="0.00"
                                     className="input-field bg-black/30 border border-white/10 rounded-lg px-2 py-2 text-sm focus:border-[var(--accent)] focus:outline-none w-full text-white text-center"
                                     value={item.rate || ''}
-                                    onChange={(e) => handleItemChange(index, 'rate', parseFloat(e.target.value))}
+                                    onChange={(e) => handleItemChange(index, 'rate', parseFloat(e.target.value) || 0)}
                                 />
 
                                 {/* Amount */}
                                 <div className="text-right text-green-400 font-bold pointer-events-none">
-                                    {Number(item.amount).toLocaleString()}
+                                    ₹{Number(item.amount || 0).toLocaleString()}
                                 </div>
 
                                 <button type="button" onClick={() => removeItem(index)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors flex items-center justify-center">
