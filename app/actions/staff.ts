@@ -193,6 +193,20 @@ export async function submitDailyAttendanceAction(date: string, records: any[]) 
     }
 }
 
+export async function clearDailyAttendanceAction(date: string) {
+    try {
+        const { error } = await supabase.from('staff_attendance').delete().eq('date', date);
+        if (error) throw error;
+
+        revalidatePath('/staff');
+        revalidatePath('/staff/attendance');
+        revalidatePath('/staff/calendar');
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
 export async function updateStaffAdvanceAction(id: string | number, updates: any) {
     try {
         const { error } = await supabase.from('staff_advances').update(updates).eq('id', id);

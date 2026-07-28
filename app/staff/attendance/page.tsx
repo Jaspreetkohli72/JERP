@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useFinance } from '@/context/FinanceContext';
-import { ArrowLeft, Save, CheckCircle, XCircle, Clock, Zap, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
-import { submitDailyAttendanceAction } from '@/app/actions/staff';
+import { ArrowLeft, Save, CheckCircle, XCircle, Clock, Zap, Pencil, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { submitDailyAttendanceAction, clearDailyAttendanceAction } from '@/app/actions/staff';
 
 interface AttendanceRecord {
     status: string;
@@ -143,6 +143,27 @@ export default function AttendancePage() {
             setTimeout(() => setSaveMessage(null), 4000);
         } else {
             setSaveMessage({ type: 'error', text: `Failed to save attendance: ${error}` });
+        }
+        setLoading(false);
+    };
+
+    const handleClearAll = async () => {
+        setLoading(true);
+        setSaveMessage(null);
+
+        // Instantly reset local UI state
+        setAttendance({});
+
+        // Clear database records for this date
+        const { success, error } = await clearDailyAttendanceAction(date);
+        if (success) {
+            if (refreshData) {
+                await refreshData();
+            }
+            setSaveMessage({ type: 'success', text: 'All attendance cleared for selected date!' });
+            setTimeout(() => setSaveMessage(null), 4000);
+        } else {
+            setSaveMessage({ type: 'error', text: `Failed to clear attendance: ${error}` });
         }
         setLoading(false);
     };
@@ -341,8 +362,17 @@ export default function AttendancePage() {
                 )}
             </div>
 
-            <div className="flex items-center justify-between sticky bottom-6 bg-black/40 backdrop-blur-md p-2 rounded-xl border border-white/10">
-                <div>
+            <div className="flex items-center justify-between sticky bottom-6 bg-black/40 backdrop-blur-md p-2.5 rounded-xl border border-white/10 gap-3">
+                <div className="flex items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={handleClearAll}
+                        disabled={loading}
+                        className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 hover:border-red-500/40 px-4 py-3 rounded-xl font-semibold transition-all flex items-center gap-2 text-sm disabled:opacity-50 cursor-pointer"
+                        title="Clear all attendance for this date"
+                    >
+                        <Trash2 size={18} /> Clear Attendance
+                    </button>
                     {saveMessage && (
                         <div className={`px-4 py-2 rounded-lg text-sm font-semibold animate-in fade-in duration-300 ${
                             saveMessage.type === 'success' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'
@@ -354,7 +384,7 @@ export default function AttendancePage() {
                 <button
                     onClick={handleSave}
                     disabled={loading}
-                    className="bg-[var(--accent)] text-black px-8 py-3 rounded-xl font-bold hover:opacity-90 transition-opacity flex items-center gap-2 shadow-xl shadow-[var(--accent)]/10"
+                    className="bg-[var(--accent)] text-black px-8 py-3 rounded-xl font-bold hover:opacity-90 transition-opacity flex items-center gap-2 shadow-xl shadow-[var(--accent)]/10 cursor-pointer"
                 >
                     {loading ? 'Saving...' : <><Save size={20} /> Save Attendance</>}
                 </button>
