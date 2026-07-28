@@ -658,7 +658,7 @@ export default function StaffDetailsPage() {
                                     <CustomSelect
                                         placeholder="Select Wallet (for auto-deduction)"
                                         value={advanceForm.walletId}
-                                        onChange={val => setAdvanceForm({ ...advanceForm, walletId: val as string })}
+                                        onChange={(val: any) => setAdvanceForm({ ...advanceForm, walletId: val as string })}
                                         triggerClassName="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3"
                                         options={[
                                             { value: "", label: "Select Wallet (for auto-deduction)" },
@@ -694,7 +694,7 @@ export default function StaffDetailsPage() {
 
                             <CustomSelect
                                 value={editForm.role}
-                                onChange={val => setEditForm({ ...editForm, role: val as string })}
+                                onChange={(val: any) => setEditForm({ ...editForm, role: val as string })}
                                 triggerClassName="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3"
                                 options={[
                                     { value: "Helper", label: "Helper" },
@@ -758,7 +758,7 @@ export default function StaffDetailsPage() {
                                 <CustomSelect
                                     placeholder="Select Wallet"
                                     value={settleForm.walletId}
-                                    onChange={val => setSettleForm({ ...settleForm, walletId: val as string })}
+                                    onChange={(val: any) => setSettleForm({ ...settleForm, walletId: val as string })}
                                     triggerClassName="input-field bg-white/5 border border-white/10 rounded-lg px-4 py-3"
                                     options={[
                                         { value: "", label: "Select Wallet" },

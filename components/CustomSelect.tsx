@@ -2,6 +2,24 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
+export interface CustomSelectOption {
+    value: string | number;
+    label: string;
+    [key: string]: any;
+}
+
+export interface CustomSelectProps {
+    value?: string | number;
+    onChange?: (value: any) => void;
+    options?: any;
+    placeholder?: string;
+    className?: string;
+    triggerClassName?: string;
+    dropdownClassName?: string;
+    optionClassName?: string;
+    disabled?: boolean;
+}
+
 export default function CustomSelect({
     value,
     onChange,
@@ -12,12 +30,12 @@ export default function CustomSelect({
     dropdownClassName = "",
     optionClassName = "",
     disabled = false,
-}) {
+}: CustomSelectProps) {
     const [isOpen, setIsOpen] = useState(false);
-    const [dropdownStyle, setDropdownStyle] = useState({});
+    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
     const [mounted, setMounted] = useState(false);
-    const containerRef = useRef(null);
-    const dropdownRef = useRef(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => { setMounted(true); }, []);
 
@@ -59,12 +77,12 @@ export default function CustomSelect({
     // Close on outside click
     useEffect(() => {
         if (!isOpen) return;
-        function handleClickOutside(event) {
+        function handleClickOutside(event: MouseEvent) {
             if (
                 containerRef.current && 
-                !containerRef.current.contains(event.target) &&
+                !containerRef.current.contains(event.target as Node) &&
                 dropdownRef.current &&
-                !dropdownRef.current.contains(event.target)
+                !dropdownRef.current.contains(event.target as Node)
             ) {
                 setIsOpen(false);
             }
@@ -95,7 +113,7 @@ export default function CustomSelect({
         };
     }, [isOpen]);
 
-    const handleSelect = (val) => {
+    const handleSelect = (val: any) => {
         if (onChange) onChange(val);
         setIsOpen(false);
     };
