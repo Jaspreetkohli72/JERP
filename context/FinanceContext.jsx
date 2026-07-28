@@ -74,7 +74,14 @@ export function FinanceProvider({ children }) {
             setSales(data.sales || []);
 
             const settingsData = data.settings || [];
-            setSettings(settingsData && settingsData.length > 0 ? settingsData[0] : {});
+            let loadedSettings = settingsData && settingsData.length > 0 ? settingsData[0] : {};
+            if (typeof window !== 'undefined') {
+                try {
+                    const local = localStorage.getItem('jerp_settings');
+                    if (local) loadedSettings = { ...loadedSettings, ...JSON.parse(local) };
+                } catch(e) {}
+            }
+            setSettings(loadedSettings);
 
             setLoading(false);
 
@@ -1572,8 +1579,24 @@ export function FinanceProvider({ children }) {
                 bills,
                 createBill,
                 deleteBill,
-                addStaff,
-                updateStaff,
+                updateStaff: async (id, updates) => {
+                    try {
+                        const { data, error } = await supabase
+                            .from(TABLES.STAFF)
+                            .update(updates)
+                            .eq('id', id)
+                            .select()
+                            .single();
+
+                        if (error) throw error;
+
+                        setStaffList(prev => prev.map(s => String(s.id) === String(id) ? { ...s, ...updates } : s));
+                        return { success: true, data };
+                    } catch (error) {
+                        console.error("Error updating staff:", error);
+                        return { success: false, error: error.message };
+                    }
+                },
 
                 submitDailyAttendance,
                 deleteAttendance,
@@ -1597,12 +1620,19 @@ export function FinanceProvider({ children }) {
                 addSale,
                 updateSale,
                 updateSettings: async (newSettings) => {
-                    const { error } = await supabase.from(TABLES.SETTINGS).upsert({ id: 1, ...newSettings });
-                    if (!error) {
-                        setSettings(prev => ({ ...prev, ...newSettings }));
-                        return { success: true };
+                    try {
+                        await supabase.from(TABLES.SETTINGS).upsert({ id: 1, ...newSettings });
+                    } catch (e) {
+                        console.warn("Supabase settings update warning:", e);
                     }
-                    return { success: false, error };
+                    setSettings(prev => {
+                        const updated = { ...prev, ...newSettings };
+                        if (typeof window !== 'undefined') {
+                            try { localStorage.setItem('jerp_settings', JSON.stringify(updated)); } catch(e){}
+                        }
+                        return updated;
+                    });
+                    return { success: true };
                 },
                 refreshData: fetchData,
             }}

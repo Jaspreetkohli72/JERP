@@ -14,7 +14,7 @@ interface AttendanceRecord {
 
 export default function AttendancePage() {
     // @ts-ignore
-    const { staffList, attendance: allAttendance, refreshData } = useFinance();
+    const { staffList, attendance: allAttendance, refreshData, settings } = useFinance();
     const [date, setDate] = useState(() => {
         const d = new Date();
         d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
@@ -37,10 +37,12 @@ export default function AttendancePage() {
     const [attendance, setAttendance] = useState<Record<string, AttendanceRecord>>({});
     const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
+    const defaultWorkedFor = settings?.default_attendance_worked_for || 'Me';
+
     // Modal state
     const [modalStaff, setModalStaff] = useState<any>(null);
     const [modalData, setModalData] = useState({
-        worked_for: 'Me',
+        worked_for: defaultWorkedFor,
         work_done: '',
         status: 'Present',
         status_papa: 'Absent'
@@ -54,7 +56,7 @@ export default function AttendancePage() {
                 if (a.date && a.date.startsWith(date)) {
                     dailyStatus[a.staff_id] = {
                         status: a.status || 'Absent',
-                        worked_for: a.worked_for || 'Me',
+                        worked_for: a.worked_for || defaultWorkedFor,
                         work_done: a.work_done || '',
                         status_papa: a.status_papa || 'Absent'
                     };
@@ -62,11 +64,11 @@ export default function AttendancePage() {
             });
             setAttendance(dailyStatus);
         }
-    }, [date, allAttendance, staffList]);
+    }, [date, allAttendance, staffList, defaultWorkedFor]);
 
     const handleQuickStatus = (staff: any, clickedStatus: string) => {
         const existing = attendance[staff.id];
-        const workedFor = existing?.worked_for || 'Me';
+        const workedFor = existing?.worked_for || defaultWorkedFor;
         setAttendance(prev => ({
             ...prev,
             [staff.id]: {
@@ -80,12 +82,13 @@ export default function AttendancePage() {
 
     const handleOpenModal = (staff: any, clickedStatus?: string) => {
         const existing = attendance[staff.id];
+        const workedForVal = existing?.worked_for || defaultWorkedFor;
         const statusVal = clickedStatus || existing?.status || 'Present';
         const statusPapaVal = clickedStatus || existing?.status_papa || (existing?.status && existing.status !== 'Absent' ? existing.status : 'Present');
 
         setModalStaff(staff);
         setModalData({
-            worked_for: existing?.worked_for || 'Me',
+            worked_for: workedForVal,
             work_done: existing?.work_done || '',
             status: statusVal,
             status_papa: statusPapaVal
@@ -116,6 +119,20 @@ export default function AttendancePage() {
             work_done: attendance[staffId].work_done,
             status_papa: attendance[staffId].status_papa
         }));
+
+        // Include absent records for staff who are currently 'On Leave'
+        const onLeaveStaff = (staffList || []).filter((s: any) => s.status?.startsWith('On Leave'));
+        onLeaveStaff.forEach((s: any) => {
+            if (!records.some(r => String(r.staff_id) === String(s.id))) {
+                records.push({
+                    staff_id: String(s.id),
+                    status: 'Absent',
+                    worked_for: settings?.default_attendance_worked_for || 'Me',
+                    work_done: 'On Leave',
+                    status_papa: 'Absent'
+                });
+            }
+        });
 
         const { success, error } = await submitDailyAttendanceAction(date, records);
         if (success) {
@@ -248,7 +265,7 @@ export default function AttendancePage() {
                             <div>Over</div>
                         </div>
 
-                        {staffList.filter((s: any) => !s.status?.startsWith('Terminated')).map((staff: any) => {
+                        {staffList.filter((s: any) => !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave')).map((staff: any) => {
                             const rec = attendance[staff.id];
                             // Determine which status to display on the quick-buttons (prefer Me's, fallback to Papa's status if worked only for Papa)
                             const displayStatus = rec ? (rec.worked_for === 'Papa' ? rec.status_papa : rec.status) : undefined;

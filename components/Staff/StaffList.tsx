@@ -140,11 +140,12 @@ export default function StaffList({ staffList, staffWithPay, settings }: any) {
                     const advances = staff.financials?.totalAdvances || 0;
                     const netPay = staff.financials?.netPayable ?? 0;
                     const isTerminated = staff.status?.startsWith('Terminated');
+                    const isOnLeave = staff.status?.startsWith('On Leave');
 
                     return (
                         <Link key={staff.id} href={`/staff/${staff.id}`} className="glass p-5 rounded-xl border border-white/5 hover:border-[var(--accent)]/50 transition-colors flex flex-col gap-4 group relative overflow-hidden">
 
-                            <div className={`absolute top-4 right-4 h-2 w-2 rounded-full ${isTerminated ? 'bg-red-500' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]'}`} />
+                            <div className={`absolute top-4 right-4 h-2 w-2 rounded-full ${isTerminated ? 'bg-red-500' : isOnLeave ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]'}`} />
 
                             <div className="flex items-center gap-4">
                                 <div className="h-12 w-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-xl font-bold text-gray-400 border border-white/10">
@@ -156,6 +157,11 @@ export default function StaffList({ staffList, staffWithPay, settings }: any) {
                                         {isTerminated && (
                                             <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
                                                 Terminated
+                                            </span>
+                                        )}
+                                        {isOnLeave && (
+                                            <span className="text-[10px] bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                On Leave
                                             </span>
                                         )}
                                     </h4>

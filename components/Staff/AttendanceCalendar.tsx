@@ -185,7 +185,7 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
                             </tr>
                         </thead>
                         <tbody>
-                            {staffList.filter((staff: any) => !staff.status?.startsWith('Terminated')).map((staff: any) => (
+                            {staffList.filter((staff: any) => !staff.status?.startsWith('Terminated') && !staff.status?.startsWith('On Leave')).map((staff: any) => (
                                 <tr key={staff.id} className="hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 group">
                                     <td className="p-4 border-r border-white/10 sticky left-0 z-10 bg-[#0a0a0a] group-hover:bg-[#111] transition-colors shadow-[4px_0_10px_rgba(0,0,0,0.5)]">
                                         <div className="font-bold whitespace-nowrap text-gray-200">{staff.name}</div>

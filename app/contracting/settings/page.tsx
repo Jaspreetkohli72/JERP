@@ -13,7 +13,8 @@ export default function ContractingSettingsPage() {
         welder_rate: 0,
         helper_rate: 0,
         profit_margin: 0,
-        advance_required: 0
+        advance_required: 0,
+        default_attendance_worked_for: 'Me'
     });
 
     useEffect(() => {
@@ -22,7 +23,8 @@ export default function ContractingSettingsPage() {
                 welder_rate: settings.welder_rate || 0,
                 helper_rate: settings.helper_rate || 0,
                 profit_margin: settings.profit_margin || 0,
-                advance_required: settings.advance_required || 0
+                advance_required: settings.advance_required || 0,
+                default_attendance_worked_for: settings.default_attendance_worked_for || 'Me'
             });
         }
     }, [settings]);
@@ -125,6 +127,29 @@ export default function ContractingSettingsPage() {
                                 onChange={e => setFormData({ ...formData, advance_required: parseFloat(e.target.value) })}
                                 placeholder="e.g. 50"
                             />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Default Attendance Recipient */}
+                <div className="glass p-6 rounded-xl flex flex-col gap-4 border border-white/5">
+                    <h2 className="text-lg font-semibold text-[var(--accent)] border-b border-white/10 pb-2">Attendance Settings</h2>
+                    <div className="flex flex-col gap-2">
+                        <label className="text-sm text-gray-400">Default Attendance Recipient (Worked For)</label>
+                        <div className="flex gap-6 bg-black/30 p-3 rounded-xl border border-white/10">
+                            {['Me', 'Papa', 'Both'].map(option => (
+                                <label key={option} className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-200">
+                                    <input
+                                        type="radio"
+                                        name="default_attendance_worked_for"
+                                        value={option}
+                                        checked={formData.default_attendance_worked_for === option}
+                                        onChange={e => setFormData({ ...formData, default_attendance_worked_for: e.target.value })}
+                                        className="accent-[var(--accent)] h-4 w-4 cursor-pointer"
+                                    />
+                                    <span>{option}</span>
+                                </label>
+                            ))}
                         </div>
                     </div>
                 </div>

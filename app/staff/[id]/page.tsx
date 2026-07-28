@@ -48,10 +48,11 @@ export default function StaffDetailsPage() {
     const handleTerminate = async (e: React.FormEvent) => {
         e.preventDefault();
         const statusVal = `Terminated:${terminationDate}`;
-        const res = await updateStaff(id, { status: statusVal });
+        const res = await updateStaffAction(id as string, { status: statusVal });
         if (res.success) {
             setIsTerminateModalOpen(false);
             setStaff((prev: any) => ({ ...prev, status: statusVal }));
+            if (refreshData) await refreshData();
             router.refresh();
         } else {
             alert(`Failed to terminate employee: ${res.error}`);
@@ -61,12 +62,27 @@ export default function StaffDetailsPage() {
     const handleReinstate = async () => {
         const confirm = window.confirm("Are you sure you want to reinstate this employee?");
         if (!confirm) return;
-        const res = await updateStaff(id, { status: 'Available' });
+        const res = await updateStaffAction(id as string, { status: 'Available' });
         if (res.success) {
             setStaff((prev: any) => ({ ...prev, status: 'Available' }));
+            if (refreshData) await refreshData();
             router.refresh();
         } else {
             alert(`Failed to reinstate employee: ${res.error}`);
+        }
+    };
+
+    const handleToggleLeave = async () => {
+        const isOnLeave = staff?.status?.startsWith('On Leave');
+        const newStatus = isOnLeave ? 'Available' : 'On Leave';
+        setStaff((prev: any) => ({ ...prev, status: newStatus }));
+        const res = await updateStaffAction(id as string, { status: newStatus });
+        if (res.success) {
+            if (updateStaff) updateStaff(id, { status: newStatus });
+            if (refreshData) await refreshData();
+            router.refresh();
+        } else {
+            alert(`Failed to update leave status: ${res.error}`);
         }
     };
 
@@ -377,6 +393,11 @@ export default function StaffDetailsPage() {
                                 Terminated
                             </span>
                         )}
+                        {staff.status?.startsWith('On Leave') && (
+                            <span className="text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2.5 py-1 rounded font-bold uppercase tracking-wider">
+                                On Leave
+                            </span>
+                        )}
                     </h1>
                     <p className="text-gray-400 text-sm">
                         {staff.role} • ₹{staff.salary}/day
@@ -385,8 +406,23 @@ export default function StaffDetailsPage() {
                                 (Terminated on {new Date(staff.status.split(':')[1]).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })})
                             </span>
                         )}
+                        {staff.status?.startsWith('On Leave') && (
+                            <span className="text-yellow-400 ml-2 font-medium">
+                                (Currently On Leave)
+                            </span>
+                        )}
                     </p>
                 </div>
+                <button
+                    onClick={handleToggleLeave}
+                    className={
+                        staff.status?.startsWith('On Leave')
+                            ? "bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 px-4 py-2 rounded-lg text-sm font-bold transition-colors border border-yellow-500/30"
+                            : "bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 px-4 py-2 rounded-lg text-sm font-bold transition-colors"
+                    }
+                >
+                    {staff.status?.startsWith('On Leave') ? 'End Leave' : 'On Leave'}
+                </button>
                 {staff.status?.startsWith('Terminated') ? (
                     <button
                         onClick={handleReinstate}

@@ -138,7 +138,7 @@ export async function getMonthlyAttendance(monthStr?: string) {
     if (attendanceRes.error) throw attendanceRes.error;
 
     return {
-        staffList: (staffRes.data || []).filter((s: any) => !s.status?.startsWith('Terminated')),
+        staffList: (staffRes.data || []).filter((s: any) => !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave')),
         attendance: attendanceRes.data || [],
         queryMonth: `${year}-${String(month + 1).padStart(2, '0')}` // Return normalized query month
     };
@@ -146,9 +146,13 @@ export async function getMonthlyAttendance(monthStr?: string) {
 
 export async function updateStaffAction(id: string | number, updates: any) {
     try {
-        const { error } = await supabase.from('staff').update(updates).eq('id', id);
+        const targetId = !isNaN(Number(id)) ? Number(id) : id;
+        const { error } = await supabase.from('staff').update(updates).eq('id', targetId);
         if (error) throw error;
         revalidatePath('/staff');
+        revalidatePath('/staff/attendance');
+        revalidatePath('/staff/calendar');
+        revalidatePath(`/staff/${id}`);
         return { success: true };
     } catch (e: any) {
         return { success: false, error: e.message };
