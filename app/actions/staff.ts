@@ -180,14 +180,10 @@ export async function submitDailyAttendanceAction(date: string, records: any[]) 
             work_done: r.work_done || '',
             status_papa: r.status_papa || 'Absent'
         }));
-        const { error } = await supabase.from('staff_attendance').upsert(upsertData, { onConflict: 'staff_id,date' });
+        const { data, error } = await supabase.from('staff_attendance').upsert(upsertData, { onConflict: 'staff_id,date' }).select();
         if (error) throw error;
         
-        revalidatePath('/staff');
-        revalidatePath('/staff/attendance');
-        revalidatePath('/staff/calendar');
-        
-        return { success: true };
+        return { success: true, data: data || upsertData };
     } catch (e: any) {
         return { success: false, error: e.message };
     }
@@ -198,9 +194,6 @@ export async function clearDailyAttendanceAction(date: string) {
         const { error } = await supabase.from('staff_attendance').delete().eq('date', date);
         if (error) throw error;
 
-        revalidatePath('/staff');
-        revalidatePath('/staff/attendance');
-        revalidatePath('/staff/calendar');
         return { success: true };
     } catch (e: any) {
         return { success: false, error: e.message };

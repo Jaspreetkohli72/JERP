@@ -1162,6 +1162,22 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    const syncAttendance = (records, date) => {
+        setAttendance(prev => {
+            const otherDates = prev.filter(a => a.date && !a.date.startsWith(date));
+            const formatted = (records || []).map(r => ({
+                ...r,
+                date: r.date || date,
+                staff_id: parseInt(r.staff_id)
+            }));
+            return [...otherDates, ...formatted];
+        });
+    };
+
+    const clearAttendanceForDate = (date) => {
+        setAttendance(prev => prev.filter(a => a.date && !a.date.startsWith(date)));
+    };
+
     const deleteAttendance = async (id) => {
         try {
             const { error } = await supabase.from('staff_attendance').delete().eq('id', id);
@@ -1599,6 +1615,8 @@ export function FinanceProvider({ children }) {
                 },
 
                 submitDailyAttendance,
+                syncAttendance,
+                clearAttendanceForDate,
                 deleteAttendance,
                 getStaffDetails,
                 addStaffAdvance,

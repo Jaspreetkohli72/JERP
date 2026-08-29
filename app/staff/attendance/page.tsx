@@ -14,12 +14,14 @@ interface AttendanceRecord {
 
 export default function AttendancePage() {
     // @ts-ignore
-    const { staffList, attendance: allAttendance, refreshData, settings } = useFinance();
+    const { staffList, attendance: allAttendance, refreshData, settings, syncAttendance, clearAttendanceForDate } = useFinance();
     const [date, setDate] = useState(() => {
         const d = new Date();
         d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
         return d.toISOString().split('T')[0];
     });
+
+    const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
     const handlePrevDay = () => {
         const d = new Date(date);
@@ -47,6 +49,20 @@ export default function AttendancePage() {
         status: 'Present',
         status_papa: 'Absent'
     });
+
+    // Auto-focus textarea when modal opens
+    useEffect(() => {
+        if (modalStaff) {
+            const timer = setTimeout(() => {
+                if (textareaRef.current) {
+                    textareaRef.current.focus();
+                    const len = textareaRef.current.value.length;
+                    textareaRef.current.setSelectionRange(len, len);
+                }
+            }, 30);
+            return () => clearTimeout(timer);
+        }
+    }, [modalStaff]);
 
     // Load existing attendance for selected date
     useEffect(() => {
@@ -134,10 +150,10 @@ export default function AttendancePage() {
             }
         });
 
-        const { success, error } = await submitDailyAttendanceAction(date, records);
+        const { success, data, error } = await submitDailyAttendanceAction(date, records);
         if (success) {
-            if (refreshData) {
-                await refreshData();
+            if (syncAttendance) {
+                syncAttendance(data || records.map(r => ({ ...r, date })), date);
             }
             setSaveMessage({ type: 'success', text: 'Attendance saved successfully!' });
             setTimeout(() => setSaveMessage(null), 4000);
@@ -157,8 +173,8 @@ export default function AttendancePage() {
         // Clear database records for this date
         const { success, error } = await clearDailyAttendanceAction(date);
         if (success) {
-            if (refreshData) {
-                await refreshData();
+            if (clearAttendanceForDate) {
+                clearAttendanceForDate(date);
             }
             setSaveMessage({ type: 'success', text: 'All attendance cleared for selected date!' });
             setTimeout(() => setSaveMessage(null), 4000);
@@ -477,12 +493,26 @@ export default function AttendancePage() {
 
                         {/* Work Done Text Area */}
                         <div className="flex flex-col gap-2">
-                            <label className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Work Done</label>
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Work Done</label>
+                                <span className="text-[10px] text-gray-500 font-mono">Press Enter to confirm</span>
+                            </div>
                             <textarea
+                                ref={textareaRef}
+                                autoFocus
                                 placeholder="What work did they perform today?"
                                 className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 h-24 resize-none text-sm focus:outline-none focus:border-[var(--accent)] focus:bg-white/10 transition-colors text-white"
                                 value={modalData.work_done}
                                 onChange={e => setModalData(prev => ({ ...prev, work_done: e.target.value }))}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleModalSave();
+                                    } else if (e.key === 'Escape') {
+                                        e.preventDefault();
+                                        setModalStaff(null);
+                                    }
+                                }}
                             />
                         </div>
 
