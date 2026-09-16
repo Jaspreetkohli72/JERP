@@ -79,9 +79,9 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
             } else if (status === 'Half-Day') {
                 bgColor = 'bg-yellow-500 text-black shadow-[0_0_10px_rgba(234,179,8,0.4)]';
                 text = 'H';
-            } else if (status === 'Overtime') {
+            } else if (status?.startsWith('Overtime')) {
                 bgColor = 'bg-purple-500 text-black shadow-[0_0_10px_rgba(168,85,247,0.4)]';
-                text = 'OT';
+                text = status.includes('2') ? '2OT' : 'OT';
             } else {
                 bgColor = 'bg-red-500 text-black shadow-[0_0_10px_rgba(239,68,68,0.4)]';
                 text = 'A';
@@ -95,9 +95,9 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
             } else if (actualStatusPapa === 'Half-Day') {
                 bgColor = 'bg-cyan-500 text-black shadow-[0_0_10px_rgba(6,182,212,0.4)]';
                 text = 'H';
-            } else if (actualStatusPapa === 'Overtime') {
+            } else if (actualStatusPapa?.startsWith('Overtime')) {
                 bgColor = 'bg-indigo-500 text-black shadow-[0_0_10px_rgba(99,102,241,0.4)]';
-                text = 'OT';
+                text = actualStatusPapa.includes('2') ? '2OT' : 'OT';
             } else {
                 bgColor = 'bg-red-500 text-black shadow-[0_0_10px_rgba(239,68,68,0.4)]';
                 text = 'A';
@@ -118,9 +118,9 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
             } else if (displayStatusMe === 'Absent') {
                 fromColor = 'from-red-500';
                 meChar = 'A';
-            } else if (displayStatusMe === 'Overtime') {
+            } else if (displayStatusMe?.startsWith('Overtime')) {
                 fromColor = 'from-purple-500';
-                meChar = 'OT';
+                meChar = displayStatusMe.includes('2') ? '2OT' : 'OT';
             }
 
             if (displayStatusPapa === 'Half-Day') {
@@ -129,9 +129,9 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
             } else if (displayStatusPapa === 'Absent') {
                 toColor = 'to-red-500';
                 papaChar = 'A';
-            } else if (displayStatusPapa === 'Overtime') {
+            } else if (displayStatusPapa?.startsWith('Overtime')) {
                 toColor = 'to-indigo-500';
-                papaChar = 'OT';
+                papaChar = displayStatusPapa.includes('2') ? '2OT' : 'OT';
             }
 
             bgColor = `bg-gradient-to-br ${fromColor} ${toColor} text-black font-semibold`;

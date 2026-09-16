@@ -119,20 +119,46 @@ export function FinanceProvider({ children }) {
                     (!paymentDate || a.date > paymentDate);
             });
 
-            const daysPresentMe = staffAttendance.filter(a => a.status === 'Present' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
-            const halfDaysMe = staffAttendance.filter(a => a.status === 'Half-Day' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
-            const overtimeDaysMe = staffAttendance.filter(a => a.status === 'Overtime' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
+            const getStatusMultiplier = (status) => {
+                if (!status) return 0;
+                if (status === 'Present') return 1.0;
+                if (status === 'Half-Day' || status === 'Half Day') return 0.5;
+                if (status.startsWith('Overtime')) {
+                    return status.includes('2') ? 2.0 : 1.5;
+                }
+                return 0;
+            };
 
-            const daysPresentPapa = staffAttendance.filter(a => a.status_papa === 'Present' && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
-            const halfDaysPapa = staffAttendance.filter(a => a.status_papa === 'Half-Day' && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
-            const overtimeDaysPapa = staffAttendance.filter(a => a.status_papa === 'Overtime' && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
+            let daysPresentMe = 0;
+            let halfDaysMe = 0;
+            let overtimeDaysMe = 0;
+            let totalDaysMe = 0;
+
+            let daysPresentPapa = 0;
+            let halfDaysPapa = 0;
+            let overtimeDaysPapa = 0;
+            let totalDaysPapa = 0;
+
+            staffAttendance.forEach(a => {
+                if (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for) {
+                    if (a.status === 'Present') daysPresentMe++;
+                    else if (a.status === 'Half-Day' || a.status === 'Half Day') halfDaysMe++;
+                    else if (a.status?.startsWith('Overtime')) overtimeDaysMe++;
+                    totalDaysMe += getStatusMultiplier(a.status);
+                }
+                if (a.worked_for === 'Papa' || a.worked_for === 'Both') {
+                    if (a.status_papa === 'Present') daysPresentPapa++;
+                    else if (a.status_papa === 'Half-Day' || a.status_papa === 'Half Day') halfDaysPapa++;
+                    else if (a.status_papa?.startsWith('Overtime')) overtimeDaysPapa++;
+                    totalDaysPapa += getStatusMultiplier(a.status_papa);
+                }
+            });
 
             const daysPresent = daysPresentMe + daysPresentPapa;
             const halfDays = halfDaysMe + halfDaysPapa;
             const overtimeDays = overtimeDaysMe + overtimeDaysPapa;
 
-            const totalDays = (daysPresentMe + (halfDaysMe * 0.5) + (overtimeDaysMe * 1.5)) +
-                              (daysPresentPapa + (halfDaysPapa * 0.5) + (overtimeDaysPapa * 1.5));
+            const totalDays = totalDaysMe + totalDaysPapa;
             const salaryDays = totalDays;
             const salaryAccrued = salaryDays * (Number(staff.salary) || 0);
 

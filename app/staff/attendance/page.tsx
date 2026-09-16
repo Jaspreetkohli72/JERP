@@ -47,7 +47,9 @@ export default function AttendancePage() {
         worked_for: defaultWorkedFor,
         work_done: '',
         status: 'Present',
-        status_papa: 'Absent'
+        status_papa: 'Absent',
+        ot_mult: '1.5',
+        ot_mult_papa: '1.5'
     });
 
     // Auto-focus textarea when modal opens
@@ -99,27 +101,51 @@ export default function AttendancePage() {
     const handleOpenModal = (staff: any, clickedStatus?: string) => {
         const existing = attendance[staff.id];
         const workedForVal = existing?.worked_for || defaultWorkedFor;
-        const statusVal = clickedStatus || existing?.status || 'Present';
-        const statusPapaVal = clickedStatus || existing?.status_papa || (existing?.status && existing.status !== 'Absent' ? existing.status : 'Present');
+        const rawStatus = clickedStatus || existing?.status || 'Present';
+        const rawStatusPapa = clickedStatus || existing?.status_papa || (existing?.status && existing.status !== 'Absent' ? existing.status : 'Present');
+
+        let statusVal = rawStatus;
+        let otMultVal = '1.5';
+        if (rawStatus.startsWith('Overtime')) {
+            statusVal = 'Overtime';
+            otMultVal = rawStatus.includes('2') ? '2' : '1.5';
+        }
+
+        let statusPapaVal = rawStatusPapa;
+        let otMultPapaVal = '1.5';
+        if (rawStatusPapa.startsWith('Overtime')) {
+            statusPapaVal = 'Overtime';
+            otMultPapaVal = rawStatusPapa.includes('2') ? '2' : '1.5';
+        }
 
         setModalStaff(staff);
         setModalData({
             worked_for: workedForVal,
             work_done: existing?.work_done || '',
             status: statusVal,
-            status_papa: statusPapaVal
+            status_papa: statusPapaVal,
+            ot_mult: otMultVal,
+            ot_mult_papa: otMultPapaVal
         });
     };
 
     const handleModalSave = () => {
         if (!modalStaff) return;
+
+        const getFormattedStatus = (baseStatus: string, mult: string) => {
+            if (baseStatus === 'Overtime') {
+                return mult === '2' ? 'Overtime (2)' : 'Overtime (1.5)';
+            }
+            return baseStatus;
+        };
+
         setAttendance(prev => ({
             ...prev,
             [modalStaff.id]: {
-                status: modalData.worked_for === 'Papa' ? 'Absent' : modalData.status,
+                status: modalData.worked_for === 'Papa' ? 'Absent' : getFormattedStatus(modalData.status, modalData.ot_mult),
                 worked_for: modalData.worked_for,
                 work_done: modalData.work_done,
-                status_papa: modalData.worked_for === 'Me' ? 'Absent' : modalData.status_papa
+                status_papa: modalData.worked_for === 'Me' ? 'Absent' : getFormattedStatus(modalData.status_papa, modalData.ot_mult_papa)
             }
         }));
         setModalStaff(null);
@@ -231,7 +257,8 @@ export default function AttendancePage() {
             <div className="flex gap-2">
                 {[
                     { label: '1 Day', value: 'Present', color: 'bg-green-500 text-black font-bold shadow-lg shadow-green-500/20' },
-                    { label: 'Half Day', value: 'Half-Day', color: 'bg-yellow-500 text-black font-bold shadow-lg shadow-yellow-500/20' }
+                    { label: 'Half Day', value: 'Half-Day', color: 'bg-yellow-500 text-black font-bold shadow-lg shadow-yellow-500/20' },
+                    { label: 'Overtime', value: 'Overtime', color: 'bg-purple-500 text-black font-bold shadow-lg shadow-purple-500/20' }
                 ].map(opt => {
                     let colorClass = 'bg-white/5 text-gray-400 hover:bg-white/10';
                     if (currentVal === opt.value) {
@@ -251,6 +278,38 @@ export default function AttendancePage() {
             </div>
         );
     };
+
+    const renderOvertimeRadio = (selectedMult: string, onSelect: (val: string) => void, namePrefix: string) => (
+        <div className="flex items-center justify-between bg-purple-500/10 border border-purple-500/30 rounded-xl px-4 py-2.5 mt-1 animate-in fade-in duration-200">
+            <span className="text-xs font-semibold text-purple-300 flex items-center gap-1.5">
+                <Zap size={13} className="text-purple-400" /> Overtime Multiplier:
+            </span>
+            <div className="flex items-center gap-5">
+                <label className="flex items-center gap-2 text-xs font-medium cursor-pointer text-purple-200 hover:text-white">
+                    <input
+                        type="radio"
+                        name={`${namePrefix}_ot_mult`}
+                        value="1.5"
+                        checked={selectedMult === '1.5'}
+                        onChange={() => onSelect('1.5')}
+                        className="accent-purple-500 h-4 w-4 cursor-pointer"
+                    />
+                    <span>1.5 Days</span>
+                </label>
+                <label className="flex items-center gap-2 text-xs font-medium cursor-pointer text-purple-200 hover:text-white">
+                    <input
+                        type="radio"
+                        name={`${namePrefix}_ot_mult`}
+                        value="2"
+                        checked={selectedMult === '2'}
+                        onChange={() => onSelect('2')}
+                        className="accent-purple-500 h-4 w-4 cursor-pointer"
+                    />
+                    <span>2 Days</span>
+                </label>
+            </div>
+        </div>
+    );
 
     return (
         <div className="flex flex-col gap-6 p-4 md:p-8 text-white max-w-[800px] mx-auto mb-20">
@@ -364,7 +423,7 @@ export default function AttendancePage() {
                                     <button
                                         onClick={() => handleOpenModal(staff, 'Overtime')}
                                         className={`flex items-center justify-center p-2 rounded-lg transition-all ${
-                                            displayStatus === 'Overtime'
+                                            displayStatus?.startsWith('Overtime')
                                                 ? (isPapaOnly ? 'bg-blue-500/30 text-blue-400 border border-blue-500/50 scale-105' : 'bg-purple-500 text-black scale-110 shadow-lg shadow-purple-500/20')
                                                 : 'bg-white/5 text-gray-600 hover:bg-white/10'
                                         }`}
@@ -468,6 +527,7 @@ export default function AttendancePage() {
                             <div className="flex flex-col gap-2">
                                 <label className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Attendance Status (Me)</label>
                                 {renderStatusButtons(modalData.status, val => setModalData(prev => ({ ...prev, status: val })))}
+                                {modalData.status === 'Overtime' && renderOvertimeRadio(modalData.ot_mult, val => setModalData(prev => ({ ...prev, ot_mult: val })), 'me')}
                             </div>
                         )}
 
@@ -475,6 +535,7 @@ export default function AttendancePage() {
                             <div className="flex flex-col gap-2">
                                 <label className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Attendance Status (Papa)</label>
                                 {renderStatusButtons(modalData.status_papa, val => setModalData(prev => ({ ...prev, status_papa: val })))}
+                                {modalData.status_papa === 'Overtime' && renderOvertimeRadio(modalData.ot_mult_papa, val => setModalData(prev => ({ ...prev, ot_mult_papa: val })), 'papa')}
                             </div>
                         )}
 
@@ -483,10 +544,12 @@ export default function AttendancePage() {
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-xs text-green-400 uppercase tracking-wider font-semibold">Mine Attendance Status (Me)</label>
                                     {renderBothStatusButtons(modalData.status, val => setModalData(prev => ({ ...prev, status: val })))}
+                                    {modalData.status === 'Overtime' && renderOvertimeRadio(modalData.ot_mult, val => setModalData(prev => ({ ...prev, ot_mult: val })), 'both_me')}
                                 </div>
                                 <div className="flex flex-col gap-1.5 border-t border-white/5 pt-3">
                                     <label className="text-xs text-blue-400 uppercase tracking-wider font-semibold">Papa's Attendance Status</label>
                                     {renderBothStatusButtons(modalData.status_papa, val => setModalData(prev => ({ ...prev, status_papa: val })))}
+                                    {modalData.status_papa === 'Overtime' && renderOvertimeRadio(modalData.ot_mult_papa, val => setModalData(prev => ({ ...prev, ot_mult_papa: val })), 'both_papa')}
                                 </div>
                             </div>
                         )}

@@ -177,17 +177,37 @@ export default function StaffDetailsPage() {
         return true;
     });
 
+    const getStatusMultiplier = (status?: string | null) => {
+        if (!status) return 0;
+        if (status === 'Present') return 1.0;
+        if (status === 'Half-Day' || status === 'Half Day') return 0.5;
+        if (status.startsWith('Overtime')) {
+            return status.includes('2') ? 2.0 : 1.5;
+        }
+        return 0;
+    };
+
     // Stats Logic (Me)
     const presentCount = data.attendance.filter((a: any) => a.status === 'Present' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
-    const halfDayCount = data.attendance.filter((a: any) => a.status === 'Half-Day' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
-    const overtimeCount = data.attendance.filter((a: any) => a.status === 'Overtime' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
-    const salaryDaysMe = presentCount + (halfDayCount * 0.5) + (overtimeCount * 1.5);
+    const halfDayCount = data.attendance.filter((a: any) => (a.status === 'Half-Day' || a.status === 'Half Day') && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
+    const overtimeCount = data.attendance.filter((a: any) => a.status?.startsWith('Overtime') && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
+    const salaryDaysMe = data.attendance.reduce((sum: number, a: any) => {
+        if (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for) {
+            return sum + getStatusMultiplier(a.status);
+        }
+        return sum;
+    }, 0);
 
     // Papa Stats
     const presentPapa = data.attendance.filter((a: any) => a.status_papa === 'Present' && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
-    const halfDayPapa = data.attendance.filter((a: any) => a.status_papa === 'Half-Day' && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
-    const overtimePapa = data.attendance.filter((a: any) => a.status_papa === 'Overtime' && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
-    const salaryDaysPapa = presentPapa + (halfDayPapa * 0.5) + (overtimePapa * 1.5);
+    const halfDayPapa = data.attendance.filter((a: any) => (a.status_papa === 'Half-Day' || a.status_papa === 'Half Day') && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
+    const overtimePapa = data.attendance.filter((a: any) => a.status_papa?.startsWith('Overtime') && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
+    const salaryDaysPapa = data.attendance.reduce((sum: number, a: any) => {
+        if (a.worked_for === 'Papa' || a.worked_for === 'Both') {
+            return sum + getStatusMultiplier(a.status_papa);
+        }
+        return sum;
+    }, 0);
 
     const totalAttendanceDays = salaryDaysMe + salaryDaysPapa;
     const salaryDays = totalAttendanceDays;
@@ -259,14 +279,10 @@ export default function StaffDetailsPage() {
         const salDays = staffAtt.reduce((sum: number, a: any) => {
             let days = 0;
             if (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for) {
-                if (a.status === 'Present') days += 1.0;
-                else if (a.status === 'Half-Day') days += 0.5;
-                else if (a.status === 'Overtime') days += 1.5;
+                days += getStatusMultiplier(a.status);
             }
             if (a.worked_for === 'Papa' || a.worked_for === 'Both') {
-                if (a.status_papa === 'Present') days += 1.0;
-                else if (a.status_papa === 'Half-Day') days += 0.5;
-                else if (a.status_papa === 'Overtime') days += 1.5;
+                days += getStatusMultiplier(a.status_papa);
             }
             return sum + days;
         }, 0);
@@ -568,7 +584,7 @@ export default function StaffDetailsPage() {
                                                     {rec.worked_for === 'Both' && <span className="text-[10px] text-gray-500 uppercase font-medium">Me:</span>}
                                                     <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.status === 'Present' ? 'bg-green-500/20 text-green-400' :
                                                         rec.status === 'Absent' ? 'bg-red-500/20 text-red-400' :
-                                                            rec.status === 'Overtime' ? 'bg-purple-500/20 text-purple-400' :
+                                                            rec.status?.startsWith('Overtime') ? 'bg-purple-500/20 text-purple-400' :
                                                                 'bg-yellow-500/20 text-yellow-400'
                                                         }`}>{rec.status}</span>
                                                 </div>
@@ -579,7 +595,7 @@ export default function StaffDetailsPage() {
                                                     {rec.worked_for === 'Both' && <span className="text-[10px] text-gray-500 uppercase font-medium">Papa:</span>}
                                                     <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.status_papa === 'Present' ? 'bg-blue-500/20 text-blue-400' :
                                                         rec.status_papa === 'Absent' ? 'bg-red-500/20 text-red-400' :
-                                                            rec.status_papa === 'Overtime' ? 'bg-purple-500/20 text-purple-400' :
+                                                            rec.status_papa?.startsWith('Overtime') ? 'bg-purple-500/20 text-purple-400' :
                                                                 'bg-yellow-500/20 text-yellow-400'
                                                         }`}>{rec.status_papa || 'Present'}</span>
                                                 </div>
