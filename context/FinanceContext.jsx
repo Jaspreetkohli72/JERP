@@ -119,12 +119,18 @@ export function FinanceProvider({ children }) {
                     (!paymentDate || a.date > paymentDate);
             });
 
-            const getStatusMultiplier = (status) => {
+            const is2xOvertime = (status, workDone) => {
+                if (status && status.includes('2')) return true;
+                if (workDone && /\[2x\s*OT\]|\[OT:2\]|\[2x\]|\(2x\s*OT\)/i.test(workDone)) return true;
+                return false;
+            };
+
+            const getStatusMultiplier = (status, workDone) => {
                 if (!status) return 0;
                 if (status === 'Present') return 1.0;
                 if (status === 'Half-Day' || status === 'Half Day') return 0.5;
-                if (status.startsWith('Overtime')) {
-                    return status.includes('2') ? 2.0 : 1.5;
+                if (status === 'Overtime' || status.startsWith('Overtime')) {
+                    return is2xOvertime(status, workDone) ? 2.0 : 1.5;
                 }
                 return 0;
             };
@@ -143,14 +149,14 @@ export function FinanceProvider({ children }) {
                 if (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for) {
                     if (a.status === 'Present') daysPresentMe++;
                     else if (a.status === 'Half-Day' || a.status === 'Half Day') halfDaysMe++;
-                    else if (a.status?.startsWith('Overtime')) overtimeDaysMe++;
-                    totalDaysMe += getStatusMultiplier(a.status);
+                    else if (a.status === 'Overtime' || a.status?.startsWith('Overtime')) overtimeDaysMe++;
+                    totalDaysMe += getStatusMultiplier(a.status, a.work_done);
                 }
                 if (a.worked_for === 'Papa' || a.worked_for === 'Both') {
                     if (a.status_papa === 'Present') daysPresentPapa++;
                     else if (a.status_papa === 'Half-Day' || a.status_papa === 'Half Day') halfDaysPapa++;
-                    else if (a.status_papa?.startsWith('Overtime')) overtimeDaysPapa++;
-                    totalDaysPapa += getStatusMultiplier(a.status_papa);
+                    else if (a.status_papa === 'Overtime' || a.status_papa?.startsWith('Overtime')) overtimeDaysPapa++;
+                    totalDaysPapa += getStatusMultiplier(a.status_papa, a.work_done);
                 }
             });
 

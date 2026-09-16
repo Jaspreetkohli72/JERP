@@ -45,12 +45,18 @@ export async function getStaffStats() {
             (!paymentDate || a.date > paymentDate)
         );
 
-        const getStatusMultiplier = (status?: string | null) => {
+        const is2xOvertime = (status?: string | null, workDone?: string | null) => {
+            if (status && status.includes('2')) return true;
+            if (workDone && /\[2x\s*OT\]|\[OT:2\]|\[2x\]|\(2x\s*OT\)/i.test(workDone)) return true;
+            return false;
+        };
+
+        const getStatusMultiplier = (status?: string | null, workDone?: string | null) => {
             if (!status) return 0;
             if (status === 'Present') return 1.0;
             if (status === 'Half-Day' || status === 'Half Day') return 0.5;
-            if (status.startsWith('Overtime')) {
-                return status.includes('2') ? 2.0 : 1.5;
+            if (status === 'Overtime' || status.startsWith('Overtime')) {
+                return is2xOvertime(status, workDone) ? 2.0 : 1.5;
             }
             return 0;
         };
@@ -69,14 +75,14 @@ export async function getStaffStats() {
             if (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for) {
                 if (a.status === 'Present') daysPresentMe++;
                 else if (a.status === 'Half-Day' || a.status === 'Half Day') halfDaysMe++;
-                else if (a.status?.startsWith('Overtime')) overtimeDaysMe++;
-                totalDaysMe += getStatusMultiplier(a.status);
+                else if (a.status === 'Overtime' || a.status?.startsWith('Overtime')) overtimeDaysMe++;
+                totalDaysMe += getStatusMultiplier(a.status, a.work_done);
             }
             if (a.worked_for === 'Papa' || a.worked_for === 'Both') {
                 if (a.status_papa === 'Present') daysPresentPapa++;
                 else if (a.status_papa === 'Half-Day' || a.status_papa === 'Half Day') halfDaysPapa++;
-                else if (a.status_papa?.startsWith('Overtime')) overtimeDaysPapa++;
-                totalDaysPapa += getStatusMultiplier(a.status_papa);
+                else if (a.status_papa === 'Overtime' || a.status_papa?.startsWith('Overtime')) overtimeDaysPapa++;
+                totalDaysPapa += getStatusMultiplier(a.status_papa, a.work_done);
             }
         });
 
@@ -198,13 +204,20 @@ export async function deleteStaffAction(id: string | number) {
 
 export async function submitDailyAttendanceAction(date: string, records: any[]) {
     try {
+        const normalizeDbStatus = (status?: string | null) => {
+            if (!status) return 'Absent';
+            if (status.startsWith('Overtime')) return 'Overtime';
+            if (status === 'Half Day') return 'Half-Day';
+            return status;
+        };
+
         const upsertData = records.map(r => ({
             staff_id: parseInt(r.staff_id),
             date: date,
-            status: r.status,
+            status: normalizeDbStatus(r.status),
             worked_for: r.worked_for || 'Me',
             work_done: r.work_done || '',
-            status_papa: r.status_papa || 'Absent'
+            status_papa: normalizeDbStatus(r.status_papa)
         }));
         const { data, error } = await supabase.from('staff_attendance').upsert(upsertData, { onConflict: 'staff_id,date' }).select();
         if (error) throw error;

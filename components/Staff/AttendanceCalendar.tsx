@@ -71,33 +71,45 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
         let tooltip = '';
         let textClass = 'text-xs';
 
+        const is2xOvertime = (st?: string | null, wd?: string | null) => {
+            if (st && st.includes('2')) return true;
+            if (wd && /\[2x\s*OT\]|\[OT:2\]|\[2x\]|\(2x\s*OT\)/i.test(wd)) return true;
+            return false;
+        };
+
+        const cleanWork = (workDone || '').replace(/\[2x\s*OT\]\s*/gi, '').replace(/\[1\.5x\s*OT\]\s*/gi, '').trim();
+
         if (workedFor === 'Me') {
-            tooltip = `Worked for Me: ${status}`;
+            const is2x = is2xOvertime(status, workDone);
+            const otLabel = is2x ? 'Overtime (2)' : 'Overtime (1.5)';
+            tooltip = `Worked for Me: ${status?.startsWith('Overtime') ? otLabel : status}`;
             if (status === 'Present') {
                 bgColor = 'bg-green-500 text-black shadow-[0_0_10px_rgba(34,197,94,0.4)]';
                 text = 'P';
             } else if (status === 'Half-Day') {
                 bgColor = 'bg-yellow-500 text-black shadow-[0_0_10px_rgba(234,179,8,0.4)]';
                 text = 'H';
-            } else if (status?.startsWith('Overtime')) {
+            } else if (status === 'Overtime' || status?.startsWith('Overtime')) {
                 bgColor = 'bg-purple-500 text-black shadow-[0_0_10px_rgba(168,85,247,0.4)]';
-                text = status.includes('2') ? '2OT' : 'OT';
+                text = is2x ? '2OT' : 'OT';
             } else {
                 bgColor = 'bg-red-500 text-black shadow-[0_0_10px_rgba(239,68,68,0.4)]';
                 text = 'A';
             }
         } else if (workedFor === 'Papa') {
             const actualStatusPapa = statusPapa || 'Present';
-            tooltip = `Worked for Papa: ${actualStatusPapa}`;
+            const is2x = is2xOvertime(actualStatusPapa, workDone);
+            const otLabel = is2x ? 'Overtime (2)' : 'Overtime (1.5)';
+            tooltip = `Worked for Papa: ${actualStatusPapa?.startsWith('Overtime') ? otLabel : actualStatusPapa}`;
             if (actualStatusPapa === 'Present') {
                 bgColor = 'bg-blue-500 text-black shadow-[0_0_10px_rgba(59,130,246,0.4)]';
                 text = 'P';
             } else if (actualStatusPapa === 'Half-Day') {
                 bgColor = 'bg-cyan-500 text-black shadow-[0_0_10px_rgba(6,182,212,0.4)]';
                 text = 'H';
-            } else if (actualStatusPapa?.startsWith('Overtime')) {
+            } else if (actualStatusPapa === 'Overtime' || actualStatusPapa?.startsWith('Overtime')) {
                 bgColor = 'bg-indigo-500 text-black shadow-[0_0_10px_rgba(99,102,241,0.4)]';
-                text = actualStatusPapa.includes('2') ? '2OT' : 'OT';
+                text = is2x ? '2OT' : 'OT';
             } else {
                 bgColor = 'bg-red-500 text-black shadow-[0_0_10px_rgba(239,68,68,0.4)]';
                 text = 'A';
@@ -105,7 +117,12 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
         } else if (workedFor === 'Both') {
             const displayStatusMe = status || 'Present';
             const displayStatusPapa = statusPapa || 'Present';
-            tooltip = `Worked for Both: Me (${displayStatusMe}) | Papa (${displayStatusPapa})`;
+            const is2xMe = is2xOvertime(displayStatusMe, workDone);
+            const is2xPapa = is2xOvertime(displayStatusPapa, workDone);
+            const otLabelMe = is2xMe ? 'Overtime (2)' : 'Overtime (1.5)';
+            const otLabelPapa = is2xPapa ? 'Overtime (2)' : 'Overtime (1.5)';
+
+            tooltip = `Worked for Both: Me (${displayStatusMe?.startsWith('Overtime') ? otLabelMe : displayStatusMe}) | Papa (${displayStatusPapa?.startsWith('Overtime') ? otLabelPapa : displayStatusPapa})`;
             
             let fromColor = 'from-green-500';
             let toColor = 'to-blue-500';
@@ -118,9 +135,9 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
             } else if (displayStatusMe === 'Absent') {
                 fromColor = 'from-red-500';
                 meChar = 'A';
-            } else if (displayStatusMe?.startsWith('Overtime')) {
+            } else if (displayStatusMe === 'Overtime' || displayStatusMe?.startsWith('Overtime')) {
                 fromColor = 'from-purple-500';
-                meChar = displayStatusMe.includes('2') ? '2OT' : 'OT';
+                meChar = is2xMe ? '2OT' : 'OT';
             }
 
             if (displayStatusPapa === 'Half-Day') {
@@ -129,9 +146,9 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
             } else if (displayStatusPapa === 'Absent') {
                 toColor = 'to-red-500';
                 papaChar = 'A';
-            } else if (displayStatusPapa?.startsWith('Overtime')) {
+            } else if (displayStatusPapa === 'Overtime' || displayStatusPapa?.startsWith('Overtime')) {
                 toColor = 'to-indigo-500';
-                papaChar = displayStatusPapa.includes('2') ? '2OT' : 'OT';
+                papaChar = is2xPapa ? '2OT' : 'OT';
             }
 
             bgColor = `bg-gradient-to-br ${fromColor} ${toColor} text-black font-semibold`;
@@ -139,8 +156,8 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
             textClass = 'text-[9px] leading-none';
         }
 
-        if (workDone) {
-            tooltip += ` (Work: ${workDone})`;
+        if (cleanWork) {
+            tooltip += ` (Work: ${cleanWork})`;
         }
 
         return { bgColor, text, tooltip, textClass };

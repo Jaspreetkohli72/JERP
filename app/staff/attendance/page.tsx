@@ -104,24 +104,20 @@ export default function AttendancePage() {
         const rawStatus = clickedStatus || existing?.status || 'Present';
         const rawStatusPapa = clickedStatus || existing?.status_papa || (existing?.status && existing.status !== 'Absent' ? existing.status : 'Present');
 
-        let statusVal = rawStatus;
-        let otMultVal = '1.5';
-        if (rawStatus.startsWith('Overtime')) {
-            statusVal = 'Overtime';
-            otMultVal = rawStatus.includes('2') ? '2' : '1.5';
-        }
+        const rawWorkDone = existing?.work_done || '';
+        const has2xTag = /\[2x\s*OT\]|\[OT:2\]|\[2x\]|\(2x\s*OT\)/i.test(rawWorkDone);
+        const cleanWork = rawWorkDone.replace(/\[2x\s*OT\]\s*/gi, '').replace(/\[1\.5x\s*OT\]\s*/gi, '').trim();
 
-        let statusPapaVal = rawStatusPapa;
-        let otMultPapaVal = '1.5';
-        if (rawStatusPapa.startsWith('Overtime')) {
-            statusPapaVal = 'Overtime';
-            otMultPapaVal = rawStatusPapa.includes('2') ? '2' : '1.5';
-        }
+        let statusVal = rawStatus.startsWith('Overtime') ? 'Overtime' : rawStatus;
+        let otMultVal = (rawStatus.includes('2') || has2xTag) ? '2' : '1.5';
+
+        let statusPapaVal = rawStatusPapa.startsWith('Overtime') ? 'Overtime' : rawStatusPapa;
+        let otMultPapaVal = (rawStatusPapa.includes('2') || has2xTag) ? '2' : '1.5';
 
         setModalStaff(staff);
         setModalData({
             worked_for: workedForVal,
-            work_done: existing?.work_done || '',
+            work_done: cleanWork,
             status: statusVal,
             status_papa: statusPapaVal,
             ot_mult: otMultVal,
@@ -132,20 +128,26 @@ export default function AttendancePage() {
     const handleModalSave = () => {
         if (!modalStaff) return;
 
-        const getFormattedStatus = (baseStatus: string, mult: string) => {
-            if (baseStatus === 'Overtime') {
-                return mult === '2' ? 'Overtime (2)' : 'Overtime (1.5)';
-            }
-            return baseStatus;
-        };
+        const finalStatus = modalData.worked_for === 'Papa' ? 'Absent' : (modalData.status.startsWith('Overtime') ? 'Overtime' : modalData.status);
+        const finalStatusPapa = modalData.worked_for === 'Me' ? 'Absent' : (modalData.status_papa.startsWith('Overtime') ? 'Overtime' : modalData.status_papa);
+
+        const cleanWork = modalData.work_done.replace(/\[2x\s*OT\]\s*/gi, '').replace(/\[1\.5x\s*OT\]\s*/gi, '').trim();
+        let finalWorkDone = cleanWork;
+
+        const is2xMe = (modalData.worked_for === 'Me' || modalData.worked_for === 'Both') && finalStatus === 'Overtime' && modalData.ot_mult === '2';
+        const is2xPapa = (modalData.worked_for === 'Papa' || modalData.worked_for === 'Both') && finalStatusPapa === 'Overtime' && modalData.ot_mult_papa === '2';
+
+        if (is2xMe || is2xPapa) {
+            finalWorkDone = cleanWork ? `[2x OT] ${cleanWork}` : '[2x OT]';
+        }
 
         setAttendance(prev => ({
             ...prev,
             [modalStaff.id]: {
-                status: modalData.worked_for === 'Papa' ? 'Absent' : getFormattedStatus(modalData.status, modalData.ot_mult),
+                status: finalStatus,
                 worked_for: modalData.worked_for,
-                work_done: modalData.work_done,
-                status_papa: modalData.worked_for === 'Me' ? 'Absent' : getFormattedStatus(modalData.status_papa, modalData.ot_mult_papa)
+                work_done: finalWorkDone,
+                status_papa: finalStatusPapa
             }
         }));
         setModalStaff(null);
@@ -212,16 +214,26 @@ export default function AttendancePage() {
 
     const getAttendanceSummary = (rec: AttendanceRecord) => {
         if (!rec) return null;
+        const is2x = /\[2x\s*OT\]|\[OT:2\]|\[2x\]|\(2x\s*OT\)/i.test(rec.work_done || '') || rec.status?.includes('2') || rec.status_papa?.includes('2');
+        const otLabel = is2x ? 'Overtime (2)' : 'Overtime (1.5)';
+
+        const formatStatus = (st: string) => {
+            if (!st) return 'Absent';
+            if (st === 'Overtime' || st.startsWith('Overtime')) return otLabel;
+            return st;
+        };
+
         const parts = [];
         if (rec.worked_for === 'Me') {
-            parts.push(`Worked for Me (${rec.status})`);
+            parts.push(`Worked for Me (${formatStatus(rec.status)})`);
         } else if (rec.worked_for === 'Papa') {
-            parts.push(`Worked for Papa (${rec.status_papa})`);
+            parts.push(`Worked for Papa (${formatStatus(rec.status_papa)})`);
         } else if (rec.worked_for === 'Both') {
-            parts.push(`Worked for Both (Me: ${rec.status}, Papa: ${rec.status_papa})`);
+            parts.push(`Worked for Both (Me: ${formatStatus(rec.status)}, Papa: ${formatStatus(rec.status_papa)})`);
         }
-        if (rec.work_done) {
-            parts.push(`Work: "${rec.work_done}"`);
+        const cleanWork = (rec.work_done || '').replace(/\[2x\s*OT\]\s*/gi, '').replace(/\[1\.5x\s*OT\]\s*/gi, '').trim();
+        if (cleanWork) {
+            parts.push(`Work: "${cleanWork}"`);
         }
         return parts.join(' | ');
     };

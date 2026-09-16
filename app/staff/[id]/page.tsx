@@ -177,12 +177,18 @@ export default function StaffDetailsPage() {
         return true;
     });
 
-    const getStatusMultiplier = (status?: string | null) => {
+    const is2xOvertime = (status?: string | null, workDone?: string | null) => {
+        if (status && status.includes('2')) return true;
+        if (workDone && /\[2x\s*OT\]|\[OT:2\]|\[2x\]|\(2x\s*OT\)/i.test(workDone)) return true;
+        return false;
+    };
+
+    const getStatusMultiplier = (status?: string | null, workDone?: string | null) => {
         if (!status) return 0;
         if (status === 'Present') return 1.0;
         if (status === 'Half-Day' || status === 'Half Day') return 0.5;
-        if (status.startsWith('Overtime')) {
-            return status.includes('2') ? 2.0 : 1.5;
+        if (status === 'Overtime' || status.startsWith('Overtime')) {
+            return is2xOvertime(status, workDone) ? 2.0 : 1.5;
         }
         return 0;
     };
@@ -190,10 +196,10 @@ export default function StaffDetailsPage() {
     // Stats Logic (Me)
     const presentCount = data.attendance.filter((a: any) => a.status === 'Present' && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
     const halfDayCount = data.attendance.filter((a: any) => (a.status === 'Half-Day' || a.status === 'Half Day') && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
-    const overtimeCount = data.attendance.filter((a: any) => a.status?.startsWith('Overtime') && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
+    const overtimeCount = data.attendance.filter((a: any) => (a.status === 'Overtime' || a.status?.startsWith('Overtime')) && (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for)).length;
     const salaryDaysMe = data.attendance.reduce((sum: number, a: any) => {
         if (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for) {
-            return sum + getStatusMultiplier(a.status);
+            return sum + getStatusMultiplier(a.status, a.work_done);
         }
         return sum;
     }, 0);
@@ -201,10 +207,10 @@ export default function StaffDetailsPage() {
     // Papa Stats
     const presentPapa = data.attendance.filter((a: any) => a.status_papa === 'Present' && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
     const halfDayPapa = data.attendance.filter((a: any) => (a.status_papa === 'Half-Day' || a.status_papa === 'Half Day') && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
-    const overtimePapa = data.attendance.filter((a: any) => a.status_papa?.startsWith('Overtime') && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
+    const overtimePapa = data.attendance.filter((a: any) => (a.status_papa === 'Overtime' || a.status_papa?.startsWith('Overtime')) && (a.worked_for === 'Papa' || a.worked_for === 'Both')).length;
     const salaryDaysPapa = data.attendance.reduce((sum: number, a: any) => {
         if (a.worked_for === 'Papa' || a.worked_for === 'Both') {
-            return sum + getStatusMultiplier(a.status_papa);
+            return sum + getStatusMultiplier(a.status_papa, a.work_done);
         }
         return sum;
     }, 0);
@@ -279,10 +285,10 @@ export default function StaffDetailsPage() {
         const salDays = staffAtt.reduce((sum: number, a: any) => {
             let days = 0;
             if (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for) {
-                days += getStatusMultiplier(a.status);
+                days += getStatusMultiplier(a.status, a.work_done);
             }
             if (a.worked_for === 'Papa' || a.worked_for === 'Both') {
-                days += getStatusMultiplier(a.status_papa);
+                days += getStatusMultiplier(a.status_papa, a.work_done);
             }
             return sum + days;
         }, 0);
@@ -565,50 +571,60 @@ export default function StaffDetailsPage() {
                         {data.attendance.length > 0 ? (
                             [...data.attendance].sort((a: any, b: any) => (a.date || '').localeCompare(b.date || '')).map((rec: any) => (
                                 <div key={rec.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg text-sm group">
-                                    <div className="flex flex-col flex-1 min-w-0 mr-4">
-                                        <span className="font-semibold">{new Date(rec.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')}</span>
-                                        <span className="text-xs text-gray-400 mt-0.5">
-                                            Worked for: <strong className="text-white">{rec.worked_for || 'Me'}</strong>
-                                        </span>
-                                        {rec.work_done && (
-                                            <span className="text-xs text-gray-500 italic mt-0.5 break-words" title={rec.work_done}>
-                                                "{rec.work_done}"
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-3 flex-shrink-0">
-                                        <div className="flex flex-col gap-1 items-end">
-                                            {/* Me's Status */}
-                                            {(rec.worked_for === 'Me' || rec.worked_for === 'Both' || !rec.worked_for) && (
-                                                <div className="flex items-center gap-1.5">
-                                                    {rec.worked_for === 'Both' && <span className="text-[10px] text-gray-500 uppercase font-medium">Me:</span>}
-                                                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.status === 'Present' ? 'bg-green-500/20 text-green-400' :
-                                                        rec.status === 'Absent' ? 'bg-red-500/20 text-red-400' :
-                                                            rec.status?.startsWith('Overtime') ? 'bg-purple-500/20 text-purple-400' :
-                                                                'bg-yellow-500/20 text-yellow-400'
-                                                        }`}>{rec.status}</span>
+                                    {(() => {
+                                        const cleanWork = (rec.work_done || '').replace(/\[2x\s*OT\]\s*/gi, '').replace(/\[1\.5x\s*OT\]\s*/gi, '').trim();
+                                        const is2x = is2xOvertime(rec.status, rec.work_done) || is2xOvertime(rec.status_papa, rec.work_done);
+                                        const otLabel = is2x ? 'Overtime (2)' : 'Overtime (1.5)';
+
+                                        return (
+                                            <>
+                                                <div className="flex flex-col flex-1 min-w-0 mr-4">
+                                                    <span className="font-semibold">{new Date(rec.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')}</span>
+                                                    <span className="text-xs text-gray-400 mt-0.5">
+                                                        Worked for: <strong className="text-white">{rec.worked_for || 'Me'}</strong>
+                                                    </span>
+                                                    {cleanWork && (
+                                                        <span className="text-xs text-gray-500 italic mt-0.5 break-words" title={cleanWork}>
+                                                            "{cleanWork}"
+                                                        </span>
+                                                    )}
                                                 </div>
-                                            )}
-                                            {/* Papa's Status */}
-                                            {(rec.worked_for === 'Papa' || rec.worked_for === 'Both') && (
-                                                <div className="flex items-center gap-1.5">
-                                                    {rec.worked_for === 'Both' && <span className="text-[10px] text-gray-500 uppercase font-medium">Papa:</span>}
-                                                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.status_papa === 'Present' ? 'bg-blue-500/20 text-blue-400' :
-                                                        rec.status_papa === 'Absent' ? 'bg-red-500/20 text-red-400' :
-                                                            rec.status_papa?.startsWith('Overtime') ? 'bg-purple-500/20 text-purple-400' :
-                                                                'bg-yellow-500/20 text-yellow-400'
-                                                        }`}>{rec.status_papa || 'Present'}</span>
+                                                <div className="flex items-center gap-3 flex-shrink-0">
+                                                    <div className="flex flex-col gap-1 items-end">
+                                                        {/* Me's Status */}
+                                                        {(rec.worked_for === 'Me' || rec.worked_for === 'Both' || !rec.worked_for) && (
+                                                            <div className="flex items-center gap-1.5">
+                                                                {rec.worked_for === 'Both' && <span className="text-[10px] text-gray-500 uppercase font-medium">Me:</span>}
+                                                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.status === 'Present' ? 'bg-green-500/20 text-green-400' :
+                                                                    rec.status === 'Absent' ? 'bg-red-500/20 text-red-400' :
+                                                                        (rec.status === 'Overtime' || rec.status?.startsWith('Overtime')) ? 'bg-purple-500/20 text-purple-400' :
+                                                                            'bg-yellow-500/20 text-yellow-400'
+                                                                    }`}>{rec.status?.startsWith('Overtime') ? otLabel : rec.status}</span>
+                                                            </div>
+                                                        )}
+                                                        {/* Papa's Status */}
+                                                        {(rec.worked_for === 'Papa' || rec.worked_for === 'Both') && (
+                                                            <div className="flex items-center gap-1.5">
+                                                                {rec.worked_for === 'Both' && <span className="text-[10px] text-gray-500 uppercase font-medium">Papa:</span>}
+                                                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.status_papa === 'Present' ? 'bg-blue-500/20 text-blue-400' :
+                                                                    rec.status_papa === 'Absent' ? 'bg-red-500/20 text-red-400' :
+                                                                        (rec.status_papa === 'Overtime' || rec.status_papa?.startsWith('Overtime')) ? 'bg-purple-500/20 text-purple-400' :
+                                                                            'bg-yellow-500/20 text-yellow-400'
+                                                                    }`}>{rec.status_papa?.startsWith('Overtime') ? otLabel : (rec.status_papa || 'Present')}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleDeleteAttendance(rec.id)}
+                                                        className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors flex items-center justify-center cursor-pointer ml-1"
+                                                        title="Delete Attendance"
+                                                    >
+                                                        <Trash2 size={15} />
+                                                    </button>
                                                 </div>
-                                            )}
-                                        </div>
-                                        <button
-                                            onClick={() => handleDeleteAttendance(rec.id)}
-                                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors flex items-center justify-center cursor-pointer ml-1"
-                                            title="Delete Attendance"
-                                        >
-                                            <Trash2 size={15} />
-                                        </button>
-                                    </div>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             ))
                         ) : <div className="text-gray-500 italic text-sm">No records this month</div>}
