@@ -2,10 +2,12 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { fetchAllDataAction } from "../app/actions/data";
+import { useAuth } from "./AuthContext";
 
 const FinanceContext = createContext();
 
 export function FinanceProvider({ children }) {
+    const { user } = useAuth();
     const [transactions, setTransactions] = useState([]);
     const [categories, setCategories] = useState([]);
     const [contacts, setContacts] = useState([]);
@@ -198,30 +200,33 @@ export function FinanceProvider({ children }) {
 
 
 
-    // Load from LocalStorage on mount
+    // Fetch fresh data when user is authenticated, clear when logged out
     useEffect(() => {
-        // const cached = typeof window !== 'undefined' ? localStorage.getItem('jasper_data') : null;
-        // if (cached) {
-        //     try {
-        //         const data = JSON.parse(cached);
-        //         setTransactions(data.transactions || []);
-        //         setCategories(data.categories || []);
-        //         setContacts(data.contacts || []);
-        //         setAllGlobalBudgets(data.allGlobalBudgets || []);
-        //         setAllCategoryBudgets(data.allCategoryBudgets || []);
-        //         setWallets(data.wallets || []);
-        //         setStaffList(data.staffList || []);
-        //         setSettings(data.settings || {});
-        //         // setLoading(false); // Valid cache found, show immediately
-        //     } catch (e) {
-        //         console.error("Cache parse error", e);
-        //     }
-        // }
-
-        // Always fetch fresh data
-
-        fetchData();
-    }, []);
+        if (user) {
+            fetchData();
+        } else {
+            setTransactions([]);
+            setCategories([]);
+            setContacts([]);
+            setProjects([]);
+            setAllGlobalBudgets([]);
+            setAllCategoryBudgets([]);
+            setWallets([]);
+            setWorkLogs([]);
+            setStickyNotes([]);
+            setClientQueries([]);
+            setStaffList([]);
+            setAllStaffAdvances([]);
+            setBills([]);
+            setSuppliers([]);
+            setInventory([]);
+            setPurchases([]);
+            setShoppingList([]);
+            setAttendance([]);
+            setSales([]);
+            setLoading(false);
+        }
+    }, [user]);
 
 
 
@@ -918,19 +923,27 @@ export function FinanceProvider({ children }) {
     const [estimates, setEstimates] = useState([]);
 
     const fetchEstimates = async () => {
+        if (!user) return;
         try {
             const { data, error } = await supabase.from('estimates').select('*, estimate_items(*)').order('created_at', { ascending: false });
-            if (error) throw error;
+            if (error) {
+                console.warn("Could not fetch estimates:", error.message || error);
+                return;
+            }
             setEstimates(data || []);
         } catch (error) {
-            console.error("Error fetching estimates:", error);
+            console.warn("Error fetching estimates:", error);
         }
     };
 
-    // Auto-fetch on mount (can be optimized later)
+    // Auto-fetch when user is authenticated, clear on logout
     useEffect(() => {
-        fetchEstimates();
-    }, []);
+        if (user) {
+            fetchEstimates();
+        } else {
+            setEstimates([]);
+        }
+    }, [user]);
 
     const createEstimate = async (estimateData, items = []) => {
         try {
@@ -1018,19 +1031,27 @@ export function FinanceProvider({ children }) {
     const [measurements, setMeasurements] = useState([]);
 
     const fetchMeasurements = async () => {
+        if (!user) return;
         try {
             const { data, error } = await supabase.from('measurements').select('*, measurement_items(*)').order('created_at', { ascending: false });
-            if (error) throw error;
+            if (error) {
+                console.warn("Could not fetch measurements:", error.message || error);
+                return;
+            }
             setMeasurements(data || []);
         } catch (error) {
-            console.error("Error fetching measurements:", error);
+            console.warn("Error fetching measurements:", error);
         }
     };
 
-    // Auto-fetch on mount
+    // Auto-fetch when user is authenticated, clear on logout
     useEffect(() => {
-        fetchMeasurements();
-    }, []);
+        if (user) {
+            fetchMeasurements();
+        } else {
+            setMeasurements([]);
+        }
+    }, [user]);
 
     const createMeasurement = async (data, items = []) => {
         try {

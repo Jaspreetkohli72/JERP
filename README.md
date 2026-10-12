@@ -1,6 +1,6 @@
 # GFE ERP 💎
 
-> **A full-stack business & personal finance ERP built for Ghodi Fabrication Enterprise.**
+> **A full-stack business & personal finance ERP built for Galaxy Fabricarion Experts.**
 
 ---
 
@@ -25,7 +25,7 @@
 
 ## 🌟 Key Features
 
-### 1. 💰 Finance Cockpit (Dashboard)
+### 1. 💰 Financial Dashboard
 - **Net Balance** — real-time liquid cash view across all wallets
 - **Runway** — months of money left at current burn rate
 - **Solvency Check** — instant alert if budget exceeds balance
@@ -123,7 +123,7 @@ npm start
 ```
 JERP/
 ├── app/                    # Next.js App Router pages
-│   ├── page.tsx            # Dashboard (Cockpit)
+│   ├── page.tsx            # Dashboard
 │   ├── accounts/           # Transaction history
 │   ├── contacts/           # Contact management
 │   ├── goals/              # Budget settings
@@ -185,4 +185,4 @@ Key tables:
 
 ---
 
-*GFE ERP — built private, fast, and purposefully for Ghodi Fabrication Enterprise.*
+*GFE ERP — built private, fast, and purposefully for Galaxy Fabricarion Experts.*

@@ -2,7 +2,7 @@
 
 ## 1. Project Overview
 
-GFE ERP is a full-stack business management and personal finance application built for **Ghodi Fabrication Enterprise**. It provides a real-time "cockpit" view of finances, sales, staff, contracting, and inventory — all in one place.
+GFE ERP is a full-stack business management and personal finance application built for **Galaxy Fabricarion Experts**. It provides a real-time view of finances, sales, staff, contracting, and inventory — all in one place.
 
 **Stack:**
 - **Framework:** Next.js 16 (App Router, Server Actions, Turbopack)
@@ -39,24 +39,28 @@ JERP/
 │   ├── wallets/                # Wallet management
 │   ├── reports/                # Financial reports
 │   ├── pending/                # Pending items view
+│   ├── login/page.tsx          # Supabase Auth Login & Sign Up
+│   ├── reset-password/page.tsx # Password recovery and update page
 │   └── actions/data.ts         # Server Action: bulk data fetch
 ├── components/
+│   ├── AuthGuard.tsx           # Route protection and auth layout wrapper
 │   ├── Dashboard/              # BalanceCard, Analytics, BudgetCard
 │   ├── Contacts/               # ContactBalanceCard, ContactDetailsModal
 │   ├── Insights/               # DetailedAnalytics
 │   ├── Staff/                  # Staff components
-│   ├── Sidebar.jsx             # Desktop navigation
-│   ├── MobileNav.jsx           # Mobile bottom nav
-│   ├── TopBar.jsx              # Page header bar
+│   ├── Sidebar.jsx             # Desktop navigation + user profile & logout
+│   ├── MobileNav.jsx           # Mobile bottom nav + logout
+│   ├── TopBar.jsx              # Page header bar + quick logout
 │   ├── AddTransactionForm.jsx  # Income/Expense entry form
 │   ├── AddTransactionModal.jsx # Modal wrapper
 │   ├── ImportModal.jsx         # PDF bank statement importer
 │   ├── CategoryManager.jsx     # Custom category CRUD
 │   └── CustomSelect.jsx        # Reusable styled dropdown
 ├── context/
+│   ├── AuthContext.tsx         # Supabase Auth state, session listener, sign in/out
 │   └── FinanceContext.jsx      # Global state + all Supabase CRUD
 ├── lib/
-│   ├── supabase.ts             # Supabase client instance
+│   ├── supabase.ts             # Supabase client instance (with session persistence)
 │   └── categoryIcons.js        # Icon-to-category map
 └── public/                     # Static assets (worker.js for pdfjs)
 ```
@@ -65,7 +69,15 @@ JERP/
 
 ## 3. Core Architecture
 
-### 3.1 Data Fetching — `app/actions/data.ts` (Server Action)
+### 3.1 Authentication — `context/AuthContext.tsx` & `components/AuthGuard.tsx`
+
+Authentication is powered by **Supabase Auth**:
+- **Client Configuration:** `lib/supabase.ts` configured with `persistSession: true`, auto token refresh, and url session detection.
+- **`AuthContext.tsx`:** Provides `useAuth()` hook exposing `user`, `session`, `loading`, `signInWithEmail`, `signUpWithEmail`, `signOut`, `resetPasswordForEmail`, and `updatePassword`. Subscribes to real-time `supabase.auth.onAuthStateChange`.
+- **`AuthGuard.tsx`:** Wraps the entire application. Protects all internal routes (redirecting unauthenticated users to `/login`), prevents authenticated users from landing on the login page (redirecting to `/`), and dynamically renders full-screen auth layout vs desktop sidebar & mobile navigation.
+- **`FinanceContext.jsx` Integration:** Only fetches ERP data when an authenticated user session is active, and automatically purges sensitive in-memory state on sign out.
+
+### 3.2 Data Fetching — `app/actions/data.ts` (Server Action)
 
 A single **Server Action** `fetchAllDataAction()` fetches all tables in parallel using `Promise.allSettled`. This runs server-side (avoiding CORS issues and leaking keys to the client), and feeds data into `FinanceContext` on mount.
 
@@ -128,7 +140,7 @@ The single source of truth for all client-side state. Wraps the entire app via `
 
 ## 4. Pages
 
-### `app/page.tsx` — Dashboard (Cockpit)
+### `app/page.tsx` — Dashboard
 Components: `TopBar`, `BalanceCard`, `BudgetCard`, `Analytics`
 - Live net balance across wallets
 - Monthly budget progress

@@ -1,13 +1,12 @@
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
-import MobileNav from "@/components/MobileNav";
+import { AuthProvider } from "@/context/AuthContext";
 import { FinanceProvider } from "@/context/FinanceContext";
-import GlobalModalWrapper from "@/components/GlobalModalWrapper";
+import AuthGuard from "@/components/AuthGuard";
 import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
   title: "GFE ERP",
-  description: "Advanced Personal Finance Cockpit",
+  description: "Advanced Personal Finance & Business Management",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -33,20 +32,16 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body className="h-full" suppressHydrationWarning>
-        <FinanceProvider>
-          <div className="bg-layer" />
-          <div className="bg-orb orb-1" />
-          <div className="bg-orb orb-2" />
-          <div className="bg-orb orb-3" />
+        <AuthProvider>
+          <FinanceProvider>
+            <div className="bg-layer" />
+            <div className="bg-orb orb-1" />
+            <div className="bg-orb orb-2" />
+            <div className="bg-orb orb-3" />
 
-          <div className="min-h-screen flex gap-[18px] max-w-[1400px] mx-auto md:p-5 lg:p-6">
-            <Sidebar />
-            <main className="flex-1 min-w-0 flex flex-col gap-4 px-4 pb-28 pt-0 md:p-0">{children}</main>
-          </div>
-
-          <MobileNav />
-          <GlobalModalWrapper />
-        </FinanceProvider>
+            <AuthGuard>{children}</AuthGuard>
+          </FinanceProvider>
+        </AuthProvider>
       </body>
     </html>
   );

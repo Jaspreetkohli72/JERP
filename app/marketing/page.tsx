@@ -29,7 +29,7 @@ export default function MarketingPage() {
     const [isNativeShareSupported, setIsNativeShareSupported] = useState(false);
 
     useEffect(() => {
-        if (typeof navigator !== 'undefined' && navigator.share) {
+        if (typeof navigator !== 'undefined' && 'share' in navigator) {
             setIsNativeShareSupported(true);
         }
     }, []);

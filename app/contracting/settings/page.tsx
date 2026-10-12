@@ -1,13 +1,15 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useFinance } from '@/context/FinanceContext';
-import { Save, ArrowLeft, Settings as SettingsIcon } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { Save, ArrowLeft, Settings as SettingsIcon, UserPlus, Mail, Lock, User, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
 export default function ContractingSettingsPage() {
     // @ts-ignore
     const { settings, updateSettings } = useFinance();
+    const { createAccountByAdmin } = useAuth();
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         welder_rate: 0,
@@ -16,6 +18,47 @@ export default function ContractingSettingsPage() {
         advance_required: 0,
         default_attendance_worked_for: 'Me'
     });
+
+    // Admin user creation state
+    const [newUserEmail, setNewUserEmail] = useState('');
+    const [newUserPassword, setNewUserPassword] = useState('');
+    const [newUserName, setNewUserName] = useState('');
+    const [creatingUser, setCreatingUser] = useState(false);
+    const [userSuccessMsg, setUserSuccessMsg] = useState<string | null>(null);
+    const [userErrorMsg, setUserErrorMsg] = useState<string | null>(null);
+
+    const handleCreateUser = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setUserSuccessMsg(null);
+        setUserErrorMsg(null);
+
+        if (!newUserEmail.trim() || !newUserPassword) {
+            setUserErrorMsg('Please provide both email and password.');
+            return;
+        }
+
+        if (newUserPassword.length < 6) {
+            setUserErrorMsg('Password must be at least 6 characters long.');
+            return;
+        }
+
+        try {
+            setCreatingUser(true);
+            const { error } = await createAccountByAdmin(newUserEmail, newUserPassword, newUserName);
+            if (error) {
+                setUserErrorMsg(error.message || 'Failed to create user account.');
+            } else {
+                setUserSuccessMsg(`Account created successfully for ${newUserEmail}!`);
+                setNewUserEmail('');
+                setNewUserPassword('');
+                setNewUserName('');
+            }
+        } catch (err: any) {
+            setUserErrorMsg(err.message || 'An unexpected error occurred.');
+        } finally {
+            setCreatingUser(false);
+        }
+    };
 
     useEffect(() => {
         if (settings) {
@@ -32,26 +75,10 @@ export default function ContractingSettingsPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
-        // Save to settings table (assuming single row for global config or distinct keys)
-        // We will assume a 'contracting_config' key or just specific columns in a single row settings table
-        // For simplicity, we'll try to update a row where id=1 or similar, but FinanceContext abstract this?
-        // Actually, FinanceContext doesn't have updateSettings yet, so I'll implement valid logic here or update context first.
 
-        // Let's implement direct update here for now if context is missing it, but ideally context handles it.
-        // We often store keys in a 'settings' table: { key: 'welder_rate', value: 500 } or columns.
-        // Let's go with columns in a single row for 'contracting_settings' or just 'settings' table.
-        // If settings table is generic { key, value }, we upsert.
-        // If it's a specific table, we update row.
-
-        // Let's try upserting by key for flexibility, or assuming a single row with columns if inspection worked.
-        // Since inspection failed/was inconclusive, I'll assume we might need to create the table or it uses keys.
-        // Let's assume keys: 'contracting_welder_rate', 'contracting_helper_rate', etc.
-
-        // BETTER: Create a strictly typed object update via Context.
         if (updateSettings) {
             await updateSettings(formData);
         } else {
-            // Fallback: Upsert to 'settings' table assuming id=1
             const { error } = await supabase.from('settings').upsert({ id: 1, ...formData });
             if (error) alert('Error saving settings');
         }
@@ -78,65 +105,61 @@ export default function ContractingSettingsPage() {
             <form onSubmit={handleSubmit} className="flex flex-col gap-6">
 
                 {/* Labor Rates */}
-                <div className="glass p-6 rounded-xl flex flex-col gap-4 border border-white/5">
-                    <h2 className="text-lg font-semibold text-[var(--accent)] border-b border-white/10 pb-2">Default Labor Rates</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm text-gray-400">Welder Daily Rate (₹)</label>
+                <div className="bg-[#141414] border border-white/10 rounded-2xl p-6 flex flex-col gap-4">
+                    <h2 className="text-lg font-bold border-b border-white/10 pb-2">Default Daily Labor Rates (₹)</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-xs text-gray-400 block mb-1">Welder Rate</label>
                             <input
                                 type="number"
-                                className="input-field bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-[var(--accent)] focus:outline-none"
                                 value={formData.welder_rate}
-                                onChange={e => setFormData({ ...formData, welder_rate: parseFloat(e.target.value) })}
-                                placeholder="e.g. 800"
+                                onChange={e => setFormData({ ...formData, welder_rate: Number(e.target.value) })}
+                                className="w-full bg-[#1e1e1e] border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-[var(--accent)]"
                             />
                         </div>
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm text-gray-400">Helper Daily Rate (₹)</label>
+                        <div>
+                            <label className="text-xs text-gray-400 block mb-1">Helper Rate</label>
                             <input
                                 type="number"
-                                className="input-field bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-[var(--accent)] focus:outline-none"
                                 value={formData.helper_rate}
-                                onChange={e => setFormData({ ...formData, helper_rate: parseFloat(e.target.value) })}
-                                placeholder="e.g. 500"
+                                onChange={e => setFormData({ ...formData, helper_rate: Number(e.target.value) })}
+                                className="w-full bg-[#1e1e1e] border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-[var(--accent)]"
                             />
                         </div>
                     </div>
                 </div>
 
-                {/* Margins */}
-                <div className="glass p-6 rounded-xl flex flex-col gap-4 border border-white/5">
-                    <h2 className="text-lg font-semibold text-[var(--accent)] border-b border-white/10 pb-2">Business Margins</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm text-gray-400">Default Profit Margin (%)</label>
+                {/* Financial Rules */}
+                <div className="bg-[#141414] border border-white/10 rounded-2xl p-6 flex flex-col gap-4">
+                    <h2 className="text-lg font-bold border-b border-white/10 pb-2">Financial Overrides</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-xs text-gray-400 block mb-1">Default Profit Margin (%)</label>
                             <input
                                 type="number"
-                                className="input-field bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-[var(--accent)] focus:outline-none"
                                 value={formData.profit_margin}
-                                onChange={e => setFormData({ ...formData, profit_margin: parseFloat(e.target.value) })}
-                                placeholder="e.g. 15"
+                                onChange={e => setFormData({ ...formData, profit_margin: Number(e.target.value) })}
+                                className="w-full bg-[#1e1e1e] border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-[var(--accent)]"
                             />
                         </div>
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm text-gray-400">Advance Required (%)</label>
+                        <div>
+                            <label className="text-xs text-gray-400 block mb-1">Default Advance Required (%)</label>
                             <input
                                 type="number"
-                                className="input-field bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-[var(--accent)] focus:outline-none"
                                 value={formData.advance_required}
-                                onChange={e => setFormData({ ...formData, advance_required: parseFloat(e.target.value) })}
-                                placeholder="e.g. 50"
+                                onChange={e => setFormData({ ...formData, advance_required: Number(e.target.value) })}
+                                className="w-full bg-[#1e1e1e] border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-[var(--accent)]"
                             />
                         </div>
                     </div>
                 </div>
 
-                {/* Default Attendance Recipient */}
-                <div className="glass p-6 rounded-xl flex flex-col gap-4 border border-white/5">
-                    <h2 className="text-lg font-semibold text-[var(--accent)] border-b border-white/10 pb-2">Attendance Settings</h2>
-                    <div className="flex flex-col gap-2">
-                        <label className="text-sm text-gray-400">Default Attendance Recipient (Worked For)</label>
-                        <div className="flex gap-6 bg-black/30 p-3 rounded-xl border border-white/10">
+                {/* Attendance Defaults */}
+                <div className="bg-[#141414] border border-white/10 rounded-2xl p-6 flex flex-col gap-4">
+                    <h2 className="text-lg font-bold border-b border-white/10 pb-2">Attendance Defaults</h2>
+                    <div>
+                        <label className="text-xs text-gray-400 block mb-2">Default "Worked For" Selection</label>
+                        <div className="flex gap-4">
                             {['Me', 'Papa', 'Both'].map(option => (
                                 <label key={option} className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-200">
                                     <input
@@ -157,13 +180,104 @@ export default function ContractingSettingsPage() {
                 <button
                     type="submit"
                     disabled={loading}
-                    className="bg-[var(--accent)] text-black font-bold py-4 rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 mt-4"
+                    className="bg-[var(--accent)] text-black font-bold py-4 rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 mt-4 cursor-pointer"
                 >
                     <Save size={20} />
                     {loading ? 'Saving...' : 'Save Configuration'}
                 </button>
 
             </form>
+
+            {/* Admin User Management Section */}
+            <div className="bg-[#141414] border border-white/10 rounded-2xl p-6 flex flex-col gap-5 mt-8">
+                <div className="flex items-center gap-2.5 border-b border-white/10 pb-3">
+                    <div className="p-2 rounded-xl bg-[rgba(255,215,0,0.1)] text-[#FFD700]">
+                        <UserPlus size={20} />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-bold text-white">Create New User Account (Admin Only)</h2>
+                        <p className="text-gray-400 text-xs">Provision access for new team members or administrators.</p>
+                    </div>
+                </div>
+
+                {userErrorMsg && (
+                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/25 flex items-start gap-2.5 text-xs text-red-300">
+                        <AlertCircle size={16} className="text-red-400 shrink-0 mt-0.5" />
+                        <span>{userErrorMsg}</span>
+                    </div>
+                )}
+
+                {userSuccessMsg && (
+                    <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/25 flex items-start gap-2.5 text-xs text-green-300">
+                        <CheckCircle2 size={16} className="text-green-400 shrink-0 mt-0.5" />
+                        <span>{userSuccessMsg}</span>
+                    </div>
+                )}
+
+                <form onSubmit={handleCreateUser} className="flex flex-col gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="text-xs text-gray-400 flex items-center gap-1.5 mb-1.5">
+                                <User size={13} className="text-[#FFD700]" />
+                                <span>Full Name</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={newUserName}
+                                onChange={e => setNewUserName(e.target.value)}
+                                placeholder="Staff Name"
+                                className="w-full bg-[#1e1e1e] border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-[var(--accent)]"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs text-gray-400 flex items-center gap-1.5 mb-1.5">
+                                <Mail size={13} className="text-[#FFD700]" />
+                                <span>Email Address *</span>
+                            </label>
+                            <input
+                                type="email"
+                                required
+                                value={newUserEmail}
+                                onChange={e => setNewUserEmail(e.target.value)}
+                                placeholder="member@galaxy.com"
+                                className="w-full bg-[#1e1e1e] border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-[var(--accent)]"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs text-gray-400 flex items-center gap-1.5 mb-1.5">
+                                <Lock size={13} className="text-[#FFD700]" />
+                                <span>Password *</span>
+                            </label>
+                            <input
+                                type="password"
+                                required
+                                value={newUserPassword}
+                                onChange={e => setNewUserPassword(e.target.value)}
+                                placeholder="Min 6 characters"
+                                className="w-full bg-[#1e1e1e] border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-[var(--accent)]"
+                            />
+                        </div>
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={creatingUser}
+                        className="bg-white/10 hover:bg-white/15 border border-white/10 text-white font-semibold py-3 px-5 rounded-xl transition-all flex items-center justify-center gap-2 self-start cursor-pointer disabled:opacity-50"
+                    >
+                        {creatingUser ? (
+                            <>
+                                <Loader2 size={16} className="animate-spin text-[#FFD700]" />
+                                <span>Creating Account...</span>
+                            </>
+                        ) : (
+                            <>
+                                <UserPlus size={16} className="text-[#FFD700]" />
+                                <span>Create User Account</span>
+                            </>
+                        )}
+                    </button>
+                </form>
+            </div>
         </div>
     );
 }

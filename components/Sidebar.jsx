@@ -1,17 +1,30 @@
 "use client";
 
-import React from "react";
-import { Home, BarChart2, CreditCard, Target, Users, Settings, ShoppingCart } from "lucide-react";
+import React, { useState } from "react";
+import { Home, BarChart2, CreditCard, Target, Users, Settings, ShoppingCart, LogOut, Loader2 } from "lucide-react";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useFinance } from "../context/FinanceContext";
+import { useAuth } from "../context/AuthContext";
 
 import Image from "next/image";
 
 export default function Sidebar() {
     const pathname = usePathname();
     const { financials, loading, contacts } = useFinance();
+    const { user, signOut } = useAuth();
+    const [signingOut, setSigningOut] = useState(false);
+
+    const handleSignOut = async () => {
+        try {
+            setSigningOut(true);
+            await signOut();
+        } catch (err) {
+            console.error("Sign out error:", err);
+            setSigningOut(false);
+        }
+    };
 
     // Calculate Debt/Credit Metrics
     const toReceive = contacts?.reduce((sum, c) => sum + (c.balance > 0 ? c.balance : 0), 0) || 0;
@@ -32,6 +45,9 @@ export default function Sidebar() {
         { name: "Settings", icon: Settings, href: "/contracting/settings" },
     ];
 
+    const userInitial = user?.user_metadata?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || "U";
+    const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
+
     return (
         <aside className="hidden md:flex flex-col gap-4 w-[250px] sticky top-4 self-start shrink-0">
             <div className="glass p-4 md:p-[18px]">
@@ -44,7 +60,7 @@ export default function Sidebar() {
                 </div>
 
                 <div className="text-[0.78rem] text-muted mb-[18px]">
-                    Personal finance cockpit. Track, tame, and tune your cashflow.
+                    Personal finance & business management. Track, tame, and tune your cashflow.
                 </div>
 
                 {/* Navigation */}
@@ -78,11 +94,6 @@ export default function Sidebar() {
                         <div className="text-[0.72rem] px-2.5 py-1 rounded-full bg-[rgba(15,23,42,0.85)] border border-[rgba(148,163,184,0.5)] text-muted whitespace-nowrap">
                             {loading ? "..." : `${financials.topCategory.name} ₹${financials.topCategory.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
                         </div>
-                        {/* 
-                        <div className="text-[0.72rem] px-2.5 py-1 rounded-full bg-[rgba(15,23,42,0.85)] border border-[rgba(148,163,184,0.5)] text-muted whitespace-nowrap">
-                            Subscriptions: ₹2.3k/mo
-                        </div>
-                        */}
                     </div>
 
                     <div className="flex flex-col gap-2 text-[0.74rem] text-muted mt-2">
@@ -137,11 +148,43 @@ export default function Sidebar() {
                         </div>
                     )}
 
+                    {/* Authenticated User Account Section */}
+                    {user && (
+                        <div className="mt-4 pt-3 border-t border-[rgba(255,255,255,0.08)] flex flex-col gap-2.5">
+                            <div className="flex items-center gap-2.5 px-1">
+                                <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#FFD700] to-[#B8860B] text-black font-bold text-xs flex items-center justify-center shrink-0 shadow-[0_0_8px_rgba(255,215,0,0.4)]">
+                                    {userInitial}
+                                </div>
+                                <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="text-[0.78rem] font-medium text-white truncate leading-tight">
+                                        {displayName}
+                                    </span>
+                                    <span className="text-[0.68rem] text-muted truncate">
+                                        {user.email}
+                                    </span>
+                                </div>
+                            </div>
 
-
-                    <div className="mt-3 text-[0.74rem] text-muted opacity-90">
-                        Global monthly budget applies to all categories.
-                    </div>
+                            <button
+                                type="button"
+                                onClick={handleSignOut}
+                                disabled={signingOut}
+                                className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl text-[0.75rem] text-red-400/90 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer disabled:opacity-50"
+                            >
+                                {signingOut ? (
+                                    <>
+                                        <Loader2 size={13} className="animate-spin" />
+                                        <span>Signing out...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <LogOut size={13} />
+                                        <span>Sign Out</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </aside>
