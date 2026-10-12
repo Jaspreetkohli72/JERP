@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Home, BarChart2, CreditCard, Target, Users, Settings, ShoppingCart, LogOut, Loader2 } from "lucide-react";
+import { Home, BarChart2, CreditCard, Target, Users, Settings, ShoppingCart, LogOut, Loader2, Shield } from "lucide-react";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -13,7 +13,7 @@ import Image from "next/image";
 export default function Sidebar() {
     const pathname = usePathname();
     const { financials, loading, contacts } = useFinance();
-    const { user, signOut } = useAuth();
+    const { user, signOut, canAccessAdminPanel, isSuperAdminUser } = useAuth();
     const [signingOut, setSigningOut] = useState(false);
 
     const handleSignOut = async () => {
@@ -43,6 +43,7 @@ export default function Sidebar() {
         { name: "Contacts", icon: Users, href: "/contacts" },
         { name: "Transactions", icon: CreditCard, href: "/transactions" },
         { name: "Settings", icon: Settings, href: "/contracting/settings" },
+        ...((canAccessAdminPanel || isSuperAdminUser) ? [{ name: "Admin & Logs", icon: Shield, href: "/admin" }] : []),
     ];
 
     const userInitial = user?.user_metadata?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || "U";

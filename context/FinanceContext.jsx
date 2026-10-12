@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { fetchAllDataAction } from "../app/actions/data";
 import { useAuth } from "./AuthContext";
+import { logActivity } from "../lib/auditLogger";
 
 const FinanceContext = createContext();
 
@@ -240,6 +241,14 @@ export function FinanceProvider({ children }) {
                 .single();
             if (error) throw error;
             setSales(prev => [data, ...prev]);
+            logActivity({
+                action: "CREATE",
+                module: "Sales",
+                description: `Created sale of ₹${sale.total_amount || 0}`,
+                details: sale,
+                entity_id: data.id,
+                user
+            });
             return { success: true, data };
         } catch (error) {
             console.error('Error adding sale:', error);
@@ -257,6 +266,14 @@ export function FinanceProvider({ children }) {
                 .single();
             if (error) throw error;
             setSales(prev => prev.map(s => s.id === id ? data : s));
+            logActivity({
+                action: "UPDATE",
+                module: "Sales",
+                description: `Updated sale #${id}`,
+                details: updates,
+                entity_id: id,
+                user
+            });
             return { success: true, data };
         } catch (error) {
             console.error('Error updating sale:', error);
@@ -305,6 +322,15 @@ export function FinanceProvider({ children }) {
                 }
             }
 
+            logActivity({
+                action: "CREATE",
+                module: "Transactions",
+                description: `Added ${type} transaction of ₹${amount}: ${description || 'No description'}`,
+                details: payload,
+                entity_id: data?.id,
+                user
+            });
+
             return { success: true };
         } catch (error) {
             console.error("Error adding transaction:", error);
@@ -329,6 +355,14 @@ export function FinanceProvider({ children }) {
             if (error) throw error;
 
             setContacts(prev => [...prev, data]);
+            logActivity({
+                action: "CREATE",
+                module: "Contacts",
+                description: `Added contact ${contact.name} (${contact.phone || 'No phone'})`,
+                details: contact,
+                entity_id: data?.id,
+                user
+            });
             return { success: true, data };
         } catch (error) {
             console.error("Error adding contact:", error);
@@ -336,14 +370,21 @@ export function FinanceProvider({ children }) {
         }
     };
 
-
-
     // Delete Contact
     const deleteContact = async (id) => {
         try {
+            const target = contacts.find(c => c.id === id);
             const { error } = await supabase.from(TABLES.CONTACTS).delete().eq('id', id);
             if (error) throw error;
             setContacts((prev) => prev.filter((c) => c.id !== id));
+            logActivity({
+                action: "DELETE",
+                module: "Contacts",
+                description: `Deleted contact ${target?.name || id}`,
+                details: { id, name: target?.name },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Delete failed:", error);
@@ -364,6 +405,14 @@ export function FinanceProvider({ children }) {
             if (error) throw error;
 
             setContacts((prev) => prev.map((c) => (c.id === id ? data : c)));
+            logActivity({
+                action: "UPDATE",
+                module: "Contacts",
+                description: `Updated contact ${data?.name || id}`,
+                details: updates,
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error updating contact:", error);
@@ -372,7 +421,6 @@ export function FinanceProvider({ children }) {
     };
 
     // Settle Contact
-    // Settle Contact
     const settleContact = async (contactId, walletId) => {
         try {
             const contact = contactsWithBalances.find(c => c.id === contactId);
@@ -380,12 +428,6 @@ export function FinanceProvider({ children }) {
 
             const balance = contact.balance || 0;
             if (balance === 0) return { success: true, message: "Already settled" };
-
-            // Determine if we are paying (expense) or receiving (income)
-            // If balance > 0, they owe us -> Income when settled? 
-            // Wait, previous logic: "type = balance > 0 ? 'income' : 'expense'".
-            // If contact.balance is POSITIVE, it usually means "They owe us" (Receivable). So Settle = Income.
-            // If contact.balance is NEGATIVE, it usually means "We owe them" (Payable). So Settle = Expense.
 
             const type = balance > 0 ? "income" : "expense";
             const amount = Math.abs(balance);
@@ -397,13 +439,21 @@ export function FinanceProvider({ children }) {
                 description: "Account Settled",
                 transaction_date: new Date().toISOString().split('T')[0],
                 contact_id: contactId,
-                wallet_id: walletId, // Now correctly passed
-                is_debt: false // Settlement is NOT a debt record, it's a payment
+                wallet_id: walletId,
+                is_debt: false
             });
 
             if (!result.success) throw result.error;
 
-            // setTransactions is handled by addTransaction
+            logActivity({
+                action: "SETTLE",
+                module: "Contacts",
+                description: `Settled account for ${contact.name} with amount ₹${amount}`,
+                details: { contactId, walletId, amount, type },
+                entity_id: contactId,
+                user
+            });
+
             return { success: true };
         } catch (error) {
             console.error("Error settling account:", error);
@@ -429,6 +479,14 @@ export function FinanceProvider({ children }) {
             const { error } = await supabase.from(TABLES.TRANSACTIONS).delete().eq('id', id);
             if (error) throw error;
             setTransactions((prev) => prev.filter((t) => t.id !== id));
+            logActivity({
+                action: "DELETE",
+                module: "Transactions",
+                description: `Deleted ${tx.type} transaction of ₹${tx.amount}: ${tx.description || ''}`,
+                details: tx,
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error deleting transaction:", error);
@@ -518,6 +576,14 @@ export function FinanceProvider({ children }) {
             }
 
             setTransactions((prev) => prev.map((t) => t.id === id ? data : t));
+            logActivity({
+                action: "UPDATE",
+                module: "Transactions",
+                description: `Updated transaction #${id}`,
+                details: { old: oldTx, updates: payload },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error updating transaction:", error);
@@ -560,6 +626,15 @@ export function FinanceProvider({ children }) {
                 setAllGlobalBudgets(prev => [...prev, data]);
             }
 
+            logActivity({
+                action: "UPDATE",
+                module: "Budgets",
+                description: `Set global budget limit to ₹${newAmount} for ${targetMonth}`,
+                details: payload,
+                entity_id: data?.id || existingBudget?.id,
+                user
+            });
+
             return { success: true };
         } catch (error) {
             console.error("Error updating budget:", error);
@@ -580,6 +655,14 @@ export function FinanceProvider({ children }) {
             if (error) throw error;
 
             setCategories(prev => [...prev, data]);
+            logActivity({
+                action: "CREATE",
+                module: "Categories",
+                description: `Added category "${name}" (${type})`,
+                details: payload,
+                entity_id: data?.id,
+                user
+            });
             return { success: true, data };
         } catch (error) {
             console.error("Error adding category:", error);
@@ -595,10 +678,19 @@ export function FinanceProvider({ children }) {
                 return { success: false, error: { message: "Cannot delete category with existing transactions." } };
             }
 
+            const target = categories.find(c => c.id === id);
             const { error } = await supabase.from(TABLES.CATEGORIES).delete().eq('id', id);
             if (error) throw error;
 
             setCategories(prev => prev.filter(c => c.id !== id));
+            logActivity({
+                action: "DELETE",
+                module: "Categories",
+                description: `Deleted category "${target?.name || id}"`,
+                details: { id, name: target?.name },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error deleting category:", error);
@@ -641,6 +733,15 @@ export function FinanceProvider({ children }) {
                 return [...filtered, data];
             });
 
+            logActivity({
+                action: "UPDATE",
+                module: "Budgets",
+                description: `Updated category budget limit to ₹${newLimit} for month ${targetMonth}`,
+                details: { categoryId, newLimit, monthYear: targetMonth },
+                entity_id: data?.id,
+                user
+            });
+
             return { success: true };
         } catch (error) {
             console.error("Error updating category budget:", error);
@@ -661,6 +762,14 @@ export function FinanceProvider({ children }) {
             if (error) throw error;
 
             setWallets(prev => [...prev, data]);
+            logActivity({
+                action: "CREATE",
+                module: "Wallets",
+                description: `Created wallet "${name}" with initial balance ₹${balance}`,
+                details: payload,
+                entity_id: data?.id,
+                user
+            });
             return { success: true, data };
         } catch (error) {
             console.error("Error adding wallet:", error);
@@ -681,6 +790,14 @@ export function FinanceProvider({ children }) {
             if (error) throw error;
 
             setWallets(prev => prev.map(w => w.id === id ? data : w));
+            logActivity({
+                action: "UPDATE",
+                module: "Wallets",
+                description: `Updated wallet #${id} balance to ₹${newBalance}`,
+                details: { id, newBalance },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error updating wallet:", error);
@@ -691,9 +808,18 @@ export function FinanceProvider({ children }) {
     // Helper: Delete Wallet
     const deleteWallet = async (id) => {
         try {
+            const target = wallets.find(w => w.id === id);
             const { error } = await supabase.from(TABLES.WALLETS).delete().eq('id', id);
             if (error) throw error;
             setWallets(prev => prev.filter(w => w.id !== id));
+            logActivity({
+                action: "DELETE",
+                module: "Wallets",
+                description: `Deleted wallet "${target?.name || id}"`,
+                details: { id, name: target?.name },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error deleting wallet:", error);
@@ -870,6 +996,14 @@ export function FinanceProvider({ children }) {
             const { data, error } = await supabase.from(TABLES.WORK_LOGS).insert([{ ...log, date: log.date || new Date() }]).select().single();
             if (error) throw error;
             setWorkLogs(prev => [data, ...prev]);
+            logActivity({
+                action: "CREATE",
+                module: "Operations",
+                description: `Added work log: ${log.title || log.description || 'Task'}`,
+                details: log,
+                entity_id: data?.id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error adding work log:", error);
@@ -883,6 +1017,14 @@ export function FinanceProvider({ children }) {
             const { data, error } = await supabase.from(TABLES.WORK_LOGS).update({ status: newStatus }).eq('id', id).select().single();
             if (error) throw error;
             setWorkLogs(prev => prev.map(l => l.id === id ? data : l));
+            logActivity({
+                action: "UPDATE",
+                module: "Operations",
+                description: `Toggled work log #${id} status to "${newStatus}"`,
+                details: { id, newStatus },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error toggling work log:", error);
@@ -895,6 +1037,14 @@ export function FinanceProvider({ children }) {
             const { error } = await supabase.from(TABLES.WORK_LOGS).delete().eq('id', id);
             if (error) throw error;
             setWorkLogs(prev => prev.filter(l => l.id !== id));
+            logActivity({
+                action: "DELETE",
+                module: "Operations",
+                description: `Deleted work log #${id}`,
+                details: { id },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error deleting work log:", error);
@@ -907,6 +1057,14 @@ export function FinanceProvider({ children }) {
             const { data, error } = await supabase.from(TABLES.WORK_LOGS).update(updates).eq('id', id).select().single();
             if (error) throw error;
             setWorkLogs(prev => prev.map(l => l.id === id ? data : l));
+            logActivity({
+                action: "UPDATE",
+                module: "Operations",
+                description: `Updated work log #${id}`,
+                details: updates,
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error updating work log:", error);
@@ -959,14 +1117,20 @@ export function FinanceProvider({ children }) {
                     quantity: item.quantity,
                     rate: item.rate,
                     amount: item.amount
-                    // Exclude category/inventory_id as schema likely doesn't support them yet
                 }));
                 const { error: itemsError } = await supabase.from('estimate_items').insert(itemsWithId);
                 if (itemsError) throw itemsError;
             }
 
-            // Refresh local state (easiest way to get full structure)
             await fetchEstimates();
+            logActivity({
+                action: "CREATE",
+                module: "Estimates",
+                description: `Created estimate for ${estimateData.client_name || 'Client'} (₹${estimateData.total_amount || 0})`,
+                details: { estimateData, itemCount: items.length },
+                entity_id: estData.id,
+                user
+            });
             return { success: true, id: estData.id };
         } catch (error) {
             console.error("Error creating estimate:", JSON.stringify(error, null, 2));
@@ -979,6 +1143,14 @@ export function FinanceProvider({ children }) {
             const { error } = await supabase.from('estimates').delete().eq('id', id);
             if (error) throw error;
             setEstimates(prev => prev.filter(e => e.id !== id));
+            logActivity({
+                action: "DELETE",
+                module: "Estimates",
+                description: `Deleted estimate #${id}`,
+                details: { id },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error deleting estimate:", error);
@@ -991,6 +1163,14 @@ export function FinanceProvider({ children }) {
             const { error } = await supabase.from('estimates').update({ status }).eq('id', id);
             if (error) throw error;
             setEstimates(prev => prev.map(e => e.id === id ? { ...e, status } : e));
+            logActivity({
+                action: "UPDATE",
+                module: "Estimates",
+                description: `Updated estimate #${id} status to ${status}`,
+                details: { id, status },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error updating estimate status:", error);
@@ -1004,8 +1184,7 @@ export function FinanceProvider({ children }) {
             const { error: estError } = await supabase.from('estimates').update(estimateData).eq('id', id);
             if (estError) throw estError;
 
-            // 2. Replace Items (Strategy: Delete all -> Insert new)
-            // This is safer than diffing for now
+            // 2. Replace Items
             const { error: deleteError } = await supabase.from('estimate_items').delete().eq('estimate_id', id);
             if (deleteError) throw deleteError;
 
@@ -1018,8 +1197,15 @@ export function FinanceProvider({ children }) {
                 if (itemsError) throw itemsError;
             }
 
-            // Refresh
             await fetchEstimates();
+            logActivity({
+                action: "UPDATE",
+                module: "Estimates",
+                description: `Updated estimate #${id}`,
+                details: { estimateData, itemCount: items?.length },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error updating estimate:", error);
@@ -1067,6 +1253,14 @@ export function FinanceProvider({ children }) {
             }
 
             await fetchMeasurements();
+            logActivity({
+                action: "CREATE",
+                module: "Measurements",
+                description: `Created measurement record for ${data.client_name || 'Client'}`,
+                details: { data, itemCount: items.length },
+                entity_id: mData.id,
+                user
+            });
             return { success: true, id: mData.id };
         } catch (error) {
             console.error("Error creating measurement:", error);
@@ -1079,6 +1273,14 @@ export function FinanceProvider({ children }) {
             const { error } = await supabase.from('measurements').delete().eq('id', id);
             if (error) throw error;
             setMeasurements(prev => prev.filter(m => m.id !== id));
+            logActivity({
+                action: "DELETE",
+                module: "Measurements",
+                description: `Deleted measurement #${id}`,
+                details: { id },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error deleting measurement:", error);
@@ -1087,8 +1289,6 @@ export function FinanceProvider({ children }) {
     };
 
     // 3. Bills
-    // bills state defined globally
-
     const fetchBills = async () => {
         try {
             const { data, error } = await supabase.from('bills').select('*, bill_items(*)').order('created_at', { ascending: false });
@@ -1133,6 +1333,14 @@ export function FinanceProvider({ children }) {
             }
 
             await fetchBills();
+            logActivity({
+                action: "CREATE",
+                module: "Billing",
+                description: `Created invoice/bill for ${data.client_name || 'Client'} (₹${data.total_amount || 0})`,
+                details: { data, itemCount: items.length },
+                entity_id: bData.id,
+                user
+            });
             return { success: true, id: bData.id };
         } catch (error) {
             console.error("Error creating bill:", JSON.stringify(error, null, 2));
@@ -1146,6 +1354,14 @@ export function FinanceProvider({ children }) {
             const { error } = await supabase.from('bills').delete().eq('id', id);
             if (error) throw error;
             setBills(prev => prev.filter(b => b.id !== id));
+            logActivity({
+                action: "DELETE",
+                module: "Billing",
+                description: `Deleted bill #${id}`,
+                details: { id },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error deleting bill:", error);
@@ -1164,6 +1380,14 @@ export function FinanceProvider({ children }) {
             const { data, error } = await supabase.from('staff').insert([staffData]).select().single();
             if (error) throw error;
             setStaffList(prev => [...prev, data]);
+            logActivity({
+                action: "CREATE",
+                module: "Staff",
+                description: `Added staff member ${staffData.name} (${staffData.role || 'Staff'})`,
+                details: staffData,
+                entity_id: data?.id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error adding staff:", error);
@@ -1172,11 +1396,9 @@ export function FinanceProvider({ children }) {
     };
 
     const submitDailyAttendance = async (date, records) => {
-        // records: [{ staff_id, status }]
         try {
-            // Upsert attendance
             const upsertData = records.map(r => ({
-                staff_id: parseInt(r.staff_id), // Ensure Number for BIGINT
+                staff_id: parseInt(r.staff_id),
                 date: date,
                 status: r.status,
                 worked_for: r.worked_for || 'Me',
@@ -1184,29 +1406,32 @@ export function FinanceProvider({ children }) {
                 status_papa: r.status_papa || 'Absent'
             }));
 
-            // Use onConflict to update status if record exists for same staff/date
             const { error } = await supabase
                 .from('staff_attendance')
                 .upsert(upsertData, { onConflict: 'staff_id,date' })
-                .select(); // Select to ensure we get back the data, though we might not use it if we refetch
+                .select();
 
             if (error) throw error;
 
-            // Optimistic update
             setAttendance(prev => {
-                // Remove existing records for this date to avoid duplicates in state
                 const otherDates = prev.filter(a => a.date !== date);
-                // Create new entries (mocking ID if needed, but for display status is enough)
                 const newEntries = upsertData.map((u, i) => ({
                     ...u,
-                    id: `temp-${Date.now()}-${i}`, // Temporary ID until refetch
+                    id: `temp-${Date.now()}-${i}`,
                     created_at: new Date().toISOString()
                 }));
                 return [...otherDates, ...newEntries];
             });
 
-            // Re-fetch to get real IDs and ensure sync
             fetchData();
+
+            logActivity({
+                action: "UPDATE",
+                module: "Attendance",
+                description: `Submitted daily attendance for ${date} (${records.length} records)`,
+                details: { date, count: records.length },
+                user
+            });
 
             return { success: true };
         } catch (error) {
@@ -1236,6 +1461,14 @@ export function FinanceProvider({ children }) {
             const { error } = await supabase.from('staff_attendance').delete().eq('id', id);
             if (error) throw error;
             setAttendance(prev => prev.filter(a => String(a.id) !== String(id)));
+            logActivity({
+                action: "DELETE",
+                module: "Attendance",
+                description: `Deleted attendance record #${id}`,
+                details: { id },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error deleting attendance:", error);
@@ -1249,7 +1482,6 @@ export function FinanceProvider({ children }) {
             const lastDay = new Date(year, month + 1, 0).getDate();
             const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-            // Fetch Attendance
             const { data: attData } = await supabase.from('staff_attendance')
                 .select('*')
                 .eq('staff_id', id)
@@ -1257,10 +1489,6 @@ export function FinanceProvider({ children }) {
                 .lte('date', endDate)
                 .order('date', { ascending: true });
 
-            // Fetch Advances/Payments (All time to calculate balance, or just this month?)
-            // Usually we need running balance. For now simpler: fetch recent.
-            // Actually, for "Accounts", we need total taken vs total salary earned.
-            // That's complex. Let's start with just Listing Advances.
             const { data: advData } = await supabase.from('staff_advances')
                 .select('*')
                 .eq('staff_id', id)
@@ -1280,21 +1508,29 @@ export function FinanceProvider({ children }) {
 
             setAllStaffAdvances(prev => [data, ...prev]);
 
-            // Create corresponding Transaction for Cash Flow
             if (walletId) {
                 const staffMember = staffList.find(s => String(s.id) === String(advanceData.staff_id));
                 const staffName = staffMember ? staffMember.name : "Staff";
 
                 await addTransaction({
                     amount: advanceData.amount,
-                    type: 'expense', // Advance is money OUT
+                    type: 'expense',
                     category_id: null,
                     description: `Advance to ${staffName}`,
                     transaction_date: advanceData.date,
                     wallet_id: walletId,
-                    is_debt: false // It's an expense transaction
+                    is_debt: false
                 });
             }
+
+            logActivity({
+                action: "CREATE",
+                module: "Staff",
+                description: `Issued advance of ₹${advanceData.amount} for staff #${advanceData.staff_id}`,
+                details: advanceData,
+                entity_id: data?.id,
+                user
+            });
 
             return { success: true };
         } catch (error) {
@@ -1308,6 +1544,14 @@ export function FinanceProvider({ children }) {
             const { error } = await supabase.from(TABLES.STAFF).update(updates).eq('id', id);
             if (error) throw error;
             setStaffList(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+            logActivity({
+                action: "UPDATE",
+                module: "Staff",
+                description: `Updated staff profile #${id}`,
+                details: updates,
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error updating staff:", error);
@@ -1317,20 +1561,24 @@ export function FinanceProvider({ children }) {
 
     const deleteStaff = async (id) => {
         try {
-            // Cascade delete happens in DB, but good to be safe/aware
+            const target = staffList.find(s => String(s.id) === String(id));
             const { error } = await supabase.from('staff').delete().eq('id', id);
             if (error) throw error;
             setStaffList(prev => prev.filter(s => s.id !== id));
+            logActivity({
+                action: "DELETE",
+                module: "Staff",
+                description: `Deleted staff member ${target?.name || id}`,
+                details: { id, name: target?.name },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error deleting staff:", error);
             return { success: false, error };
         }
     };
-
-    // 5. Marketing (Suppliers, Inventory, Purchases)
-    // moved to top
-
 
     const fetchMarketingData = async () => {
         try {
@@ -1351,6 +1599,14 @@ export function FinanceProvider({ children }) {
             const { data, error } = await supabase.from('suppliers').insert([supplier]).select().single();
             if (error) throw error;
             setSuppliers(prev => [...prev, data]);
+            logActivity({
+                action: "CREATE",
+                module: "Procurement",
+                description: `Added supplier "${supplier.name || 'New Supplier'}"`,
+                details: supplier,
+                entity_id: data?.id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error adding supplier:", JSON.stringify(error, null, 2));
@@ -1360,7 +1616,6 @@ export function FinanceProvider({ children }) {
 
     const addInventoryItem = async (item) => {
         try {
-            // Map frontend fields (item_name) to DB fields (item_name)
             const payload = {
                 item_name: item.item_name,
                 category: item.category,
@@ -1373,6 +1628,14 @@ export function FinanceProvider({ children }) {
             if (error) throw error;
 
             setInventory(prev => [...prev, data]);
+            logActivity({
+                action: "CREATE",
+                module: "Inventory",
+                description: `Added inventory item "${item.item_name}" (Stock: ${item.current_stock || 0})`,
+                details: item,
+                entity_id: data?.id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error adding inventory:", JSON.stringify(error, null, 2));
@@ -1385,6 +1648,14 @@ export function FinanceProvider({ children }) {
             const { error } = await supabase.from('inventory').update(updates).eq('id', id);
             if (error) throw error;
             setInventory(prev => prev.map(inv => inv.id === id ? { ...inv, ...updates } : inv));
+            logActivity({
+                action: "UPDATE",
+                module: "Inventory",
+                description: `Updated inventory item #${id}`,
+                details: updates,
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error updating inventory:", error);
@@ -1394,9 +1665,18 @@ export function FinanceProvider({ children }) {
 
     const deleteInventoryItem = async (id) => {
         try {
+            const target = inventory.find(i => i.id === id);
             const { error } = await supabase.from('inventory').delete().eq('id', id);
             if (error) throw error;
             setInventory(prev => prev.filter(i => i.id !== id));
+            logActivity({
+                action: "DELETE",
+                module: "Inventory",
+                description: `Deleted inventory item "${target?.item_name || id}"`,
+                details: { id, name: target?.item_name },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error deleting inventory:", error);
@@ -1405,22 +1685,16 @@ export function FinanceProvider({ children }) {
     };
 
     const createPurchase = async (purchaseData, items) => {
-        // purchaseData: { supplier_id, date, total_amount, invoice_number }
-        // items: [{ inventory_item_id, quantity, rate, amount }]
         try {
-            // 1. Create Purchase Record
             const { data: pData, error: pError } = await supabase.from('purchases').insert([purchaseData]).select().single();
             if (pError) throw pError;
 
-            // 2. Create Purchase Items
             const itemsWithId = items.map(i => ({ ...i, purchase_id: pData.id }));
             const { error: iError } = await supabase.from('purchase_items').insert(itemsWithId);
             if (iError) throw iError;
 
-            // 3. Update Inventory Stock (Simple increment)
             for (const item of items) {
                 if (item.inventory_item_id) {
-                    // Get current stock
                     const currentItem = inventory.find(i => i.id === item.inventory_item_id);
                     const currentStock = Number(currentItem?.current_stock || 0);
                     const newStock = currentStock + Number(item.quantity);
@@ -1429,7 +1703,15 @@ export function FinanceProvider({ children }) {
                 }
             }
 
-            await fetchMarketingData(); // Refresh all to get updated stock and list
+            await fetchMarketingData();
+            logActivity({
+                action: "CREATE",
+                module: "Procurement",
+                description: `Recorded purchase (Invoice: ${purchaseData.invoice_number || 'N/A'}, Total: ₹${purchaseData.total_amount || 0})`,
+                details: { purchaseData, itemCount: items.length },
+                entity_id: pData.id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error creating purchase:", JSON.stringify(error, null, 2));
@@ -1437,13 +1719,20 @@ export function FinanceProvider({ children }) {
         }
     };
 
-
     // 6. Sticky Notes
     const addStickyNote = async (note) => {
         try {
             const { data, error } = await supabase.from(TABLES.STICKY_NOTES).insert([{ ...note, date: new Date() }]).select().single();
             if (error) throw error;
             setStickyNotes(prev => [data, ...prev]);
+            logActivity({
+                action: "CREATE",
+                module: "Notes",
+                description: `Created sticky note: ${note.content ? note.content.slice(0, 30) + '...' : 'Note'}`,
+                details: note,
+                entity_id: data?.id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error adding sticky note:", error);
@@ -1456,6 +1745,14 @@ export function FinanceProvider({ children }) {
             const { error } = await supabase.from(TABLES.STICKY_NOTES).delete().eq('id', id);
             if (error) throw error;
             setStickyNotes(prev => prev.filter(n => n.id !== id));
+            logActivity({
+                action: "DELETE",
+                module: "Notes",
+                description: `Deleted sticky note #${id}`,
+                details: { id },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error deleting sticky note:", error);
@@ -1469,6 +1766,14 @@ export function FinanceProvider({ children }) {
             const { data, error } = await supabase.from(TABLES.CLIENT_QUERIES).insert([{ ...query, status: 'new' }]).select().single();
             if (error) throw error;
             setClientQueries(prev => [data, ...prev]);
+            logActivity({
+                action: "CREATE",
+                module: "Inquiries",
+                description: `Added client query from ${query.client_name || 'Client'}`,
+                details: query,
+                entity_id: data?.id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error adding client query:", error);
@@ -1481,6 +1786,14 @@ export function FinanceProvider({ children }) {
             const { error } = await supabase.from(TABLES.CLIENT_QUERIES).delete().eq('id', id);
             if (error) throw error;
             setClientQueries(prev => prev.filter(q => q.id !== id));
+            logActivity({
+                action: "DELETE",
+                module: "Inquiries",
+                description: `Deleted query #${id}`,
+                details: { id },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error deleting client query:", error);
@@ -1493,6 +1806,14 @@ export function FinanceProvider({ children }) {
             const { data, error } = await supabase.from(TABLES.CLIENT_QUERIES).update({ status: newStatus }).eq('id', id).select().single();
             if (error) throw error;
             setClientQueries(prev => prev.map(q => q.id === id ? data : q));
+            logActivity({
+                action: "UPDATE",
+                module: "Inquiries",
+                description: `Updated inquiry #${id} status to ${newStatus}`,
+                details: { id, newStatus },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error updating query status:", error);
@@ -1501,13 +1822,19 @@ export function FinanceProvider({ children }) {
     };
 
     // Shopping List Functions
-
-
     const addToShoppingList = async (item) => {
         try {
             const { data, error } = await supabase.from('shopping_list').insert([item]).select().single();
             if (error) throw error;
             setShoppingList(prev => [data, ...prev]);
+            logActivity({
+                action: "CREATE",
+                module: "ShoppingList",
+                description: `Added "${item.name || item.item_name || 'Item'}" to shopping list`,
+                details: item,
+                entity_id: data?.id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error adding to shopping list:", error);
@@ -1520,6 +1847,14 @@ export function FinanceProvider({ children }) {
             const { error } = await supabase.from('shopping_list').update(updates).eq('id', id);
             if (error) throw error;
             setShoppingList(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i));
+            logActivity({
+                action: "UPDATE",
+                module: "ShoppingList",
+                description: `Updated shopping list item #${id}`,
+                details: updates,
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error updating shopping list item:", error);
@@ -1532,6 +1867,14 @@ export function FinanceProvider({ children }) {
             const { error } = await supabase.from('shopping_list').delete().eq('id', id);
             if (error) throw error;
             setShoppingList(prev => prev.filter(i => i.id !== id));
+            logActivity({
+                action: "DELETE",
+                module: "ShoppingList",
+                description: `Deleted shopping list item #${id}`,
+                details: { id },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error deleting shopping list item:", error);
@@ -1545,6 +1888,14 @@ export function FinanceProvider({ children }) {
             const { data, error } = await supabase.from(TABLES.PROJECTS).insert([projectData]).select(`*, contacts(name)`).single();
             if (error) throw error;
             setProjects(prev => [data, ...prev]);
+            logActivity({
+                action: "CREATE",
+                module: "Projects",
+                description: `Created project "${projectData.title || projectData.name || 'Project'}"`,
+                details: projectData,
+                entity_id: data.id,
+                user
+            });
             return { success: true, id: data.id };
         } catch (error) {
             console.error("Error adding project:", error);
@@ -1557,6 +1908,14 @@ export function FinanceProvider({ children }) {
             const { data, error } = await supabase.from(TABLES.PROJECTS).update(updates).eq('id', id).select(`*, contacts(name)`).single();
             if (error) throw error;
             setProjects(prev => prev.map(p => p.id === id ? data : p));
+            logActivity({
+                action: "UPDATE",
+                module: "Projects",
+                description: `Updated project #${id}`,
+                details: updates,
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error updating project:", error);
@@ -1566,9 +1925,18 @@ export function FinanceProvider({ children }) {
 
     const deleteProject = async (id) => {
         try {
+            const target = projects.find(p => p.id === id);
             const { error } = await supabase.from(TABLES.PROJECTS).delete().eq('id', id);
             if (error) throw error;
             setProjects(prev => prev.filter(p => p.id !== id));
+            logActivity({
+                action: "DELETE",
+                module: "Projects",
+                description: `Deleted project "${target?.title || target?.name || id}"`,
+                details: { id, name: target?.title || target?.name },
+                entity_id: id,
+                user
+            });
             return { success: true };
         } catch (error) {
             console.error("Error deleting project:", error);
@@ -1648,25 +2016,7 @@ export function FinanceProvider({ children }) {
                 bills,
                 createBill,
                 deleteBill,
-                updateStaff: async (id, updates) => {
-                    try {
-                        const { data, error } = await supabase
-                            .from(TABLES.STAFF)
-                            .update(updates)
-                            .eq('id', id)
-                            .select()
-                            .single();
-
-                        if (error) throw error;
-
-                        setStaffList(prev => prev.map(s => String(s.id) === String(id) ? { ...s, ...updates } : s));
-                        return { success: true, data };
-                    } catch (error) {
-                        console.error("Error updating staff:", error);
-                        return { success: false, error: error.message };
-                    }
-                },
-
+                updateStaff,
                 submitDailyAttendance,
                 syncAttendance,
                 clearAttendanceForDate,
@@ -1681,7 +2031,7 @@ export function FinanceProvider({ children }) {
                 addSupplier,
                 addInventoryItem,
                 updateInventoryItem,
-                deleteInventoryItem, // Assuming this exists or I will verify
+                deleteInventoryItem,
                 createPurchase,
                 addToShoppingList,
                 updateShoppingListItem,
@@ -1702,6 +2052,13 @@ export function FinanceProvider({ children }) {
                             try { localStorage.setItem('jerp_settings', JSON.stringify(updated)); } catch(e){}
                         }
                         return updated;
+                    });
+                    logActivity({
+                        action: "UPDATE",
+                        module: "Settings",
+                        description: `Updated application settings`,
+                        details: newSettings,
+                        user
                     });
                     return { success: true };
                 },

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Home, BarChart2, Target, CreditCard, Users, Settings, ShoppingCart, LogOut } from "lucide-react";
+import { Home, BarChart2, Target, CreditCard, Users, Settings, ShoppingCart, LogOut, Shield } from "lucide-react";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -9,7 +9,7 @@ import { useAuth } from "../context/AuthContext";
 
 export default function MobileNav() {
     const pathname = usePathname();
-    const { user, signOut } = useAuth();
+    const { user, signOut, canAccessAdminPanel, isSuperAdminUser } = useAuth();
 
     const navItems = [
         { name: "Overview", icon: Home, href: "/" },
@@ -23,6 +23,7 @@ export default function MobileNav() {
         { name: "Wallets", icon: CreditCard, href: "/wallets" },
         { name: "Transactions", icon: CreditCard, href: "/transactions" },
         { name: "Settings", icon: Settings, href: "/contracting/settings" },
+        ...((canAccessAdminPanel || isSuperAdminUser) ? [{ name: "Admin", icon: Shield, href: "/admin" }] : []),
     ];
 
     return (

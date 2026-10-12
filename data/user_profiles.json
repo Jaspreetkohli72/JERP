@@ -1,0 +1,19 @@
+[
+  {
+    "id": "superadmin_jaspreet",
+    "email": "jaspreetkohli72@gmail.com",
+    "full_name": "Jaspreet Singh Kohli",
+    "role": "superadmin",
+    "privileges": {
+      "can_manage_users": true,
+      "can_view_logs": true,
+      "can_edit_finances": true,
+      "can_manage_staff": true,
+      "can_manage_contracting": true,
+      "can_manage_settings": true
+    },
+    "status": "active",
+    "created_at": "2026-10-12T16:00:43.571Z",
+    "updated_at": "2026-10-12T16:00:43.571Z"
+  }
+]
