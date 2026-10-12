@@ -1,8 +1,5 @@
 export const SUPER_ADMIN_EMAIL = "jaspreetkohli72@gmail.com";
-export const SUPER_ADMIN_EMAILS = [
-    "jaspreetkohli72@gmail.com",
-    "jaspreetkohli710@gmail.com",
-];
+export const SUPER_ADMIN_EMAILS = ["jaspreetkohli72@gmail.com"];
 
 export type RoleType = "superadmin" | "admin" | "manager" | "staff" | "viewer";
 
