@@ -1,1 +1,132 @@
-[]
+[
+  {
+    "action": "AUTH",
+    "module": "auth",
+    "description": "User jaspreetkohli710@gmail.com signed out",
+    "details": {
+      "event": "logout"
+    },
+    "user_id": "086ce0cf-8fc0-4e6c-a1bb-9ce8d35de62c",
+    "user_email": "jaspreetkohli710@gmail.com",
+    "user_name": "test",
+    "timestamp": "2026-10-12T16:43:24.849Z",
+    "id": "2e84cdef-01cd-4bc3-a876-75d861deaea9"
+  },
+  {
+    "action": "PERMISSION_CHANGE",
+    "module": "users",
+    "entity_id": "086ce0cf-8fc0-4e6c-a1bb-9ce8d35de62c",
+    "description": "Admin updated permissions for jaspreetkohli710@gmail.com: Role 'manager', Status 'active'",
+    "details": {
+      "role": "manager",
+      "privileges": {
+        "can_manage_users": false,
+        "can_view_logs": false,
+        "can_edit_finances": true,
+        "can_manage_staff": true,
+        "can_manage_contracting": true,
+        "can_manage_settings": false
+      },
+      "status": "active"
+    },
+    "user_email": "jaspreetkohli710@gmail.com",
+    "user_name": "test",
+    "id": "c80f69ac-2dea-4ade-9f2c-b913e90fca96",
+    "timestamp": "2026-10-12T16:43:11.166Z"
+  },
+  {
+    "action": "AUTH",
+    "module": "auth",
+    "description": "User jaspreetkohli72@gmail.com signed out",
+    "details": {
+      "event": "logout"
+    },
+    "user_id": "086ce0cf-8fc0-4e6c-a1bb-9ce8d35de62c",
+    "user_email": "jaspreetkohli72@gmail.com",
+    "user_name": "test",
+    "timestamp": "2026-10-12T16:42:13.133Z",
+    "id": "3c46dd8e-346f-4dd4-b737-09c59b05a4bd"
+  },
+  {
+    "action": "AUTH",
+    "module": "auth",
+    "description": "User jaspreetkohli72@gmail.com signed out",
+    "details": {
+      "event": "logout"
+    },
+    "user_id": "086ce0cf-8fc0-4e6c-a1bb-9ce8d35de62c",
+    "user_email": "jaspreetkohli72@gmail.com",
+    "user_name": "test",
+    "timestamp": "2026-10-12T16:41:44.105Z",
+    "id": "89235d1b-c06f-46e4-9b00-22f0ca847ad2"
+  },
+  {
+    "action": "UPDATE",
+    "module": "Staff",
+    "description": "Updated staff profile #43",
+    "details": {
+      "status": "On Leave"
+    },
+    "entity_id": "43",
+    "user_id": "086ce0cf-8fc0-4e6c-a1bb-9ce8d35de62c",
+    "user_email": "jaspreetkohli72@gmail.com",
+    "user_name": "test",
+    "timestamp": "2026-10-12T16:41:06.469Z",
+    "id": "53ce42ca-e20c-458d-a72b-d98235f0db31"
+  },
+  {
+    "action": "AUTH",
+    "module": "auth",
+    "description": "User jaspreetkohli710@gmail.com signed out",
+    "details": {
+      "event": "logout"
+    },
+    "user_id": "086ce0cf-8fc0-4e6c-a1bb-9ce8d35de62c",
+    "user_email": "jaspreetkohli710@gmail.com",
+    "user_name": "test",
+    "timestamp": "2026-10-12T16:18:07.993Z",
+    "id": "6c11c841-038b-42c7-8498-09f891becfc3"
+  },
+  {
+    "action": "AUTH",
+    "module": "auth",
+    "description": "User jaspreetkohli72@gmail.com signed out",
+    "details": {
+      "event": "logout"
+    },
+    "user_id": "9089b372-a9ec-42d0-af4b-53ed66033167",
+    "user_email": "jaspreetkohli72@gmail.com",
+    "user_name": "jaspreetkohli72",
+    "timestamp": "2026-10-12T16:17:13.491Z",
+    "id": "986f09db-a021-431e-8667-5d31d20ea170"
+  },
+  {
+    "action": "CREATE",
+    "module": "users",
+    "entity_id": "086ce0cf-8fc0-4e6c-a1bb-9ce8d35de62c",
+    "description": "Admin provisioned user jaspreetkohli710@gmail.com (test) with role 'manager'",
+    "details": {
+      "profile": {
+        "id": "086ce0cf-8fc0-4e6c-a1bb-9ce8d35de62c",
+        "email": "jaspreetkohli710@gmail.com",
+        "full_name": "test",
+        "role": "manager",
+        "privileges": {
+          "can_manage_users": false,
+          "can_view_logs": false,
+          "can_edit_finances": true,
+          "can_manage_staff": true,
+          "can_manage_contracting": true,
+          "can_manage_settings": false
+        },
+        "status": "active",
+        "created_at": "2026-10-12T16:16:58.951Z",
+        "updated_at": "2026-10-12T16:16:58.951Z"
+      }
+    },
+    "user_email": "jaspreetkohli72@gmail.com",
+    "user_name": "jaspreetkohli72@gmail.com",
+    "id": "8b2312b4-706d-4126-8779-efab5e106bce",
+    "timestamp": "2026-10-12T16:16:59.699Z"
+  }
+]

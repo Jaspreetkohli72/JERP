@@ -1292,7 +1292,10 @@ export function FinanceProvider({ children }) {
     const fetchBills = async () => {
         try {
             const { data, error } = await supabase.from('bills').select('*, bill_items(*)').order('created_at', { ascending: false });
-            if (error) throw error;
+            if (error) {
+                console.warn("Could not fetch bills:", error.message || error);
+                return;
+            }
             const formatted = (data || []).map(bill => ({
                 ...bill,
                 bill_items: (bill.bill_items || []).map(item => ({
@@ -1302,7 +1305,7 @@ export function FinanceProvider({ children }) {
             }));
             setBills(formatted);
         } catch (error) {
-            console.error("Error fetching bills:", error);
+            console.warn("Error fetching bills:", error);
         }
     };
 

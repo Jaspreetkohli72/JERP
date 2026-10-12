@@ -1,4 +1,8 @@
 export const SUPER_ADMIN_EMAIL = "jaspreetkohli72@gmail.com";
+export const SUPER_ADMIN_EMAILS = [
+    "jaspreetkohli72@gmail.com",
+    "jaspreetkohli710@gmail.com",
+];
 
 export type RoleType = "superadmin" | "admin" | "manager" | "staff" | "viewer";
 
@@ -67,7 +71,8 @@ export const DEFAULT_ROLE_PRIVILEGES: Record<RoleType, UserPrivileges> = {
 
 export function isSuperAdmin(email?: string | null): boolean {
     if (!email) return false;
-    return email.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+    const lower = email.trim().toLowerCase();
+    return SUPER_ADMIN_EMAILS.some((admin) => admin.toLowerCase() === lower);
 }
 
 export function canAccessAdmin(profileOrEmail?: UserProfile | string | null): boolean {
