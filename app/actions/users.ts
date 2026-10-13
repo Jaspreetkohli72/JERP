@@ -2,6 +2,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { createClient as createBaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { supabase as fallbackClient } from '@/lib/supabase';
 import { SUPER_ADMIN_EMAIL, UserProfile, RoleType, UserPrivileges, DEFAULT_ROLE_PRIVILEGES } from '@/lib/permissions';
@@ -13,6 +14,15 @@ async function getClient() {
     } catch {
         return fallbackClient;
     }
+}
+
+function getAdminAuthClient() {
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceKey) return null;
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://acirakiaxrhfgtksmahm.supabase.co';
+    return createBaseClient(url, serviceKey, {
+        auth: { persistSession: false, autoRefreshToken: false }
+    });
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -61,7 +71,49 @@ function writeLocalUsers(users: UserProfile[]) {
 export async function getUserProfilesAction(): Promise<UserProfile[]> {
     let profiles: UserProfile[] = [];
 
-    // 1. Try Supabase user_profiles table
+    // 1. Direct from Supabase Auth admin API (if service role key provided)
+    const admin = getAdminAuthClient();
+    if (admin) {
+        try {
+            const { data, error } = await admin.auth.admin.listUsers();
+            if (!error && data?.users && data.users.length > 0) {
+                return data.users.map(u => ({
+                    id: u.id,
+                    email: u.email || '',
+                    full_name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'User',
+                    role: u.email?.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase() 
+                        ? 'superadmin' 
+                        : ((u.user_metadata?.role as RoleType) || 'staff'),
+                    privileges: u.user_metadata?.privileges || DEFAULT_ROLE_PRIVILEGES[(u.user_metadata?.role as RoleType) || 'staff'],
+                    status: 'active',
+                    created_at: u.created_at,
+                    updated_at: u.updated_at || u.created_at,
+                }));
+            }
+        } catch (e) {
+            console.warn('[Users] Admin listUsers error:', e);
+        }
+    }
+
+    // 2. Direct from Supabase Auth via RPC get_auth_users (reads auth.users directly)
+    try {
+        const client = await getClient();
+        const { data: rpcUsers, error: rpcErr } = await client.rpc('get_auth_users');
+        if (!rpcErr && Array.isArray(rpcUsers) && rpcUsers.length > 0) {
+            return rpcUsers.map((u: any) => ({
+                id: u.id,
+                email: u.email,
+                full_name: u.full_name || u.email.split('@')[0],
+                role: (u.email?.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase() ? 'superadmin' : (u.role as RoleType)) || 'staff',
+                privileges: u.privileges || DEFAULT_ROLE_PRIVILEGES[(u.role as RoleType) || 'staff'],
+                status: 'active',
+                created_at: u.created_at,
+                updated_at: u.created_at,
+            }));
+        }
+    } catch (e) {}
+
+    // 3. Try Supabase user_profiles table
     try {
         const client = await getClient();
         const { data, error } = await client.from('user_profiles').select('*').order('created_at', { ascending: true });
