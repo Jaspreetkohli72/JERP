@@ -2,9 +2,18 @@
 
 import fs from 'fs';
 import path from 'path';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/server';
+import { supabase as fallbackClient } from '@/lib/supabase';
 import { SUPER_ADMIN_EMAIL, UserProfile, RoleType, UserPrivileges, DEFAULT_ROLE_PRIVILEGES } from '@/lib/permissions';
 import { recordAuditLogAction } from './audit';
+
+async function getClient() {
+    try {
+        return await createClient();
+    } catch {
+        return fallbackClient;
+    }
+}
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const USERS_FILE = path.join(DATA_DIR, 'user_profiles.json');
@@ -54,11 +63,16 @@ export async function getUserProfilesAction(): Promise<UserProfile[]> {
 
     // 1. Try Supabase user_profiles table
     try {
-        const { data, error } = await supabase.from('user_profiles').select('*').order('created_at', { ascending: true });
+        const client = await getClient();
+        const { data, error } = await client.from('user_profiles').select('*').order('created_at', { ascending: true });
         if (!error && Array.isArray(data) && data.length > 0) {
             profiles = data;
+        } else if (error) {
+            console.warn('[Users] Supabase query error:', error.message);
         }
-    } catch (e) {}
+    } catch (e) {
+        console.warn('[Users] Exception querying user_profiles:', e);
+    }
 
     // 2. Read local fallback
     const localUsers = readLocalUsers();
@@ -125,8 +139,12 @@ export async function registerUserProfileSyncAction(profile: {
 
     // 2. Save to Supabase user_profiles table if available
     try {
-        await supabase.from('user_profiles').upsert([newProfile]);
-    } catch (e) {}
+        const client = await getClient();
+        const { error } = await client.from('user_profiles').upsert([newProfile]);
+        if (error) console.warn('[Users] Supabase upsert error:', error.message);
+    } catch (e) {
+        console.warn('[Users] Exception upserting profile:', e);
+    }
 
     // 3. Log audit event
     await recordAuditLogAction({
@@ -180,8 +198,12 @@ export async function updateUserPrivilegesAction(payload: {
 
     // Supabase table update
     try {
-        await supabase.from('user_profiles').upsert([updatedProfile]);
-    } catch (e) {}
+        const client = await getClient();
+        const { error } = await client.from('user_profiles').upsert([updatedProfile]);
+        if (error) console.warn('[Users] Supabase update error:', error.message);
+    } catch (e) {
+        console.warn('[Users] Exception updating profile:', e);
+    }
 
     // Audit log
     await recordAuditLogAction({
@@ -213,8 +235,12 @@ export async function deleteUserAction(payload: {
 
     // Supabase table delete
     try {
-        await supabase.from('user_profiles').delete().eq('email', payload.targetEmail.toLowerCase());
-    } catch (e) {}
+        const client = await getClient();
+        const { error } = await client.from('user_profiles').delete().eq('email', payload.targetEmail.toLowerCase());
+        if (error) console.warn('[Users] Supabase delete error:', error.message);
+    } catch (e) {
+        console.warn('[Users] Exception deleting profile:', e);
+    }
 
     // Audit log
     await recordAuditLogAction({

@@ -2,7 +2,16 @@
 
 import fs from 'fs';
 import path from 'path';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/server';
+import { supabase as fallbackClient } from '@/lib/supabase';
+
+async function getClient() {
+    try {
+        return await createClient();
+    } catch {
+        return fallbackClient;
+    }
+}
 
 export interface AuditLogEntry {
     id?: string;
@@ -66,7 +75,8 @@ export async function recordAuditLogAction(entry: AuditLogEntry) {
 
     // 2. Try writing to Supabase audit_logs table
     try {
-        const { error } = await supabase.from('audit_logs').insert([
+        const client = await getClient();
+        const { error } = await client.from('audit_logs').insert([
             {
                 id: payload.id,
                 timestamp: payload.timestamp,
@@ -81,11 +91,10 @@ export async function recordAuditLogAction(entry: AuditLogEntry) {
             },
         ]);
         if (error) {
-            // Table may not be migrated yet in Supabase; local file holds it securely
-            // console.warn('[Audit] Supabase table insert warning:', error.message);
+            console.warn('[Audit] Supabase table insert warning:', error.message);
         }
     } catch (err) {
-        // Silent catch for pending table migration
+        console.warn('[Audit] Exception inserting audit log:', err);
     }
 
     return { success: true, log: payload };
@@ -102,7 +111,8 @@ export async function getAuditLogsAction(filters?: {
 
     // 1. Attempt fetching from Supabase audit_logs table
     try {
-        let query = supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(limit);
+        const client = await getClient();
+        let query = client.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(limit);
 
         if (filters?.module && filters.module !== 'ALL') {
             query = query.eq('module', filters.module);
@@ -114,9 +124,11 @@ export async function getAuditLogsAction(filters?: {
         const { data, error } = await query;
         if (!error && Array.isArray(data) && data.length > 0) {
             logs = data;
+        } else if (error) {
+            console.warn('[Audit] Supabase audit_logs query error:', error.message);
         }
     } catch (err) {
-        // Fallback to local
+        console.warn('[Audit] Exception querying audit_logs:', err);
     }
 
     // 2. If Supabase table is empty or pending, read from local persistent storage
