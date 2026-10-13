@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- GFE ERP (Galaxy Fabricarion Experts) - Complete Database Schema Migration
--- Run this in Supabase SQL Editor: https://supabase.com/dashboard/project/tgxwxzqmtrwkcervbadm/sql/new
+-- Run this in Supabase SQL Editor: https://supabase.com/dashboard/project/acirakiaxrhfgtksmahm/sql/new
 -- ==============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

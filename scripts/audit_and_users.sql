@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- GFE ERP (Galaxy Fabricarion Experts) - Audit Logging & User Privileges Schema
--- Run this in the Supabase SQL Editor: https://supabase.com/dashboard/project/tgxwxzqmtrwkcervbadm/sql/new
+-- Run this in the Supabase SQL Editor: https://supabase.com/dashboard/project/acirakiaxrhfgtksmahm/sql/new
 -- ==============================================================================
 
 -- 1. Enable UUID Extension (if not already enabled)
