@@ -28,6 +28,7 @@ import {
     SlidersHorizontal,
     UserCheck,
     UserX,
+    Sparkles,
     X
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -47,7 +48,7 @@ import {
 import Link from "next/link";
 
 export default function AdminDashboardPage() {
-    const { user, isSuperAdminUser, canAccessAdminPanel, createAccountByAdmin } = useAuth();
+    const { user, isSuperAdminUser, canAccessAdminPanel, createAccountByAdmin, sendMagicLink } = useAuth();
 
     // Tabs
     const [activeTab, setActiveTab] = useState<"logs" | "users" | "schema">("logs");
@@ -198,6 +199,25 @@ export default function AdminDashboardPage() {
         } catch (err) {
             console.error(err);
             showNotify("Failed to delete user", "error");
+        }
+    };
+
+    const [sendingMagicLinkEmail, setSendingMagicLinkEmail] = useState<string | null>(null);
+
+    // Handle Send Magic Sign-In Link
+    const handleSendMagicLink = async (targetEmail: string) => {
+        try {
+            setSendingMagicLinkEmail(targetEmail);
+            const { error } = await sendMagicLink(targetEmail);
+            if (error) {
+                showNotify(`Failed to send magic link: ${error.message}`, "error");
+            } else {
+                showNotify(`Magic sign-in link sent to ${targetEmail} (redirecting to https://galaxyerp.vercel.app)`);
+            }
+        } catch (err: any) {
+            showNotify(err.message || "Failed to dispatch magic link", "error");
+        } finally {
+            setSendingMagicLinkEmail(null);
         }
     };
 
@@ -737,6 +757,20 @@ export default function AdminDashboardPage() {
                                                     {/* Actions */}
                                                     <td className="py-3 px-4 text-right whitespace-nowrap">
                                                         <div className="flex items-center justify-end gap-1.5">
+                                                            {/* Send Magic Sign-In Link */}
+                                                            <button
+                                                                onClick={() => handleSendMagicLink(u.email)}
+                                                                disabled={sendingMagicLinkEmail === u.email}
+                                                                className="p-1.5 rounded-lg bg-[var(--accent)]/10 hover:bg-[var(--accent)]/20 border border-[var(--accent)]/25 text-[#FFD700] cursor-pointer transition-all disabled:opacity-50"
+                                                                title="Send Magic Sign-In Link"
+                                                            >
+                                                                {sendingMagicLinkEmail === u.email ? (
+                                                                    <RefreshCw size={13} className="animate-spin" />
+                                                                ) : (
+                                                                    <Sparkles size={13} />
+                                                                )}
+                                                            </button>
+
                                                             {/* Edit Privileges */}
                                                             <button
                                                                 onClick={() => setEditUserModal(JSON.parse(JSON.stringify(u)))}
