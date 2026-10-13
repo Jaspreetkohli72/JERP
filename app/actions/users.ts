@@ -69,26 +69,35 @@ function writeLocalUsers(users: UserProfile[]) {
 }
 
 export async function getUserProfilesAction(): Promise<UserProfile[]> {
-    let profiles: UserProfile[] = [];
-
-    // 1. Direct from Supabase Auth admin API (if service role key provided)
+    // 1. Direct from Supabase Auth admin API (reads directly from auth.users)
     const admin = getAdminAuthClient();
     if (admin) {
         try {
             const { data, error } = await admin.auth.admin.listUsers();
             if (!error && data?.users && data.users.length > 0) {
-                return data.users.map(u => ({
-                    id: u.id,
-                    email: u.email || '',
-                    full_name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'User',
-                    role: u.email?.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase() 
+                return data.users.map(u => {
+                    const isSuper = u.email?.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+                    const role: RoleType = isSuper 
                         ? 'superadmin' 
-                        : ((u.user_metadata?.role as RoleType) || 'staff'),
-                    privileges: u.user_metadata?.privileges || DEFAULT_ROLE_PRIVILEGES[(u.user_metadata?.role as RoleType) || 'staff'],
-                    status: 'active',
-                    created_at: u.created_at,
-                    updated_at: u.updated_at || u.created_at,
-                }));
+                        : ((u.user_metadata?.role as RoleType) || 'staff');
+                    const privileges: UserPrivileges = isSuper
+                        ? DEFAULT_ROLE_PRIVILEGES.superadmin
+                        : (u.user_metadata?.privileges || DEFAULT_ROLE_PRIVILEGES[role]);
+                    const fullName = isSuper
+                        ? 'Jaspreet Singh Kohli'
+                        : (u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'User');
+
+                    return {
+                        id: u.id,
+                        email: u.email || '',
+                        full_name: fullName,
+                        role,
+                        privileges,
+                        status: 'active',
+                        created_at: u.created_at,
+                        updated_at: u.updated_at || u.created_at,
+                    };
+                });
             }
         } catch (e) {
             console.warn('[Users] Admin listUsers error:', e);
@@ -113,7 +122,8 @@ export async function getUserProfilesAction(): Promise<UserProfile[]> {
         }
     } catch (e) {}
 
-    // 3. Try Supabase user_profiles table
+    // 3. Fallback: Try Supabase user_profiles table
+    let profiles: UserProfile[] = [];
     try {
         const client = await getClient();
         const { data, error } = await client.from('user_profiles').select('*').order('created_at', { ascending: true });
@@ -248,14 +258,28 @@ export async function updateUserPrivilegesAction(payload: {
     }
     writeLocalUsers(users);
 
-    // Supabase table update
+    // 1. Direct update to Supabase Auth user_metadata
+    const admin = getAdminAuthClient();
+    if (admin) {
+        try {
+            await admin.auth.admin.updateUserById(payload.userId, {
+                user_metadata: {
+                    role,
+                    privileges,
+                    status,
+                    full_name: updatedProfile.full_name,
+                }
+            });
+        } catch (e) {
+            console.warn('[Users] Error updating auth user_metadata:', e);
+        }
+    }
+
+    // 2. Also mirror to user_profiles table if available
     try {
         const client = await getClient();
-        const { error } = await client.from('user_profiles').upsert([updatedProfile]);
-        if (error) console.warn('[Users] Supabase update error:', error.message);
-    } catch (e) {
-        console.warn('[Users] Exception updating profile:', e);
-    }
+        await client.from('user_profiles').upsert([updatedProfile]);
+    } catch (e) {}
 
     // Audit log
     await recordAuditLogAction({
@@ -285,14 +309,21 @@ export async function deleteUserAction(payload: {
     const filtered = users.filter(u => u.id !== payload.userId && u.email.toLowerCase() !== payload.targetEmail.toLowerCase());
     writeLocalUsers(filtered);
 
-    // Supabase table delete
+    // 1. Direct delete from Supabase Auth!
+    const admin = getAdminAuthClient();
+    if (admin) {
+        try {
+            await admin.auth.admin.deleteUser(payload.userId);
+        } catch (e) {
+            console.warn('[Users] Error deleting from auth.users:', e);
+        }
+    }
+
+    // 2. Also remove from user_profiles table if available
     try {
         const client = await getClient();
-        const { error } = await client.from('user_profiles').delete().eq('email', payload.targetEmail.toLowerCase());
-        if (error) console.warn('[Users] Supabase delete error:', error.message);
-    } catch (e) {
-        console.warn('[Users] Exception deleting profile:', e);
-    }
+        await client.from('user_profiles').delete().eq('id', payload.userId);
+    } catch (e) {}
 
     // Audit log
     await recordAuditLogAction({
@@ -306,4 +337,72 @@ export async function deleteUserAction(payload: {
     });
 
     return { success: true };
+}
+
+export async function createAdminUserAction(params: {
+    email: string;
+    password?: string;
+    fullName?: string;
+    role: RoleType;
+    privileges: UserPrivileges;
+    actorEmail: string;
+    actorName?: string;
+}) {
+    const admin = getAdminAuthClient();
+    if (!admin) {
+        return { success: false, error: 'Admin auth client is not configured.' };
+    }
+
+    const role = params.role || 'staff';
+    const privileges = params.privileges || DEFAULT_ROLE_PRIVILEGES[role];
+    const fullName = params.fullName?.trim() || params.email.split('@')[0];
+
+    const { data, error } = await admin.auth.admin.createUser({
+        email: params.email.trim(),
+        password: params.password || 'GFEpasswd',
+        email_confirm: true,
+        user_metadata: {
+            full_name: fullName,
+            role,
+            privileges,
+        }
+    });
+
+    if (error) {
+        return { success: false, error: error.message };
+    }
+
+    const newProfile: UserProfile = {
+        id: data.user.id,
+        email: data.user.email!,
+        full_name: fullName,
+        role,
+        privileges,
+        status: 'active',
+        created_at: data.user.created_at,
+        updated_at: data.user.created_at,
+    };
+
+    // Mirror to local and user_profiles table
+    const users = readLocalUsers();
+    users.push(newProfile);
+    writeLocalUsers(users);
+
+    try {
+        const client = await getClient();
+        await client.from('user_profiles').upsert([newProfile]);
+    } catch (e) {}
+
+    // Audit log
+    await recordAuditLogAction({
+        action: 'CREATE',
+        module: 'users',
+        entity_id: data.user.id,
+        description: `Admin provisioned user ${params.email} with role '${role}'`,
+        details: { email: params.email, role },
+        user_email: params.actorEmail,
+        user_name: params.actorName || params.actorEmail,
+    });
+
+    return { success: true, user: newProfile };
 }

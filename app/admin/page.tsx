@@ -37,6 +37,7 @@ import {
     getUserProfilesAction,
     updateUserPrivilegesAction,
     deleteUserAction,
+    createAdminUserAction,
 } from "@/app/actions/users";
 import {
     SUPER_ADMIN_EMAIL,
@@ -231,15 +232,17 @@ export default function AdminDashboardPage() {
 
         setUserSubmitting(true);
         try {
-            const res = await createAccountByAdmin(
-                newUserEmail,
-                newUserPassword,
-                newUserFullName,
-                newUserRole,
-                newUserPrivileges
-            );
+            const res = await createAdminUserAction({
+                email: newUserEmail,
+                password: newUserPassword,
+                fullName: newUserFullName,
+                role: newUserRole,
+                privileges: newUserPrivileges,
+                actorEmail: user?.email || SUPER_ADMIN_EMAIL,
+                actorName: user?.user_metadata?.full_name || "Admin",
+            });
 
-            if (!res.error) {
+            if (res.success) {
                 showNotify(`Account created successfully for ${newUserEmail}`);
                 setIsAddUserOpen(false);
                 setNewUserEmail("");
@@ -250,7 +253,7 @@ export default function AdminDashboardPage() {
                 await loadUsers();
                 await loadLogs();
             } else {
-                showNotify(res.error?.message || "Error creating account", "error");
+                showNotify(res.error || "Error creating account", "error");
             }
         } catch (err: any) {
             showNotify(err.message || "Failed to create account", "error");

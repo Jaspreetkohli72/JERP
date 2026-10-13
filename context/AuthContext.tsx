@@ -5,7 +5,7 @@ import { User, Session, AuthError, createClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { logActivity } from "@/lib/auditLogger";
 import { registerUserProfileSyncAction, getUserProfilesAction } from "@/app/actions/users";
-import { isSuperAdmin, canAccessAdmin, UserProfile, RoleType, UserPrivileges } from "@/lib/permissions";
+import { isSuperAdmin, canAccessAdmin, UserProfile, RoleType, UserPrivileges, DEFAULT_ROLE_PRIVILEGES } from "@/lib/permissions";
 
 interface AuthContextType {
     user: User | null;

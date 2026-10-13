@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Save, ArrowLeft, Settings as SettingsIcon, UserPlus, Mail, Lock, User, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { logActivity } from '@/lib/auditLogger';
 
 export default function ContractingSettingsPage() {
     // @ts-ignore
@@ -82,6 +83,13 @@ export default function ContractingSettingsPage() {
             const { error } = await supabase.from('settings').upsert({ id: 1, ...formData });
             if (error) alert('Error saving settings');
         }
+
+        logActivity({
+            action: 'UPDATE',
+            module: 'Settings',
+            description: 'Updated contracting configuration settings',
+            details: formData,
+        });
 
         setLoading(false);
     };
