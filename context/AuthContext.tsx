@@ -155,6 +155,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { data, error };
     };
 
+    const getAppUrl = () => {
+        if (typeof window !== "undefined" && window.location.origin) {
+            return window.location.origin;
+        }
+        return process.env.NEXT_PUBLIC_SITE_URL || "https://galaxyerp.vercel.app";
+    };
+
     const createAccountByAdmin = async (
         email: string,
         password: string,
@@ -173,6 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             },
         });
 
+        const siteUrl = getAppUrl();
         const { data, error } = await adminClient.auth.signUp({
             email: email.trim(),
             password,
@@ -181,6 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     full_name: fullName?.trim() || undefined,
                     role,
                 },
+                emailRedirectTo: `${siteUrl}/login`,
             },
         });
 
@@ -219,7 +228,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const resetPasswordForEmail = async (email: string) => {
-        const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/reset-password` : undefined;
+        const siteUrl = getAppUrl();
+        const redirectTo = `${siteUrl}/reset-password`;
 
         const { data, error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
             redirectTo,

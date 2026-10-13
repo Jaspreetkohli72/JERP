@@ -5,6 +5,7 @@ import AuthGuard from "@/components/AuthGuard";
 import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://galaxyerp.vercel.app"),
   title: "GFE ERP",
   description: "Advanced Personal Finance & Business Management",
   appleWebApp: {

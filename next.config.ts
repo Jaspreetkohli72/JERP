@@ -10,7 +10,12 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react"],
     serverActions: {
-      allowedOrigins: ["192.168.29.69", "localhost:3000"],
+      allowedOrigins: [
+        "192.168.29.69",
+        "localhost:3000",
+        "galaxyerp.vercel.app",
+        "*.vercel.app",
+      ],
     },
   },
 };
