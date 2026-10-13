@@ -79,15 +79,27 @@ ON CONFLICT (email) DO UPDATE SET
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 
--- Permissive policies for authenticated users
+-- Permissive policies for authenticated & anon users
 CREATE POLICY "Allow authenticated read audit_logs" ON public.audit_logs
     FOR SELECT TO authenticated USING (true);
 
 CREATE POLICY "Allow authenticated insert audit_logs" ON public.audit_logs
     FOR INSERT TO authenticated WITH CHECK (true);
 
+CREATE POLICY "Allow anon read audit_logs" ON public.audit_logs
+    FOR SELECT TO anon USING (true);
+
+CREATE POLICY "Allow anon insert audit_logs" ON public.audit_logs
+    FOR INSERT TO anon WITH CHECK (true);
+
 CREATE POLICY "Allow authenticated read user_profiles" ON public.user_profiles
     FOR SELECT TO authenticated USING (true);
 
 CREATE POLICY "Allow authenticated modify user_profiles" ON public.user_profiles
     FOR ALL TO authenticated USING (true);
+
+CREATE POLICY "Allow anon read user_profiles" ON public.user_profiles
+    FOR SELECT TO anon USING (true);
+
+CREATE POLICY "Allow anon modify user_profiles" ON public.user_profiles
+    FOR ALL TO anon USING (true);

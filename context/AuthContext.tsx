@@ -83,6 +83,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const found = profiles.find((p) => p.email.toLowerCase() === currentUser.email?.toLowerCase());
             if (found) {
                 setUserProfile(found);
+            } else if (currentUser.email && !isSuperAdmin(currentUser.email)) {
+                // Self-register profile from auth metadata if not yet in database
+                const role: RoleType = (currentUser.user_metadata?.role as RoleType) || "staff";
+                const syncRes = await registerUserProfileSyncAction({
+                    id: currentUser.id,
+                    email: currentUser.email,
+                    full_name: currentUser.user_metadata?.full_name || currentUser.email.split("@")[0],
+                    role,
+                    privileges: DEFAULT_ROLE_PRIVILEGES[role],
+                    actorEmail: currentUser.email,
+                    actorName: currentUser.user_metadata?.full_name || currentUser.email,
+                });
+                if (syncRes?.profile) {
+                    setUserProfile(syncRes.profile);
+                }
             }
         } catch (e) {
             console.warn("[Auth] Error fetching profile:", e);
@@ -218,7 +233,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         privileges?: Partial<UserPrivileges>
     ) => {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://acirakiaxrhfgtksmahm.supabase.co";
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_KR0clUzP2pwdBkNDE9l7EQ_w8LZ5pZj";
 
         // Ephemeral client without localStorage persistence to protect the current admin session
         const adminClient = createClient(supabaseUrl, supabaseKey, {
