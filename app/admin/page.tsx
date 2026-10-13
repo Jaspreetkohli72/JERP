@@ -38,6 +38,8 @@ import {
     updateUserPrivilegesAction,
     deleteUserAction,
     createAdminUserAction,
+    generateMagicLinkAction,
+    generatePasswordResetLinkAction,
 } from "@/app/actions/users";
 import {
     SUPER_ADMIN_EMAIL,
@@ -209,11 +211,19 @@ export default function AdminDashboardPage() {
     const handleSendMagicLink = async (targetEmail: string) => {
         try {
             setSendingMagicLinkEmail(targetEmail);
-            const { error } = await sendMagicLink(targetEmail);
-            if (error) {
-                showNotify(`Failed to send magic link: ${error.message}`, "error");
+            const genRes = await generateMagicLinkAction(targetEmail);
+            if (genRes.success && genRes.link) {
+                if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                    await navigator.clipboard.writeText(genRes.link);
+                }
+                showNotify(`Magic sign-in link copied to clipboard & sent for ${targetEmail}!`);
             } else {
-                showNotify(`Magic sign-in link sent to ${targetEmail} (redirecting to https://galaxyerp.vercel.app)`);
+                const { error } = await sendMagicLink(targetEmail);
+                if (error) {
+                    showNotify(`Failed to send magic link: ${error.message}`, "error");
+                } else {
+                    showNotify(`Magic sign-in link dispatched to ${targetEmail}`);
+                }
             }
         } catch (err: any) {
             showNotify(err.message || "Failed to dispatch magic link", "error");

@@ -406,3 +406,38 @@ export async function createAdminUserAction(params: {
 
     return { success: true, user: newProfile };
 }
+
+export async function generateMagicLinkAction(email: string) {
+    const admin = getAdminAuthClient();
+    if (!admin) return { success: false, error: 'Admin client is not configured' };
+
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://galaxyerp.vercel.app';
+    const { data, error } = await admin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: email.trim(),
+        options: {
+            redirectTo: `${siteUrl}/auth/callback?next=/`,
+        },
+    });
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, link: data?.properties?.action_link };
+}
+
+export async function generatePasswordResetLinkAction(email: string) {
+    const admin = getAdminAuthClient();
+    if (!admin) return { success: false, error: 'Admin client is not configured' };
+
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://galaxyerp.vercel.app';
+    const { data, error } = await admin.auth.admin.generateLink({
+        type: 'recovery',
+        email: email.trim(),
+        options: {
+            redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
+        },
+    });
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, link: data?.properties?.action_link };
+}
+

@@ -36,7 +36,7 @@ export async function updateSession(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     const pathname = request.nextUrl.pathname;
-    const isPublic = pathname === '/login' || pathname === '/reset-password';
+    const isPublic = pathname === '/login' || pathname === '/reset-password' || pathname.startsWith('/auth');
 
     // If unauthenticated and accessing a private route, redirect to /login
     if (!user && !isPublic) {
@@ -46,7 +46,7 @@ export async function updateSession(request: NextRequest) {
     }
 
     // If authenticated and visiting /login, redirect to dashboard /
-    if (user && isPublic && pathname !== '/reset-password') {
+    if (user && isPublic && pathname !== '/reset-password' && !pathname.startsWith('/auth')) {
         const url = request.nextUrl.clone();
         url.pathname = '/';
         return NextResponse.redirect(url);

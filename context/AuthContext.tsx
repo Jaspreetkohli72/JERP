@@ -210,7 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data, error } = await supabase.auth.signInWithOtp({
             email: email.trim(),
             options: {
-                emailRedirectTo: `${siteUrl}`,
+                emailRedirectTo: `${siteUrl}/auth/callback?next=/`,
             },
         });
 
@@ -292,7 +292,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const resetPasswordForEmail = async (email: string) => {
         const siteUrl = getAppUrl();
-        const redirectTo = `${siteUrl}/reset-password`;
+        const redirectTo = `${siteUrl}/auth/callback?next=/reset-password`;
 
         const { data, error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
             redirectTo,
