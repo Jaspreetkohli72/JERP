@@ -44,7 +44,7 @@ const AuthContext = createContext<AuthContextType>({
     signOut: async () => ({ error: null }),
     resetPasswordForEmail: async () => ({ error: null, data: null }),
     updatePassword: async () => ({ error: null, data: null }),
-    refreshUserProfile: async () => {},
+    refreshUserProfile: async () => { },
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -217,7 +217,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: RoleType = "staff",
         privileges?: Partial<UserPrivileges>
     ) => {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://acirakiaxrhfgtksmahm.supabase.co";
         const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
         // Ephemeral client without localStorage persistence to protect the current admin session

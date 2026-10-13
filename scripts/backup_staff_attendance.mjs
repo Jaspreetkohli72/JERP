@@ -8,7 +8,7 @@ dotenv.config({ path: '.env.local' });
 const dataUrl = process.env.NEXT_PUBLIC_SUPABASE_DATA_URL || 'https://acirakiaxrhfgtksmahm.supabase.co';
 const dataKey = process.env.NEXT_PUBLIC_SUPABASE_DATA_ANON_KEY || 'sb_publishable_KR0clUzP2pwdBkNDE9l7EQ_w8LZ5pZj';
 
-const authUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tgxwxzqmtrwkcervbadm.supabase.co';
+const authUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://acirakiaxrhfgtksmahm.supabase.co';
 const authKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 const dataClient = createClient(dataUrl, dataKey);

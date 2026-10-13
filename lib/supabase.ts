@@ -1,11 +1,18 @@
 import { createBrowserClient } from '@supabase/ssr';
 import { createClient as createBaseClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
+const rawSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrl = (rawSupabaseUrl && !rawSupabaseUrl.includes('tgxwxzqmtrwkcervbadm'))
+    ? rawSupabaseUrl
+    : 'https://acirakiaxrhfgtksmahm.supabase.co';
 
-const dataUrl = process.env.NEXT_PUBLIC_SUPABASE_DATA_URL || 'https://tgxwxzqmtrwkcervbadm.supabase.co';
-const dataKey = process.env.NEXT_PUBLIC_SUPABASE_DATA_ANON_KEY || 'sb_publishable_dSTtqIE5lvlvr6xIxzp_rQ_LGsxO0I5';
+const rawSupabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseKey = (rawSupabaseKey && !rawSupabaseKey.includes('dSTtqIE5lvlvr6xIxzp_rQ_LGsxO0I5') && !rawSupabaseUrl?.includes('tgxwxzqmtrwkcervbadm'))
+    ? rawSupabaseKey
+    : 'sb_publishable_KR0clUzP2pwdBkNDE9l7EQ_w8LZ5pZj';
+
+const dataUrl = supabaseUrl;
+const dataKey = supabaseKey;
 
 // Auth Client uses @supabase/ssr createBrowserClient so cookies are automatically synced with Next.js App Router
 export const authClient: SupabaseClient = createBrowserClient(supabaseUrl, supabaseKey);
