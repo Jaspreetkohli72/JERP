@@ -197,22 +197,6 @@ export async function getAuditLogsAction(filters?: {
             }
         }
     } catch (err) {
-                entity_id: d.entity_id,
-                description: d.description,
-                details: d.details || {},
-                user_id: d.user_id,
-                user_email: d.user_email || 'jaspreetkohli72@gmail.com',
-                user_name: d.user_name || 'Admin',
-            }));
-        } else if (error) {
-            console.warn('[Audit] Admin query error, trying standard client:', error.message);
-            const client = await getClient();
-            const res = await client.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(limit);
-            if (!res.error && Array.isArray(res.data) && res.data.length > 0) {
-                logs = res.data;
-            }
-        }
-    } catch (err) {
         console.warn('[Audit] Exception querying audit_logs:', err);
     }
 
