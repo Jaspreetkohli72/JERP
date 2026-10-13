@@ -15,6 +15,7 @@ interface AuthContextType {
     canAccessAdminPanel: boolean;
     loading: boolean;
     signInWithEmail: (email: string, password: string) => Promise<{ error: AuthError | null; data: any }>;
+    sendMagicLink: (email: string) => Promise<{ error: AuthError | null; data: any }>;
     signUpWithEmail: (email: string, password: string, fullName?: string) => Promise<{ error: AuthError | null; data: any }>;
     createAccountByAdmin: (
         email: string,
@@ -37,6 +38,7 @@ const AuthContext = createContext<AuthContextType>({
     canAccessAdminPanel: false,
     loading: true,
     signInWithEmail: async () => ({ error: null, data: null }),
+    sendMagicLink: async () => ({ error: null, data: null }),
     signUpWithEmail: async () => ({ error: null, data: null }),
     createAccountByAdmin: async () => ({ error: null, data: null }),
     signOut: async () => ({ error: null }),
@@ -142,7 +144,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { data, error };
     };
 
+    const getAppUrl = () => {
+        if (typeof window !== "undefined" && window.location.origin && !window.location.origin.includes("localhost")) {
+            return window.location.origin;
+        }
+        return process.env.NEXT_PUBLIC_SITE_URL || "https://galaxyerp.vercel.app";
+    };
+
     const signUpWithEmail = async (email: string, password: string, fullName?: string) => {
+        const siteUrl = getAppUrl();
         const { data, error } = await supabase.auth.signUp({
             email: email.trim(),
             password,
@@ -150,16 +160,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 data: {
                     full_name: fullName?.trim() || undefined,
                 },
+                emailRedirectTo: `${siteUrl}/login`,
             },
         });
         return { data, error };
     };
 
-    const getAppUrl = () => {
-        if (typeof window !== "undefined" && window.location.origin) {
-            return window.location.origin;
-        }
-        return process.env.NEXT_PUBLIC_SITE_URL || "https://galaxyerp.vercel.app";
+    const sendMagicLink = async (email: string) => {
+        const siteUrl = getAppUrl();
+        const { data, error } = await supabase.auth.signInWithOtp({
+            email: email.trim(),
+            options: {
+                emailRedirectTo: `${siteUrl}`,
+            },
+        });
+
+        logActivity({
+            action: "AUTH",
+            module: "auth",
+            description: `Magic link sign-in requested for ${email}`,
+            details: { email, siteUrl },
+            user: { email },
+        });
+
+        return { data, error };
     };
 
     const createAccountByAdmin = async (
@@ -277,6 +301,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 canAccessAdminPanel,
                 loading,
                 signInWithEmail,
+                sendMagicLink,
                 signUpWithEmail,
                 createAccountByAdmin,
                 signOut,

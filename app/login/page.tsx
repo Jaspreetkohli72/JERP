@@ -15,13 +15,14 @@ import {
     Loader2,
     KeyRound,
     Building2,
+    Sparkles,
 } from "lucide-react";
 
 export default function LoginPage() {
     const router = useRouter();
-    const { signInWithEmail, resetPasswordForEmail } = useAuth();
+    const { signInWithEmail, sendMagicLink, resetPasswordForEmail } = useAuth();
 
-    const [mode, setMode] = useState<"signin" | "forgot">("signin");
+    const [mode, setMode] = useState<"signin" | "forgot" | "magic">("signin");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -54,6 +55,30 @@ export default function LoginPage() {
             }
         } catch (err: any) {
             setErrorMsg(err.message || "An unexpected error occurred during sign in.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleMagicLink = async (e: React.FormEvent) => {
+        e.preventDefault();
+        resetFeedback();
+
+        if (!email.trim()) {
+            setErrorMsg("Please enter your email address to receive a magic sign-in link.");
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const { error } = await sendMagicLink(email);
+            if (error) {
+                setErrorMsg(error.message || "Failed to send magic link.");
+            } else {
+                setSuccessMsg("Magic sign-in link sent! Check your inbox to sign in directly without a password.");
+            }
+        } catch (err: any) {
+            setErrorMsg(err.message || "An unexpected error occurred.");
         } finally {
             setLoading(false);
         }
@@ -117,6 +142,23 @@ export default function LoginPage() {
                             <div className="flex items-center gap-2 text-white font-semibold text-sm">
                                 <KeyRound size={16} className="text-[#FFD700]" />
                                 <span>Reset Password</span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setMode("signin");
+                                    resetFeedback();
+                                }}
+                                className="text-xs text-[#FFD700] hover:underline cursor-pointer"
+                            >
+                                Back to Sign In
+                            </button>
+                        </div>
+                    ) : mode === "magic" ? (
+                        <div className="flex items-center justify-between mb-6 pb-3 border-b border-[rgba(255,255,255,0.08)]">
+                            <div className="flex items-center gap-2 text-white font-semibold text-sm">
+                                <Sparkles size={16} className="text-[#FFD700]" />
+                                <span>Magic Sign-In Link</span>
                             </div>
                             <button
                                 type="button"
@@ -225,10 +267,73 @@ export default function LoginPage() {
                                     </>
                                 )}
                             </button>
+
+                            <div className="relative my-1 text-center">
+                                <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-[rgba(255,255,255,0.08)]" />
+                                </div>
+                                <div className="relative flex justify-center text-[0.7rem] uppercase">
+                                    <span className="bg-[#121212] px-2 text-muted">Or</span>
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setMode("magic");
+                                    resetFeedback();
+                                }}
+                                className="w-full py-2.5 px-4 rounded-xl font-medium text-xs text-white bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.09)] border border-[rgba(255,255,255,0.1)] transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                                <Sparkles size={14} className="text-[#FFD700]" />
+                                <span>Sign in with Magic Link</span>
+                            </button>
                         </form>
                     )}
 
-                    {/* 2. Forgot Password Form */}
+                    {/* 2. Magic Link Form */}
+                    {mode === "magic" && (
+                        <form onSubmit={handleMagicLink} className="flex flex-col gap-4">
+                            <p className="text-xs text-muted leading-relaxed">
+                                Enter your email below. We will send a one-click passwordless sign-in link directly to your inbox that routes to <strong className="text-white">galaxyerp.vercel.app</strong>.
+                            </p>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-gray-300 flex items-center gap-1.5">
+                                    <Mail size={13} className="text-[#FFD700]" />
+                                    <span>Registered Email</span>
+                                </label>
+                                <input
+                                    type="email"
+                                    required
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="user@example.com"
+                                    className="w-full bg-[rgba(15,15,15,0.85)] border border-[rgba(255,255,255,0.1)] rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] transition-all"
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full mt-1 py-3 px-4 rounded-xl font-semibold text-sm text-black bg-gradient-to-r from-[var(--accent)] to-[var(--accent-3)] hover:brightness-110 active:scale-[0.99] transition-all duration-200 shadow-[0_4px_16px_rgba(255,215,0,0.35)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {loading ? (
+                                    <>
+                                        <Loader2 size={16} className="animate-spin" />
+                                        <span>Sending Magic Link...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles size={16} />
+                                        <span>Send Magic Sign-In Link</span>
+                                    </>
+                                )}
+                            </button>
+                        </form>
+                    )}
+
+                    {/* 3. Forgot Password Form */}
                     {mode === "forgot" && (
                         <form onSubmit={handleForgotPassword} className="flex flex-col gap-4">
                             <p className="text-xs text-muted leading-relaxed">
