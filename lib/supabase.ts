@@ -1,4 +1,5 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
+import { createClient as createBaseClient, SupabaseClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
@@ -6,18 +7,11 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
 const dataUrl = process.env.NEXT_PUBLIC_SUPABASE_DATA_URL || 'https://acirakiaxrhfgtksmahm.supabase.co';
 const dataKey = process.env.NEXT_PUBLIC_SUPABASE_DATA_ANON_KEY || 'sb_publishable_KR0clUzP2pwdBkNDE9l7EQ_w8LZ5pZj';
 
-// Auth Client manages Supabase Authentication sessions
-export const authClient: SupabaseClient = createClient(supabaseUrl, supabaseKey, {
-    auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        storageKey: 'jerp_supabase_auth',
-    },
-});
+// Auth Client uses @supabase/ssr createBrowserClient so cookies are automatically synced with Next.js App Router
+export const authClient: SupabaseClient = createBrowserClient(supabaseUrl, supabaseKey);
 
 // Data Client manages business database tables (Staff, Attendance, Projects, Inventory, Wallets, etc.)
-export const dataClient: SupabaseClient = createClient(dataUrl, dataKey, {
+export const dataClient: SupabaseClient = createBaseClient(dataUrl, dataKey, {
     auth: {
         persistSession: false,
         autoRefreshToken: false,

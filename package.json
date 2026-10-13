@@ -11,6 +11,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.93.3",
     "appwrite": "^21.5.0",
     "dotenv": "^17.2.4",

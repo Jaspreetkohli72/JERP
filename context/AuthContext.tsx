@@ -59,28 +59,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
+        // Fast-path: Immediate profile for superadmin so UI never hangs or waits for DB roundtrip
+        if (isSuperAdmin(currentUser.email)) {
+            setUserProfile({
+                id: currentUser.id,
+                email: currentUser.email,
+                full_name: currentUser.user_metadata?.full_name || "Jaspreet Singh Kohli",
+                role: "superadmin",
+                privileges: {
+                    can_manage_users: true,
+                    can_view_logs: true,
+                    can_edit_finances: true,
+                    can_manage_staff: true,
+                    can_manage_contracting: true,
+                    can_manage_settings: true,
+                },
+                status: "active",
+            });
+        }
+
         try {
             const profiles = await getUserProfilesAction();
             const found = profiles.find((p) => p.email.toLowerCase() === currentUser.email?.toLowerCase());
             if (found) {
                 setUserProfile(found);
-            } else if (isSuperAdmin(currentUser.email)) {
-                // Synthesize superadmin profile if not yet in database
-                setUserProfile({
-                    id: currentUser.id,
-                    email: currentUser.email,
-                    full_name: currentUser.user_metadata?.full_name || "Jaspreet Singh Kohli",
-                    role: "superadmin",
-                    privileges: {
-                        can_manage_users: true,
-                        can_view_logs: true,
-                        can_edit_finances: true,
-                        can_manage_staff: true,
-                        can_manage_contracting: true,
-                        can_manage_settings: true,
-                    },
-                    status: "active",
-                });
             }
         } catch (e) {
             console.warn("[Auth] Error fetching profile:", e);
@@ -88,35 +90,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     useEffect(() => {
-        // 1. Initial active session check
-        supabase.auth
-            .getSession()
-            .then(({ data: { session: initialSession }, error }) => {
+        let isMounted = true;
+
+        const initAuth = async () => {
+            try {
+                const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+                if (!isMounted) return;
+
                 if (error) {
                     console.warn("[Auth] Error fetching initial session:", error.message);
                 }
-                setSession(initialSession);
-                const currentUser = initialSession?.user ?? null;
-                setUser(currentUser);
-                loadProfileForUser(currentUser).finally(() => setLoading(false));
-            })
-            .catch((err) => {
-                console.error("[Auth] Session initialization failed:", err);
-                setLoading(false);
-            });
 
-        // 2. Listen to ongoing auth state mutations
+                const currentUser = initialSession?.user ?? null;
+                setSession(initialSession);
+                setUser(currentUser);
+
+                if (currentUser) {
+                    await loadProfileForUser(currentUser);
+                } else {
+                    setUserProfile(null);
+                }
+            } catch (err) {
+                console.error("[Auth] Session initialization failed:", err);
+            } finally {
+                if (isMounted) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        initAuth();
+
         const {
             data: { subscription },
-        } = supabase.auth.onAuthStateChange((event, currentSession) => {
+        } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+            if (!isMounted) return;
+
             setSession(currentSession);
             const currentUser = currentSession?.user ?? null;
             setUser(currentUser);
-            loadProfileForUser(currentUser);
+
+            if (currentUser) {
+                await loadProfileForUser(currentUser);
+            } else {
+                setUserProfile(null);
+            }
+
             setLoading(false);
         });
 
         return () => {
+            isMounted = false;
             subscription.unsubscribe();
         };
     }, []);

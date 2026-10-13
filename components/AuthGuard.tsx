@@ -28,8 +28,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         }
     }, [user, loading, isPublicRoute, pathname, router]);
 
-    // 1. Initial Auth Loading Splash
-    if (loading) {
+    // 1. Initial Auth Loading Splash (only on protected routes)
+    if (loading && !isPublicRoute) {
         return (
             <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 relative z-50">
                 <div className="glass p-8 rounded-3xl flex flex-col items-center gap-4 max-w-sm w-full text-center border border-[rgba(255,215,0,0.15)] shadow-[0_20px_50px_rgba(0,0,0,0.9)] animate-pulse">
