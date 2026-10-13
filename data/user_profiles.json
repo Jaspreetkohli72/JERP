@@ -15,22 +15,5 @@
     "status": "active",
     "created_at": "2026-10-12T16:00:43.571Z",
     "updated_at": "2026-10-12T16:00:43.571Z"
-  },
-  {
-    "id": "086ce0cf-8fc0-4e6c-a1bb-9ce8d35de62c",
-    "email": "jaspreetkohli710@gmail.com",
-    "full_name": "test",
-    "role": "manager",
-    "privileges": {
-      "can_manage_users": false,
-      "can_view_logs": false,
-      "can_edit_finances": true,
-      "can_manage_staff": true,
-      "can_manage_contracting": true,
-      "can_manage_settings": false
-    },
-    "status": "active",
-    "created_at": "2026-10-12T16:16:58.951Z",
-    "updated_at": "2026-10-12T16:43:10.777Z"
   }
-]
+]

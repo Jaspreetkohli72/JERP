@@ -65,12 +65,6 @@ export async function getUserProfilesAction(): Promise<UserProfile[]> {
 
     if (profiles.length === 0) {
         profiles = localUsers;
-    } else {
-        // Merge profiles
-        const map = new Map<string, UserProfile>();
-        localUsers.forEach(u => map.set(u.email.toLowerCase(), u));
-        profiles.forEach(u => map.set(u.email.toLowerCase(), u));
-        profiles = Array.from(map.values());
     }
 
     // Always ensure Super Admin exists

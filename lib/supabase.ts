@@ -4,8 +4,8 @@ import { createClient as createBaseClient, SupabaseClient } from '@supabase/supa
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
 
-const dataUrl = process.env.NEXT_PUBLIC_SUPABASE_DATA_URL || 'https://acirakiaxrhfgtksmahm.supabase.co';
-const dataKey = process.env.NEXT_PUBLIC_SUPABASE_DATA_ANON_KEY || 'sb_publishable_KR0clUzP2pwdBkNDE9l7EQ_w8LZ5pZj';
+const dataUrl = process.env.NEXT_PUBLIC_SUPABASE_DATA_URL || 'https://tgxwxzqmtrwkcervbadm.supabase.co';
+const dataKey = process.env.NEXT_PUBLIC_SUPABASE_DATA_ANON_KEY || 'sb_publishable_dSTtqIE5lvlvr6xIxzp_rQ_LGsxO0I5';
 
 // Auth Client uses @supabase/ssr createBrowserClient so cookies are automatically synced with Next.js App Router
 export const authClient: SupabaseClient = createBrowserClient(supabaseUrl, supabaseKey);
