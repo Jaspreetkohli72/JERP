@@ -1245,7 +1245,16 @@ export function FinanceProvider({ children }) {
                 .eq('staff_id', id)
                 .order('date', { ascending: false });
 
-            return { attendance: attData || [], advances: advData || [] };
+            let finalAtt = attData;
+            if (!finalAtt || finalAtt.length === 0) {
+                finalAtt = (attendance || []).filter(a => String(a.staff_id) === String(id) && a.date >= startDate && a.date <= endDate);
+            }
+            let finalAdv = advData;
+            if (!finalAdv || finalAdv.length === 0) {
+                finalAdv = (allStaffAdvances || []).filter(a => String(a.staff_id) === String(id));
+            }
+
+            return { attendance: finalAtt || [], advances: finalAdv || [] };
         } catch (error) {
             console.error(error);
             return { attendance: [], advances: [] };

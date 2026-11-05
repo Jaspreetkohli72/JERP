@@ -1,5 +1,7 @@
 'use server';
 import { supabase } from '@/lib/supabase';
+import fs from 'fs';
+import path from 'path';
 
 const TABLES = {
     CATEGORIES: 'categories',
@@ -23,6 +25,19 @@ const TABLES = {
     SETTINGS: 'settings',
     SALES: 'sales'
 };
+
+function loadBackupJson<T>(filename: string, fallback: T): T {
+    try {
+        const filePath = path.join(process.cwd(), 'backups', 'latest', filename);
+        if (fs.existsSync(filePath)) {
+            const raw = fs.readFileSync(filePath, 'utf-8');
+            return JSON.parse(raw);
+        }
+    } catch (e) {
+        console.warn(`Failed to read backup ${filename}:`, e);
+    }
+    return fallback;
+}
 
 export async function fetchAllDataAction() {
     const results = await Promise.allSettled([
@@ -56,12 +71,26 @@ export async function fetchAllDataAction() {
 
     const data: any = {};
     results.forEach((res, index) => {
-        if (res.status === 'fulfilled' && !res.value.error) {
+        if (res.status === 'fulfilled' && !res.value.error && res.value.data) {
             data[keys[index]] = res.value.data;
         } else {
             data[keys[index]] = [];
         }
     });
+
+    // Provide safe snapshot fallback if database is offline or empty for staff tables
+    if (!data.staff || data.staff.length === 0) {
+        data.staff = loadBackupJson('staff.json', []);
+    }
+    if (!data.staff_attendance || data.staff_attendance.length === 0) {
+        data.staff_attendance = loadBackupJson('staff_attendance.json', []);
+    }
+    if (!data.staff_advances || data.staff_advances.length === 0) {
+        data.staff_advances = loadBackupJson('staff_advances.json', []);
+    }
+    if (!data.settings || (Array.isArray(data.settings) && data.settings.length === 0)) {
+        data.settings = loadBackupJson('settings.json', [{}]);
+    }
 
     return data;
 }

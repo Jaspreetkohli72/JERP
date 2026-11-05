@@ -2,8 +2,28 @@
 
 import { supabase } from '@/lib/supabase';
 import { revalidatePath } from 'next/cache';
+import fs from 'fs';
+import path from 'path';
+
+function loadBackupJson<T>(filename: string, fallback: T): T {
+    try {
+        const filePath = path.join(process.cwd(), 'backups', 'latest', filename);
+        if (fs.existsSync(filePath)) {
+            const raw = fs.readFileSync(filePath, 'utf-8');
+            return JSON.parse(raw);
+        }
+    } catch (e) {
+        console.warn(`Failed to read backup ${filename}:`, e);
+    }
+    return fallback;
+}
 
 export async function getStaffStats() {
+    let staffList: any[] = [];
+    let attendance: any[] = [];
+    let allStaffAdvances: any[] = [];
+    let settings: any = {};
+
     try {
         // 1. Fetch Staff, Attendance, Advances, Settings
         const [staffRes, attendanceRes, advancesRes, settingsRes] = await Promise.all([
@@ -13,11 +33,30 @@ export async function getStaffStats() {
             supabase.from('settings').select('*').limit(1)
         ]);
 
-        const staffList = staffRes.data || [];
-        const attendance = attendanceRes.data || [];
-        const allStaffAdvances = advancesRes.data || [];
-        const settings = (settingsRes.data && settingsRes.data.length > 0) ? settingsRes.data[0] : {};
+        if (staffRes.data && staffRes.data.length > 0) staffList = staffRes.data;
+        if (attendanceRes.data && attendanceRes.data.length > 0) attendance = attendanceRes.data;
+        if (advancesRes.data && advancesRes.data.length > 0) allStaffAdvances = advancesRes.data;
+        if (settingsRes.data && settingsRes.data.length > 0) settings = settingsRes.data[0];
+    } catch (e: any) {
+        console.warn("getStaffStats Supabase query warning:", e?.message || e);
+    }
 
+    // Fallback to local snapshot if database is paused or empty
+    if (staffList.length === 0) {
+        staffList = loadBackupJson('staff.json', []);
+    }
+    if (attendance.length === 0) {
+        attendance = loadBackupJson('staff_attendance.json', []);
+    }
+    if (allStaffAdvances.length === 0) {
+        allStaffAdvances = loadBackupJson('staff_advances.json', []);
+    }
+    if (!settings || Object.keys(settings).length === 0) {
+        const settingsArr = loadBackupJson<any[]>('settings.json', [{}]);
+        settings = Array.isArray(settingsArr) ? settingsArr[0] : settingsArr;
+    }
+
+    try {
         // 2. Calculate Payroll Logic (Ported from FinanceContext)
         const staffWithPay = staffList.map(staff => {
             // Find latest settlement date
@@ -122,11 +161,11 @@ export async function getStaffStats() {
             settings
         };
     } catch (e: any) {
-        console.warn("getStaffStats warning:", e?.message || e);
+        console.warn("getStaffStats calculation error:", e?.message || e);
         return {
-            staffList: [],
+            staffList,
             staffWithPay: [],
-            settings: {}
+            settings
         };
     }
 }
@@ -160,6 +199,9 @@ export async function getMonthlyAttendance(monthStr?: string) {
     const lastDay = new Date(year, month + 1, 0).getDate();
     const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
+    let staffList: any[] = [];
+    let attendance: any[] = [];
+
     try {
         const [staffRes, attendanceRes] = await Promise.all([
             supabase.from('staff').select('*').order('name'),
@@ -169,19 +211,25 @@ export async function getMonthlyAttendance(monthStr?: string) {
                 .lte('date', endDate)
         ]);
 
-        return {
-            staffList: (staffRes.data || []).filter((s: any) => !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave')),
-            attendance: attendanceRes.data || [],
-            queryMonth: `${year}-${String(month + 1).padStart(2, '0')}`
-        };
+        if (staffRes.data && staffRes.data.length > 0) staffList = staffRes.data;
+        if (attendanceRes.data && attendanceRes.data.length > 0) attendance = attendanceRes.data;
     } catch (e: any) {
-        console.warn("getMonthlyAttendance warning:", e?.message || e);
-        return {
-            staffList: [],
-            attendance: [],
-            queryMonth: `${year}-${String(month + 1).padStart(2, '0')}`
-        };
+        console.warn("getMonthlyAttendance Supabase query warning:", e?.message || e);
     }
+
+    if (staffList.length === 0) {
+        staffList = loadBackupJson('staff.json', []);
+    }
+    if (attendance.length === 0) {
+        const allAtt = loadBackupJson<any[]>('staff_attendance.json', []);
+        attendance = allAtt.filter((a: any) => a.date >= startDate && a.date <= endDate);
+    }
+
+    return {
+        staffList: staffList.filter((s: any) => !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave')),
+        attendance,
+        queryMonth: `${year}-${String(month + 1).padStart(2, '0')}`
+    };
 }
 
 export async function updateStaffAction(id: string | number, updates: any) {
