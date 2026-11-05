@@ -19,7 +19,7 @@ export default function InsightsPage() {
                 <BudgetCard month={selectedMonth} onMonthChange={setSelectedMonth} />
             </div>
 
-            <Analytics />
+            <Analytics stats={undefined} />
             <DetailedAnalytics />
         </div>
     );

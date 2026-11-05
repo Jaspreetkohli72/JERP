@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { supabase } from '@/lib/supabase';
 import { revalidatePath } from 'next/cache';
+import { recordAuditLogAction } from './audit';
 
 // Define the schema for transaction validation
 const TransactionSchema = z.object({
@@ -98,6 +99,17 @@ export async function addTransaction(prevState: TransactionState, formData: Form
         // 3. Revalidate Cache
         revalidatePath('/');
         revalidatePath('/transactions');
+
+        // 4. Record Audit Log
+        recordAuditLogAction({
+            action: 'CREATE',
+            module: 'Transactions',
+            entity_id: transaction?.id ? String(transaction.id) : undefined,
+            description: `Recorded ${validData.type} transaction of ₹${validData.amount}: ${validData.description}`,
+            details: validData,
+            user_email: 'jaspreetkohli72@gmail.com',
+            user_name: 'Admin'
+        }).catch(() => {});
 
         return { success: true };
     } catch (error) {

@@ -16,15 +16,15 @@ export default function ContactDetailsPage() {
     const [isAddTxOpen, setIsAddTxOpen] = useState(false);
     const [txType, setTxType] = useState("income");
 
-    const contact = useMemo(() => contacts.find(c => c.id === id), [contacts, id]);
+    const contact = useMemo(() => contacts.find((c: any) => c.id === id), [contacts, id]);
 
     const contactTransactions = useMemo(() => {
         if (!contact) return [];
-        return transactions.filter(t => t.contact_id === id);
+        return transactions.filter((t: any) => t.contact_id === id);
     }, [transactions, id, contact]);
 
-    const formatCurrency = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
-    const formatDate = (dateString) => new Date(dateString).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    const formatCurrency = (val: any) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
+    const formatDate = (dateString: any) => new Date(dateString).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
     if (loading) {
         return (
