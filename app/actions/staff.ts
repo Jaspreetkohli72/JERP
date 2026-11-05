@@ -4,126 +4,131 @@ import { supabase } from '@/lib/supabase';
 import { revalidatePath } from 'next/cache';
 
 export async function getStaffStats() {
-    // 1. Fetch Staff, Attendance, Advances, Settings
-    const [staffRes, attendanceRes, advancesRes, settingsRes] = await Promise.all([
-        supabase.from('staff').select('*').order('created_at', { ascending: false }),
-        supabase.from('staff_attendance').select('*'),
-        supabase.from('staff_advances').select('*'),
-        supabase.from('settings').select('*').limit(1)
-    ]);
+    try {
+        // 1. Fetch Staff, Attendance, Advances, Settings
+        const [staffRes, attendanceRes, advancesRes, settingsRes] = await Promise.all([
+            supabase.from('staff').select('*').order('created_at', { ascending: false }),
+            supabase.from('staff_attendance').select('*'),
+            supabase.from('staff_advances').select('*'),
+            supabase.from('settings').select('*').limit(1)
+        ]);
 
-    if (staffRes.error) throw staffRes.error;
-    if (attendanceRes.error) throw attendanceRes.error;
-    if (advancesRes.error) throw advancesRes.error;
+        const staffList = staffRes.data || [];
+        const attendance = attendanceRes.data || [];
+        const allStaffAdvances = advancesRes.data || [];
+        const settings = (settingsRes.data && settingsRes.data.length > 0) ? settingsRes.data[0] : {};
 
-    const staffList = staffRes.data || [];
-    const attendance = attendanceRes.data || [];
-    const allStaffAdvances = advancesRes.data || [];
-    const settings = (settingsRes.data && settingsRes.data.length > 0) ? settingsRes.data[0] : {};
-
-    // 2. Calculate Payroll Logic (Ported from FinanceContext)
-    const staffWithPay = staffList.map(staff => {
-        // Find latest settlement date
-        let latestSettleDate = '';
-        let paymentDate = '';
-        allStaffAdvances.forEach(adv => {
-            if (String(adv.staff_id) === String(staff.id) && adv.notes) {
-                const match = adv.notes.match(/Account Settlement up to\s*:?\s*(\d{4}-\d{2}-\d{2})/i);
-                if (match) {
-                    const dStr = match[1];
-                    if (dStr > latestSettleDate) {
-                        latestSettleDate = dStr;
-                        paymentDate = adv.date;
+        // 2. Calculate Payroll Logic (Ported from FinanceContext)
+        const staffWithPay = staffList.map(staff => {
+            // Find latest settlement date
+            let latestSettleDate = '';
+            let paymentDate = '';
+            allStaffAdvances.forEach(adv => {
+                if (String(adv.staff_id) === String(staff.id) && adv.notes) {
+                    const match = adv.notes.match(/Account Settlement up to\s*:?\s*(\d{4}-\d{2}-\d{2})/i);
+                    if (match) {
+                        const dStr = match[1];
+                        if (dStr > latestSettleDate) {
+                            latestSettleDate = dStr;
+                            paymentDate = adv.date;
+                        }
                     }
                 }
-            }
+            });
+
+            // Attendance
+            const staffAttendance = attendance.filter(a =>
+                String(a.staff_id) === String(staff.id) &&
+                (!paymentDate || a.date > paymentDate)
+            );
+
+            const is2xOvertime = (status?: string | null, workDone?: string | null) => {
+                if (status && status.includes('2')) return true;
+                if (workDone && /\[2x\s*OT\]|\[OT:2\]|\[2x\]|\(2x\s*OT\)/i.test(workDone)) return true;
+                return false;
+            };
+
+            const getStatusMultiplier = (status?: string | null, workDone?: string | null) => {
+                if (!status) return 0;
+                if (status === 'Present') return 1.0;
+                if (status === 'Half-Day' || status === 'Half Day') return 0.5;
+                if (status === 'Overtime' || status.startsWith('Overtime')) {
+                    return is2xOvertime(status, workDone) ? 2.0 : 1.5;
+                }
+                return 0;
+            };
+
+            let daysPresentMe = 0;
+            let halfDaysMe = 0;
+            let overtimeDaysMe = 0;
+            let totalDaysMe = 0;
+
+            let daysPresentPapa = 0;
+            let halfDaysPapa = 0;
+            let overtimeDaysPapa = 0;
+            let totalDaysPapa = 0;
+
+            staffAttendance.forEach(a => {
+                if (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for) {
+                    if (a.status === 'Present') daysPresentMe++;
+                    else if (a.status === 'Half-Day' || a.status === 'Half Day') halfDaysMe++;
+                    else if (a.status === 'Overtime' || a.status?.startsWith('Overtime')) overtimeDaysMe++;
+                    totalDaysMe += getStatusMultiplier(a.status, a.work_done);
+                }
+                if (a.worked_for === 'Papa' || a.worked_for === 'Both') {
+                    if (a.status_papa === 'Present') daysPresentPapa++;
+                    else if (a.status_papa === 'Half-Day' || a.status_papa === 'Half Day') halfDaysPapa++;
+                    else if (a.status_papa === 'Overtime' || a.status_papa?.startsWith('Overtime')) overtimeDaysPapa++;
+                    totalDaysPapa += getStatusMultiplier(a.status_papa, a.work_done);
+                }
+            });
+
+            const daysPresent = daysPresentMe + daysPresentPapa;
+            const halfDays = halfDaysMe + halfDaysPapa;
+            const overtimeDays = overtimeDaysMe + overtimeDaysPapa;
+
+            const totalDays = totalDaysMe + totalDaysPapa;
+            const salaryDays = totalDays;
+            const salaryAccrued = salaryDays * (Number(staff.salary) || 0);
+
+            // Advances
+            const staffAdvances = allStaffAdvances.filter(adv =>
+                String(adv.staff_id) === String(staff.id) &&
+                (!paymentDate || adv.date > paymentDate) &&
+                !(adv.notes && /Account Settlement up to/i.test(adv.notes))
+            );
+            const totalAdvances = staffAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0);
+            const netPayable = salaryAccrued - totalAdvances;
+
+            return {
+                ...staff,
+                attendanceStats: {
+                    daysPresent,
+                    halfDays,
+                    overtimeDays,
+                    totalDays
+                },
+                financials: {
+                    salaryAccrued,
+                    totalAdvances,
+                    netPayable
+                }
+            };
         });
-
-        // Attendance
-        const staffAttendance = attendance.filter(a =>
-            String(a.staff_id) === String(staff.id) &&
-            (!paymentDate || a.date > paymentDate)
-        );
-
-        const is2xOvertime = (status?: string | null, workDone?: string | null) => {
-            if (status && status.includes('2')) return true;
-            if (workDone && /\[2x\s*OT\]|\[OT:2\]|\[2x\]|\(2x\s*OT\)/i.test(workDone)) return true;
-            return false;
-        };
-
-        const getStatusMultiplier = (status?: string | null, workDone?: string | null) => {
-            if (!status) return 0;
-            if (status === 'Present') return 1.0;
-            if (status === 'Half-Day' || status === 'Half Day') return 0.5;
-            if (status === 'Overtime' || status.startsWith('Overtime')) {
-                return is2xOvertime(status, workDone) ? 2.0 : 1.5;
-            }
-            return 0;
-        };
-
-        let daysPresentMe = 0;
-        let halfDaysMe = 0;
-        let overtimeDaysMe = 0;
-        let totalDaysMe = 0;
-
-        let daysPresentPapa = 0;
-        let halfDaysPapa = 0;
-        let overtimeDaysPapa = 0;
-        let totalDaysPapa = 0;
-
-        staffAttendance.forEach(a => {
-            if (a.worked_for === 'Me' || a.worked_for === 'Both' || !a.worked_for) {
-                if (a.status === 'Present') daysPresentMe++;
-                else if (a.status === 'Half-Day' || a.status === 'Half Day') halfDaysMe++;
-                else if (a.status === 'Overtime' || a.status?.startsWith('Overtime')) overtimeDaysMe++;
-                totalDaysMe += getStatusMultiplier(a.status, a.work_done);
-            }
-            if (a.worked_for === 'Papa' || a.worked_for === 'Both') {
-                if (a.status_papa === 'Present') daysPresentPapa++;
-                else if (a.status_papa === 'Half-Day' || a.status_papa === 'Half Day') halfDaysPapa++;
-                else if (a.status_papa === 'Overtime' || a.status_papa?.startsWith('Overtime')) overtimeDaysPapa++;
-                totalDaysPapa += getStatusMultiplier(a.status_papa, a.work_done);
-            }
-        });
-
-        const daysPresent = daysPresentMe + daysPresentPapa;
-        const halfDays = halfDaysMe + halfDaysPapa;
-        const overtimeDays = overtimeDaysMe + overtimeDaysPapa;
-
-        const totalDays = totalDaysMe + totalDaysPapa;
-        const salaryDays = totalDays;
-        const salaryAccrued = salaryDays * (Number(staff.salary) || 0);
-
-        // Advances
-        const staffAdvances = allStaffAdvances.filter(adv =>
-            String(adv.staff_id) === String(staff.id) &&
-            (!paymentDate || adv.date > paymentDate) &&
-            !(adv.notes && /Account Settlement up to/i.test(adv.notes))
-        );
-        const totalAdvances = staffAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0);
-        const netPayable = salaryAccrued - totalAdvances;
 
         return {
-            ...staff,
-            attendanceStats: {
-                daysPresent,
-                halfDays,
-                overtimeDays,
-                totalDays
-            },
-            financials: {
-                salaryAccrued,
-                totalAdvances,
-                netPayable
-            }
+            staffList,
+            staffWithPay,
+            settings
         };
-    });
-
-    return {
-        staffList,
-        staffWithPay,
-        settings
-    };
+    } catch (e: any) {
+        console.warn("getStaffStats warning:", e?.message || e);
+        return {
+            staffList: [],
+            staffWithPay: [],
+            settings: {}
+        };
+    }
 }
 
 export async function addStaff(payload: any) {
@@ -147,33 +152,36 @@ export async function addStaff(payload: any) {
 }
 
 export async function getMonthlyAttendance(monthStr?: string) {
-    // monthStr format: "YYYY-MM"
     const date = monthStr ? new Date(`${monthStr}-01`) : new Date();
     const year = date.getFullYear();
-    const month = date.getMonth(); // 0-indexed
+    const month = date.getMonth();
 
-    // Start Date: YYYY-MM-01
     const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-    // End Date: YYYY-MM-LastDay
     const lastDay = new Date(year, month + 1, 0).getDate();
     const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-    const [staffRes, attendanceRes] = await Promise.all([
-        supabase.from('staff').select('*').order('name'),
-        supabase.from('staff_attendance')
-            .select('*')
-            .gte('date', startDate)
-            .lte('date', endDate)
-    ]);
+    try {
+        const [staffRes, attendanceRes] = await Promise.all([
+            supabase.from('staff').select('*').order('name'),
+            supabase.from('staff_attendance')
+                .select('*')
+                .gte('date', startDate)
+                .lte('date', endDate)
+        ]);
 
-    if (staffRes.error) throw staffRes.error;
-    if (attendanceRes.error) throw attendanceRes.error;
-
-    return {
-        staffList: (staffRes.data || []).filter((s: any) => !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave')),
-        attendance: attendanceRes.data || [],
-        queryMonth: `${year}-${String(month + 1).padStart(2, '0')}` // Return normalized query month
-    };
+        return {
+            staffList: (staffRes.data || []).filter((s: any) => !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave')),
+            attendance: attendanceRes.data || [],
+            queryMonth: `${year}-${String(month + 1).padStart(2, '0')}`
+        };
+    } catch (e: any) {
+        console.warn("getMonthlyAttendance warning:", e?.message || e);
+        return {
+            staffList: [],
+            attendance: [],
+            queryMonth: `${year}-${String(month + 1).padStart(2, '0')}`
+        };
+    }
 }
 
 export async function updateStaffAction(id: string | number, updates: any) {
