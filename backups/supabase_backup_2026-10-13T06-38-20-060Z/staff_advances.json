@@ -1,0 +1,314 @@
+[
+  {
+    "id": "339109ff-db3f-48be-b4f6-b4280c15006d",
+    "staff_id": 10,
+    "amount": 100,
+    "date": "2026-05-21",
+    "notes": "Advance for food",
+    "created_at": "2026-05-21T07:13:28.597059+00:00"
+  },
+  {
+    "id": "7328b096-7898-4cf0-9cf7-8cf920dd00a0",
+    "staff_id": 10,
+    "amount": 500,
+    "date": "2026-05-26",
+    "notes": "Advance",
+    "created_at": "2026-05-26T12:35:24.178124+00:00"
+  },
+  {
+    "id": "6ff2c9eb-b88d-4295-b533-968a63483faa",
+    "staff_id": 18,
+    "amount": 200,
+    "date": "2026-05-30",
+    "notes": "petrol",
+    "created_at": "2026-06-03T09:14:01.254508+00:00"
+  },
+  {
+    "id": "f4b58a3a-c844-4175-9abf-8abfb27451a9",
+    "staff_id": 10,
+    "amount": 200,
+    "date": "2026-06-04",
+    "notes": "Petrol",
+    "created_at": "2026-06-04T15:47:39.991643+00:00"
+  },
+  {
+    "id": "49982e9f-2539-4515-88fc-7431820568e2",
+    "staff_id": 18,
+    "amount": 200,
+    "date": "2026-06-03",
+    "notes": "Petrol",
+    "created_at": "2026-06-04T15:53:42.24288+00:00"
+  },
+  {
+    "id": "a2ae224c-df96-49c2-8f6d-c8bc581547ab",
+    "staff_id": 10,
+    "amount": 700,
+    "date": "2026-06-02",
+    "notes": "",
+    "created_at": "2026-06-04T15:56:33.147554+00:00"
+  },
+  {
+    "id": "bf5fecca-a711-4b15-987a-2f4bb48c1ffb",
+    "staff_id": 10,
+    "amount": 500,
+    "date": "2026-06-01",
+    "notes": "",
+    "created_at": "2026-06-04T15:56:52.777098+00:00"
+  },
+  {
+    "id": "71f51cd6-052f-4e14-b776-5bfb79bc0e79",
+    "staff_id": 10,
+    "amount": 1000,
+    "date": "2026-05-31",
+    "notes": "",
+    "created_at": "2026-06-04T15:57:08.854142+00:00"
+  },
+  {
+    "id": "dddee574-92b3-4ac4-aadb-96ad42db07ce",
+    "staff_id": 18,
+    "amount": 1000,
+    "date": "2026-05-31",
+    "notes": "",
+    "created_at": "2026-06-04T15:57:35.922166+00:00"
+  },
+  {
+    "id": "a180707d-dbf7-4af7-9fff-41d7982e12fa",
+    "staff_id": 18,
+    "amount": 500,
+    "date": "2026-06-01",
+    "notes": "",
+    "created_at": "2026-06-04T15:57:51.524963+00:00"
+  },
+  {
+    "id": "2d084ac5-289e-4e1d-a0c8-208e12f0a71d",
+    "staff_id": 18,
+    "amount": 100,
+    "date": "2026-05-29",
+    "notes": "",
+    "created_at": "2026-06-04T15:58:09.459356+00:00"
+  },
+  {
+    "id": "96355b93-fc52-491a-aa17-cd634007f6fa",
+    "staff_id": 10,
+    "amount": 4200,
+    "date": "2026-06-05",
+    "notes": "advance Salary",
+    "created_at": "2026-06-05T07:28:12.934262+00:00"
+  },
+  {
+    "id": "b1b4de49-e2de-45c8-ae52-09c98b976324",
+    "staff_id": 10,
+    "amount": 5200,
+    "date": "2026-06-05",
+    "notes": "Account Settlement up to 2026-05-31",
+    "created_at": "2026-06-06T05:29:32.148905+00:00"
+  },
+  {
+    "id": "df0bf6d7-7030-4ec4-85d5-c3bedec02acf",
+    "staff_id": 18,
+    "amount": 100,
+    "date": "2026-06-06",
+    "notes": "",
+    "created_at": "2026-06-07T04:28:27.194319+00:00"
+  },
+  {
+    "id": "6d760d62-64ed-419b-9ef1-13a477c968a5",
+    "staff_id": 18,
+    "amount": 500,
+    "date": "2026-06-05",
+    "notes": "Account Settlement up to 2026-05-31",
+    "created_at": "2026-06-08T04:49:53.204267+00:00"
+  },
+  {
+    "id": "5156588d-b89b-48ad-967d-450725b26c17",
+    "staff_id": 18,
+    "amount": 1000,
+    "date": "2026-06-07",
+    "notes": "Advance",
+    "created_at": "2026-06-08T04:54:07.756906+00:00"
+  },
+  {
+    "id": "a9bad8e3-89d0-4c57-9a09-99fa2ed14d96",
+    "staff_id": 10,
+    "amount": 1000,
+    "date": "2026-06-08",
+    "notes": "Advance",
+    "created_at": "2026-06-08T15:42:00.358785+00:00"
+  },
+  {
+    "id": "98763e66-2a3b-4803-a14f-f897a868a3f8",
+    "staff_id": 10,
+    "amount": 200,
+    "date": "2026-06-07",
+    "notes": "Petrol",
+    "created_at": "2026-06-08T04:55:37.38743+00:00"
+  },
+  {
+    "id": "097c3506-e700-49c7-8ecc-5ce955791ed6",
+    "staff_id": 18,
+    "amount": 1000,
+    "date": "2026-06-09",
+    "notes": "Advance",
+    "created_at": "2026-06-09T05:30:49.322931+00:00"
+  },
+  {
+    "id": "d884f034-f98e-4b27-b57a-7704ed99fb6e",
+    "staff_id": 10,
+    "amount": 500,
+    "date": "2026-06-12",
+    "notes": "Advance",
+    "created_at": "2026-06-12T12:30:01.253734+00:00"
+  },
+  {
+    "id": "49f5df79-b2bf-4107-9d7c-5eb3f5838aba",
+    "staff_id": 18,
+    "amount": 500,
+    "date": "2026-06-13",
+    "notes": "Advance",
+    "created_at": "2026-06-13T15:42:14.976083+00:00"
+  },
+  {
+    "id": "e2665c92-56eb-4dea-b811-09e55a1b791a",
+    "staff_id": 10,
+    "amount": 500,
+    "date": "2026-06-13",
+    "notes": "Advance ",
+    "created_at": "2026-06-13T15:42:50.454603+00:00"
+  },
+  {
+    "id": "dc020fca-369f-4c25-ba58-918fe8c1685e",
+    "staff_id": 10,
+    "amount": 300,
+    "date": "2026-05-15",
+    "notes": "Test May Payment - Should be Hidden",
+    "created_at": "2026-06-16T09:55:06.192153+00:00"
+  },
+  {
+    "id": "be1549fa-519c-4dd9-aa0a-5880e0a654b8",
+    "staff_id": 18,
+    "amount": 500,
+    "date": "2026-06-12",
+    "notes": "",
+    "created_at": "2026-06-16T09:57:48.145006+00:00"
+  },
+  {
+    "id": "88b4642e-1d68-4594-88f9-af59dff96d4b",
+    "staff_id": 18,
+    "amount": 1000,
+    "date": "2026-06-25",
+    "notes": "Advance",
+    "created_at": "2026-06-25T12:07:52.108529+00:00"
+  },
+  {
+    "id": "65822722-aae7-4fe5-be48-1fbcddd561ad",
+    "staff_id": 10,
+    "amount": 1000,
+    "date": "2026-06-29",
+    "notes": "Advance",
+    "created_at": "2026-06-29T12:35:58.430667+00:00"
+  },
+  {
+    "id": "e04859be-12d6-4353-bbef-ca0b4a59744a",
+    "staff_id": 18,
+    "amount": 200,
+    "date": "2026-07-01",
+    "notes": "Petrol",
+    "created_at": "2026-07-01T12:33:05.504414+00:00"
+  },
+  {
+    "id": "8ae17507-e2f8-4ce6-91a7-2299d09240fc",
+    "staff_id": 18,
+    "amount": 100,
+    "date": "2026-07-02",
+    "notes": "Petrol",
+    "created_at": "2026-07-02T12:40:59.065833+00:00"
+  },
+  {
+    "id": "7769227e-697f-42b9-bdb7-251546ceca5c",
+    "staff_id": 10,
+    "amount": 200,
+    "date": "2026-07-02",
+    "notes": "Advance",
+    "created_at": "2026-07-02T12:41:19.828009+00:00"
+  },
+  {
+    "id": "a6b720f2-6d24-4603-934b-a0add8c35399",
+    "staff_id": 10,
+    "amount": 18600,
+    "date": "2026-07-04",
+    "notes": "Account Settlement up to 2026-06-30",
+    "created_at": "2026-07-04T12:38:08.632033+00:00"
+  },
+  {
+    "id": "76dbff7e-b5da-4e86-b2b7-3156d7888354",
+    "staff_id": 18,
+    "amount": 1300,
+    "date": "2026-07-04",
+    "notes": "advance from papa",
+    "created_at": "2026-07-04T12:56:13.974807+00:00"
+  },
+  {
+    "id": "52453f98-d1e5-41a0-9df6-0875f0bacc85",
+    "staff_id": 18,
+    "amount": 8275,
+    "date": "2026-07-04",
+    "notes": "Account Settlement up to 2026-06-30",
+    "created_at": "2026-07-04T12:59:02.166719+00:00"
+  },
+  {
+    "id": "01eaaf92-fbac-48bc-a535-894ac2dafb59",
+    "staff_id": 10,
+    "amount": 1000,
+    "date": "2026-07-09",
+    "notes": "",
+    "created_at": "2026-07-17T04:22:57.334522+00:00"
+  },
+  {
+    "id": "9e05beca-4949-4b5f-b99e-638257ef4f97",
+    "staff_id": 10,
+    "amount": 500,
+    "date": "2026-07-11",
+    "notes": "",
+    "created_at": "2026-07-17T04:23:36.575184+00:00"
+  },
+  {
+    "id": "3a988c53-fb7d-4105-9468-359544175a1e",
+    "staff_id": 10,
+    "amount": 500,
+    "date": "2026-07-16",
+    "notes": "",
+    "created_at": "2026-07-17T04:24:07.448126+00:00"
+  },
+  {
+    "id": "b58bb2dd-9ede-48b4-88e0-78941a910f0e",
+    "staff_id": 18,
+    "amount": 200,
+    "date": "2026-07-10",
+    "notes": "",
+    "created_at": "2026-07-17T04:25:00.593681+00:00"
+  },
+  {
+    "id": "46e545ef-e528-4f0c-a5ca-43b74613a3d4",
+    "staff_id": 18,
+    "amount": 5000,
+    "date": "2026-07-13",
+    "notes": "",
+    "created_at": "2026-07-17T04:27:08.126058+00:00"
+  },
+  {
+    "id": "4b25c134-986e-4597-8570-625e0c49504f",
+    "staff_id": 10,
+    "amount": 500,
+    "date": "2026-08-25",
+    "notes": "Advance jaspreet petrol",
+    "created_at": "2026-08-25T12:39:58.679629+00:00"
+  },
+  {
+    "id": "6b64e46d-8738-4f6a-9a09-215ccad7a18b",
+    "staff_id": 10,
+    "amount": 500,
+    "date": "2026-08-25",
+    "notes": "Advance jaspreet petrol",
+    "created_at": "2026-08-25T12:40:00.38522+00:00"
+  }
+]

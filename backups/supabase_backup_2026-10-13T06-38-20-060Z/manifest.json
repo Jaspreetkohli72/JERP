@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-10-13T06:38:20.062Z",
+  "dataUrl": "https://acirakiaxrhfgtksmahm.supabase.co",
+  "tables": {
+    "staff": {
+      "rowCount": 17,
+      "file": "staff.json"
+    },
+    "staff_attendance": {
+      "rowCount": 1193,
+      "file": "staff_attendance.json"
+    },
+    "staff_advances": {
+      "rowCount": 39,
+      "file": "staff_advances.json"
+    },
+    "attendance": {
+      "rowCount": 0,
+      "file": "attendance.json"
+    },
+    "settings": {
+      "rowCount": 1,
+      "file": "settings.json"
+    }
+  }
+}

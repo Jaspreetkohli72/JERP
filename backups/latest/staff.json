@@ -1,0 +1,172 @@
+[
+  {
+    "id": 29,
+    "name": "Bhavesh",
+    "role": "Welder",
+    "phone": "",
+    "salary": 800,
+    "joined_date": "2026-06-29",
+    "status": "Available",
+    "created_at": "2026-06-29T13:01:44.882703+00:00"
+  },
+  {
+    "id": 43,
+    "name": "Imran",
+    "role": "Welder",
+    "phone": "",
+    "salary": 800,
+    "joined_date": "2026-09-16",
+    "status": "On Leave",
+    "created_at": "2026-09-16T04:55:41.889743+00:00"
+  },
+  {
+    "id": 22,
+    "name": "Sikandar",
+    "role": "Helper",
+    "phone": "",
+    "salary": 400,
+    "joined_date": "2026-06-08",
+    "status": "On Leave",
+    "created_at": "2026-06-08T10:39:20.083306+00:00"
+  },
+  {
+    "id": 28,
+    "name": "Dev",
+    "role": "Helper",
+    "phone": "",
+    "salary": 650,
+    "joined_date": "2026-06-29",
+    "status": "On Leave",
+    "created_at": "2026-06-29T13:01:27.798287+00:00"
+  },
+  {
+    "id": 35,
+    "name": "Irfan",
+    "role": "Welder",
+    "phone": "",
+    "salary": 0,
+    "joined_date": "2026-07-17",
+    "status": "On Leave",
+    "created_at": "2026-07-17T04:16:20.302779+00:00"
+  },
+  {
+    "id": 36,
+    "name": "Kasim",
+    "role": "Helper",
+    "phone": "",
+    "salary": 0,
+    "joined_date": "2026-07-17",
+    "status": "On Leave",
+    "created_at": "2026-07-17T04:16:28.575596+00:00"
+  },
+  {
+    "id": 20,
+    "name": "Shahrukh",
+    "role": "Helper",
+    "phone": "",
+    "salary": 500,
+    "joined_date": "2026-06-05",
+    "status": "On Leave",
+    "created_at": "2026-06-05T04:01:23.43495+00:00"
+  },
+  {
+    "id": 19,
+    "name": "Faheem",
+    "role": "Helper",
+    "phone": "",
+    "salary": 600,
+    "joined_date": "2026-06-05",
+    "status": "On Leave",
+    "created_at": "2026-06-05T04:01:14.208515+00:00"
+  },
+  {
+    "id": 38,
+    "name": "Golu",
+    "role": "Helper",
+    "phone": "",
+    "salary": 0,
+    "joined_date": "2026-08-23",
+    "status": "Terminated:2026-09-16",
+    "created_at": "2026-08-23T04:40:40.550577+00:00"
+  },
+  {
+    "id": 39,
+    "name": "Nandu",
+    "role": "Helper",
+    "phone": "",
+    "salary": 650,
+    "joined_date": "2026-08-23",
+    "status": "Available",
+    "created_at": "2026-08-23T04:40:47.779174+00:00"
+  },
+  {
+    "id": 21,
+    "name": "Gangu",
+    "role": "Welder",
+    "phone": "",
+    "salary": 800,
+    "joined_date": "2026-06-08",
+    "status": "Available",
+    "created_at": "2026-06-08T10:38:47.619893+00:00"
+  },
+  {
+    "id": 18,
+    "name": "Yashwant",
+    "role": "Helper",
+    "phone": "",
+    "salary": 650,
+    "joined_date": "2026-06-03",
+    "status": "On Leave",
+    "created_at": "2026-06-03T05:50:15.501626+00:00"
+  },
+  {
+    "id": 40,
+    "name": "Prem",
+    "role": "Helper",
+    "phone": "",
+    "salary": 0,
+    "joined_date": "2026-09-16",
+    "status": "Terminated:2026-09-14",
+    "created_at": "2026-09-16T04:31:44.244395+00:00"
+  },
+  {
+    "id": 10,
+    "name": "Rajendra",
+    "role": "Welder",
+    "phone": "",
+    "salary": 800,
+    "joined_date": "2026-05-16",
+    "status": "Available",
+    "created_at": "2026-05-16T05:35:58.573361+00:00"
+  },
+  {
+    "id": 42,
+    "name": "Rohit",
+    "role": "Helper",
+    "phone": "",
+    "salary": 400,
+    "joined_date": "2026-09-16",
+    "status": "On Leave",
+    "created_at": "2026-09-16T04:43:06.117812+00:00"
+  },
+  {
+    "id": 41,
+    "name": "Aditya",
+    "role": "Helper",
+    "phone": "",
+    "salary": 400,
+    "joined_date": "2026-09-16",
+    "status": "On Leave",
+    "created_at": "2026-09-16T04:42:55.421577+00:00"
+  },
+  {
+    "id": 27,
+    "name": "Sameer",
+    "role": "Helper",
+    "phone": "",
+    "salary": 500,
+    "joined_date": "2026-06-29",
+    "status": "Available",
+    "created_at": "2026-06-29T13:01:15.417379+00:00"
+  }
+]
