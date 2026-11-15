@@ -4,7 +4,17 @@ import { supabase } from '@/lib/supabase';
 import { revalidatePath } from 'next/cache';
 import fs from 'fs';
 import path from 'path';
-import { getActiveStaffKioskList } from '@/lib/kiosk';
+import {
+    getActiveStaffKioskList,
+    getTodayIST,
+    formatTimeIST,
+    calculateAttendanceStatus,
+    calculateCumulativeWorkedHours,
+    getPunchesForDate,
+    recordPunchEvent,
+    syncStaffAttendanceOnPunch,
+    PunchRecord
+} from '@/lib/kiosk';
 
 function loadBackupJson<T>(filename: string, fallback: T): T {
     try {
@@ -467,6 +477,134 @@ export async function getStaffTodayPunchStatus(staffId: string | number) {
         return found ? { clockedIn: found.clockedIn, since: found.since } : { clockedIn: false, since: null };
     } catch {
         return { clockedIn: false, since: null };
+    }
+}
+
+export async function punchStaffAction(staffId: string | number, action: 'IN' | 'OUT') {
+    try {
+        const numStaffId = parseInt(String(staffId), 10);
+        if (isNaN(numStaffId)) {
+            return { success: false, error: 'Invalid staff ID' };
+        }
+
+        const today = getTodayIST();
+        const nowIso = new Date().toISOString();
+
+        // 1. Verify staff exists & active
+        let staffData: any = null;
+        try {
+            const { data } = await supabase.from('staff').select('*').eq('id', numStaffId).maybeSingle();
+            if (data) staffData = data;
+        } catch (e) {
+            console.warn('[punchStaffAction] Staff fetch warning:', e);
+        }
+
+        if (!staffData) {
+            const localStaffList = loadBackupJson<any[]>('staff.json', []);
+            staffData = localStaffList.find((s: any) => Number(s.id) === numStaffId) || null;
+        }
+
+        if (!staffData) {
+            return { success: false, error: 'Staff member not found' };
+        }
+        if (staffData.status?.startsWith('Terminated') || staffData.status?.startsWith('On Leave')) {
+            return { success: false, error: `Staff member is not active (${staffData.status})` };
+        }
+
+        // 2. Query today's punches
+        const todayPunches = await getPunchesForDate(today);
+        const workerPunches = todayPunches
+            .filter((p) => Number(p.staff_id) === numStaffId)
+            .sort((a, b) => new Date(a.punched_at).getTime() - new Date(b.punched_at).getTime());
+
+        const latestPunch = workerPunches.length > 0 ? workerPunches[workerPunches.length - 1] : null;
+        let isClockedIn = latestPunch?.punch_type === 'IN';
+
+        // Resilient fallback check on staff_attendance if punches table has no record yet
+        let existingAtt: any = null;
+        if (workerPunches.length === 0) {
+            try {
+                const { data } = await supabase
+                    .from('staff_attendance')
+                    .select('*')
+                    .eq('staff_id', numStaffId)
+                    .eq('date', today)
+                    .maybeSingle();
+                if (data) existingAtt = data;
+            } catch (e) {
+                console.warn('[punchStaffAction] Attendance fallback warning:', e);
+            }
+            if (existingAtt) {
+                if (existingAtt.punch_in && !existingAtt.punch_out) {
+                    isClockedIn = true;
+                } else if (existingAtt.work_done && typeof existingAtt.work_done === 'string') {
+                    const inMatch = existingAtt.work_done.match(/In:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i);
+                    const hasOut = /Out:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i.test(existingAtt.work_done);
+                    if (inMatch && !hasOut) isClockedIn = true;
+                }
+            }
+        }
+
+        if (action === 'IN' && isClockedIn) {
+            return { success: false, error: 'Staff is already clocked in' };
+        }
+        if (action === 'OUT' && !isClockedIn) {
+            return { success: false, error: 'Staff is not clocked in' };
+        }
+
+        let message = '';
+        if (action === 'IN') {
+            const newPunch: PunchRecord = {
+                staff_id: numStaffId,
+                punch_type: 'IN',
+                punched_at: nowIso,
+                date: today,
+            };
+            await recordPunchEvent(newPunch);
+            await syncStaffAttendanceOnPunch(numStaffId, 'IN', nowIso);
+            message = `Clocked IN at ${formatTimeIST(nowIso)}`;
+        } else {
+            const newPunch: PunchRecord = {
+                staff_id: numStaffId,
+                punch_type: 'OUT',
+                punched_at: nowIso,
+                date: today,
+            };
+            await recordPunchEvent(newPunch);
+
+            // Calculate hours & attendance status
+            let totalHours = 0;
+            if (workerPunches.length > 0) {
+                const allPunchesToday = [...workerPunches, newPunch];
+                totalHours = calculateCumulativeWorkedHours(allPunchesToday);
+            } else if (existingAtt?.punch_in) {
+                totalHours = Math.max(0, (new Date(nowIso).getTime() - new Date(existingAtt.punch_in).getTime()) / (1000 * 3600));
+            } else if (existingAtt?.created_at) {
+                totalHours = Math.max(0, (new Date(nowIso).getTime() - new Date(existingAtt.created_at).getTime()) / (1000 * 3600));
+            }
+
+            const calculatedStatus = calculateAttendanceStatus(totalHours);
+            const inPunches = workerPunches.filter((p) => p.punch_type === 'IN');
+            const earliestInIso = inPunches.length > 0 ? inPunches[0].punched_at : (existingAtt?.punch_in || undefined);
+
+            await syncStaffAttendanceOnPunch(numStaffId, 'OUT', nowIso, calculatedStatus, earliestInIso);
+            message = `Clocked OUT (Total: ${totalHours.toFixed(1)} hrs: ${calculatedStatus})`;
+        }
+
+        revalidatePath('/staff');
+        revalidatePath('/staff/calendar');
+        revalidatePath('/staff/attendance');
+        revalidatePath('/staff/[id]', 'page');
+
+        return {
+            success: true,
+            message,
+            clockedIn: action === 'IN',
+            since: action === 'IN' ? formatTimeIST(nowIso) : null
+        };
+    } catch (e: any) {
+        console.error('Error in punchStaffAction:', e);
+        return { success: false, error: e.message || 'Failed to record punch' };
     }
 }
 

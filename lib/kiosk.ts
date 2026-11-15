@@ -7,6 +7,8 @@ export interface KioskStaffItem {
     name: string;
     clockedIn: boolean;
     since: string | null;
+    status?: string;
+    role?: string;
 }
 
 export interface PunchRecord {
@@ -151,9 +153,12 @@ export async function recordPunchEvent(record: PunchRecord): Promise<void> {
 }
 
 /**
- * Resolves the list of active staff members with their live clock-in status for todayIST
+ * Resolves the list of staff members with their live clock-in status for todayIST.
+ * By default, returns only active staff (not terminated, not on leave).
+ * Pass { includeAll: true } to return all staff irrespective of status.
  */
-export async function getActiveStaffKioskList(): Promise<KioskStaffItem[]> {
+export async function getActiveStaffKioskList(options?: { includeAll?: boolean }): Promise<KioskStaffItem[]> {
+    const includeAll = options?.includeAll ?? false;
     const today = getTodayIST();
     let staffList: any[] = [];
 
@@ -174,10 +179,12 @@ export async function getActiveStaffKioskList(): Promise<KioskStaffItem[]> {
         staffList = loadBackupJson<any[]>('staff.json', []);
     }
 
-    // Filter active staff: not terminated and not on leave
-    const activeStaff = staffList.filter((s: any) =>
-        !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave')
-    );
+    // Filter staff according to includeAll option
+    const filteredStaff = includeAll
+        ? staffList
+        : staffList.filter((s: any) =>
+            !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave')
+        );
 
     // 1. Fetch punches strictly for todayIST from staff_punches table
     const todayPunches = await getPunchesForDate(today);
@@ -213,7 +220,7 @@ export async function getActiveStaffKioskList(): Promise<KioskStaffItem[]> {
         attendanceByStaff.set(Number(a.staff_id), a);
     }
 
-    const result: KioskStaffItem[] = activeStaff.map((s: any) => {
+    const result: KioskStaffItem[] = filteredStaff.map((s: any) => {
         const staffIdNum = Number(s.id);
         const sPunches = punchesByStaff.get(staffIdNum) || [];
         // Sort chronologically
@@ -247,6 +254,8 @@ export async function getActiveStaffKioskList(): Promise<KioskStaffItem[]> {
         return {
             id: String(s.id),
             name: s.name,
+            role: s.role,
+            status: s.status || 'Available',
             clockedIn: isClockedIn,
             since: sinceTime,
         };

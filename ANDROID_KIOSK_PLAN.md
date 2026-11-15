@@ -26,6 +26,9 @@ Base URL is configurable in the app settings (e.g., `http://192.168.1.100:3000` 
 
 ### Endpoint 1: Fetch Active Staff & Current Punch State
 - **URL**: `GET /api/kiosk/staff`
+- **Optional Query Parameter**: `?all=true` (e.g. `GET /api/kiosk/staff?all=true`)
+  - Without `?all=true`: Returns only active workers (excludes `On Leave` and `Terminated`).
+  - With `?all=true`: Returns all staff irrespective of status, with their `status` field included (`Available`, `On Leave`, `Terminated:YYYY-MM-DD`, etc.).
 - **Headers**: `Accept: application/json` (No authentication required)
 - **Response**: `200 OK`
 ```json
@@ -33,12 +36,16 @@ Base URL is configurable in the app settings (e.g., `http://192.168.1.100:3000` 
   {
     "id": "29",
     "name": "Bhavesh",
+    "role": "Welder",
+    "status": "Available",
     "clockedIn": true,
     "since": "09:15 AM"
   },
   {
     "id": "14",
     "name": "Ramesh",
+    "role": "Helper",
+    "status": "Available",
     "clockedIn": false,
     "since": null
   }

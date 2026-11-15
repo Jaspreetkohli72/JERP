@@ -2,11 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFinance } from '@/context/FinanceContext';
-import { ArrowLeft, Wallet, Calendar as CalendarIcon, Save, Trash2, Pencil } from 'lucide-react';
+import { ArrowLeft, Wallet, Calendar as CalendarIcon, Save, Trash2, Pencil, LogIn, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import CustomSelect from '@/components/CustomSelect';
 import { supabase } from '@/lib/supabase';
-import { updateStaffAction, deleteStaffAction, updateStaffAdvanceAction, deleteStaffAdvanceAction, deleteAttendanceAction, getStaffTodayPunchStatus, getStaffProfileBundle } from '@/app/actions/staff';
+import { updateStaffAction, deleteStaffAction, updateStaffAdvanceAction, deleteStaffAdvanceAction, deleteAttendanceAction, getStaffTodayPunchStatus, getStaffProfileBundle, punchStaffAction } from '@/app/actions/staff';
 
 export default function StaffDetailsPage() {
     const { id } = useParams();
@@ -46,6 +46,31 @@ export default function StaffDetailsPage() {
         d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
         return d.toISOString().split('T')[0];
     });
+
+    const [isPunching, setIsPunching] = useState(false);
+    const [punchingAction, setPunchingAction] = useState<'IN' | 'OUT' | null>(null);
+
+    const handlePunch = async (action: 'IN' | 'OUT') => {
+        if (!id || isPunching) return;
+        setIsPunching(true);
+        setPunchingAction(action);
+        try {
+            const res = await punchStaffAction(id as string, action);
+            if (res.success) {
+                setPunchStatus({ clockedIn: !!res.clockedIn, since: res.since || null });
+                await loadData();
+                if (refreshData) await refreshData();
+                router.refresh();
+            } else {
+                alert(res.error || `Failed to clock ${action.toLowerCase()}`);
+            }
+        } catch (err: any) {
+            alert(`Error recording clock ${action.toLowerCase()}: ${err.message || err}`);
+        } finally {
+            setIsPunching(false);
+            setPunchingAction(null);
+        }
+    };
 
     const handleTerminate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -508,9 +533,9 @@ export default function StaffDetailsPage() {
                             </span>
                         )}
                     </p>
-                    <div className="mt-1.5 flex items-center gap-2">
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
                         {punchStatus.clockedIn ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                                 <span className="relative flex h-2 w-2">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -518,11 +543,44 @@ export default function StaffDetailsPage() {
                                 Clocked IN {punchStatus.since ? `since ${punchStatus.since}` : ''}
                             </span>
                         ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-white/5 text-gray-400 border border-white/10">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-medium bg-white/5 text-gray-400 border border-white/10">
                                 <span className="h-1.5 w-1.5 rounded-full bg-gray-500"></span>
                                 Clocked OUT
                             </span>
                         )}
+
+                        {/* Clock In / Out Buttons */}
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                type="button"
+                                onClick={() => handlePunch('IN')}
+                                disabled={isPunching || punchStatus.clockedIn || staff.status?.startsWith('Terminated') || staff.status?.startsWith('On Leave')}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                                    punchStatus.clockedIn || staff.status?.startsWith('Terminated') || staff.status?.startsWith('On Leave')
+                                        ? 'opacity-30 cursor-not-allowed bg-white/5 text-gray-500 border border-white/5'
+                                        : 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 cursor-pointer active:scale-95'
+                                }`}
+                                title={punchStatus.clockedIn ? 'Staff is already clocked in' : 'Record Clock In'}
+                            >
+                                <LogIn size={13} />
+                                {isPunching && punchingAction === 'IN' ? 'Clocking In...' : 'Clock In'}
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => handlePunch('OUT')}
+                                disabled={isPunching || !punchStatus.clockedIn || staff.status?.startsWith('Terminated') || staff.status?.startsWith('On Leave')}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                                    !punchStatus.clockedIn || staff.status?.startsWith('Terminated') || staff.status?.startsWith('On Leave')
+                                        ? 'opacity-30 cursor-not-allowed bg-white/5 text-gray-500 border border-white/5'
+                                        : 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 cursor-pointer active:scale-95'
+                                }`}
+                                title={!punchStatus.clockedIn ? 'Staff is not clocked in' : 'Record Clock Out'}
+                            >
+                                <LogOut size={13} />
+                                {isPunching && punchingAction === 'OUT' ? 'Clocking Out...' : 'Clock Out'}
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <button
