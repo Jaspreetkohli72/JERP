@@ -16,6 +16,7 @@ export default function StaffDetailsPage() {
 
     // State
     const [staff, setStaff] = useState<any>(null);
+    const [notFound, setNotFound] = useState(false);
     const [punchStatus, setPunchStatus] = useState<{ clockedIn: boolean; since: string | null }>({ clockedIn: false, since: null });
     const [month, setMonth] = useState(new Date().getMonth());
     const [year, setYear] = useState(new Date().getFullYear());
@@ -122,28 +123,67 @@ export default function StaffDetailsPage() {
         }
     };
 
-    useEffect(() => {
-        if (staffList.length > 0) {
-            // @ts-ignore
-            const s = staffList.find(s => s.id == id); // id might be string vs number
-            setStaff(s);
-        }
-    }, [staffList, id]);
-
     const loadData = async () => {
+        if (!id) return;
         setLoading(true);
-        // @ts-ignore
-        const res = await getStaffDetails(id, month, year);
-        setData(res);
-        setLoading(false);
+
+        // 1. Direct fast fetch for staff member if not already set (<100ms)
+        if (!staff) {
+            const foundInList = (staffList || []).find((s: any) => String(s.id) === String(id));
+            if (foundInList) {
+                setStaff(foundInList);
+            } else {
+                try {
+                    const { data: directStaff } = await supabase
+                        .from('staff')
+                        .select('*')
+                        .eq('id', id)
+                        .maybeSingle();
+
+                    if (directStaff) {
+                        setStaff(directStaff);
+                    } else if (staffList && staffList.length > 0) {
+                        setNotFound(true);
+                    }
+                } catch (err) {
+                    console.warn('[Staff Details] Direct staff fetch warning:', err);
+                }
+            }
+        }
+
+        // 2. Fetch attendance, advances, and punch status in parallel
+        try {
+            const [res, punchRes] = await Promise.all([
+                getStaffDetails(id, month, year),
+                getStaffTodayPunchStatus(id as string)
+            ]);
+            if (res) setData(res);
+            if (punchRes) setPunchStatus(punchRes);
+        } catch (err) {
+            console.warn('[Staff Details] Details load warning:', err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     useEffect(() => {
         if (id) {
             loadData();
-            getStaffTodayPunchStatus(id as string).then(setPunchStatus);
         }
     }, [id, month, year]);
+
+    // Keep staff in sync if staffList loads afterwards
+    useEffect(() => {
+        if (staffList && staffList.length > 0 && id) {
+            const s = staffList.find((s: any) => String(s.id) === String(id));
+            if (s) {
+                setStaff(s);
+                setNotFound(false);
+            } else if (!loading && !staff) {
+                setNotFound(true);
+            }
+        }
+    }, [staffList, id, loading]);
 
     const formatDateFriendly = (dateStr: string) => {
         if (!dateStr) return '';
@@ -406,7 +446,28 @@ export default function StaffDetailsPage() {
         }
     };
 
-    if (!staff) return <div className="p-10 text-center text-white">Loading staff...</div>;
+    if (notFound) {
+        return (
+            <div className="flex flex-col items-center justify-center p-12 text-center text-white max-w-md mx-auto min-h-[50vh]">
+                <h2 className="text-2xl font-bold mb-2">Staff Member Not Found</h2>
+                <p className="text-gray-400 text-sm mb-6">
+                    No staff member found with ID <span className="text-red-400 font-mono font-bold">#{id}</span>. This record may have been deleted or created under a different ID.
+                </p>
+                <Link href="/staff" className="bg-[var(--accent)] text-black px-6 py-2.5 rounded-xl font-bold hover:opacity-90 transition-opacity">
+                    Return to Staff List
+                </Link>
+            </div>
+        );
+    }
+
+    if (!staff) {
+        return (
+            <div className="flex flex-col items-center justify-center p-12 text-center text-white min-h-[50vh]">
+                <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mb-3"></div>
+                <p className="text-gray-400 text-sm">Loading staff profile...</p>
+            </div>
+        );
+    }
 
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
