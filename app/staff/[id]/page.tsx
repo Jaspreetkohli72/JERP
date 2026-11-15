@@ -6,7 +6,7 @@ import { ArrowLeft, Wallet, Calendar as CalendarIcon, Save, Trash2, Pencil } fro
 import Link from 'next/link';
 import CustomSelect from '@/components/CustomSelect';
 import { supabase } from '@/lib/supabase';
-import { updateStaffAction, deleteStaffAction, updateStaffAdvanceAction, deleteStaffAdvanceAction, deleteAttendanceAction, getStaffTodayPunchStatus } from '@/app/actions/staff';
+import { updateStaffAction, deleteStaffAction, updateStaffAdvanceAction, deleteStaffAdvanceAction, deleteAttendanceAction, getStaffTodayPunchStatus, getStaffProfileBundle } from '@/app/actions/staff';
 
 export default function StaffDetailsPage() {
     const { id } = useParams();
@@ -123,42 +123,57 @@ export default function StaffDetailsPage() {
         }
     };
 
+    // 1. Instant cache populate from FinanceContext if available (0ms)
+    useEffect(() => {
+        if (!id) return;
+        if (staffList && staffList.length > 0) {
+            const found = staffList.find((s: any) => String(s.id) === String(id));
+            if (found) {
+                setStaff(found);
+                setNotFound(false);
+            }
+        }
+        if (globalAttendance && globalAttendance.length > 0) {
+            const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+            const lastDay = new Date(year, month + 1, 0).getDate();
+            const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+            const matchedAtt = globalAttendance.filter((a: any) =>
+                String(a.staff_id) === String(id) && a.date >= startDate && a.date <= endDate
+            );
+            const matchedAdv = (globalAdvances || []).filter((a: any) =>
+                String(a.staff_id) === String(id)
+            );
+            if (matchedAtt.length > 0 || matchedAdv.length > 0) {
+                setData({ attendance: matchedAtt, advances: matchedAdv });
+            }
+        }
+    }, [id, month, year, staffList, globalAttendance, globalAdvances]);
+
+    // 2. Fast unified server bundle fetch (<200ms)
     const loadData = async () => {
         if (!id) return;
         setLoading(true);
 
-        // 1. Direct fast fetch for staff member if not already set (<100ms)
-        if (!staff) {
-            const foundInList = (staffList || []).find((s: any) => String(s.id) === String(id));
-            if (foundInList) {
-                setStaff(foundInList);
-            } else {
-                try {
-                    const { data: directStaff } = await supabase
-                        .from('staff')
-                        .select('*')
-                        .eq('id', id)
-                        .maybeSingle();
-
-                    if (directStaff) {
-                        setStaff(directStaff);
-                    } else if (staffList && staffList.length > 0) {
-                        setNotFound(true);
-                    }
-                } catch (err) {
-                    console.warn('[Staff Details] Direct staff fetch warning:', err);
-                }
-            }
-        }
-
-        // 2. Fetch attendance, advances, and punch status in parallel
         try {
-            const [res, punchRes] = await Promise.all([
-                getStaffDetails(id, month, year),
-                getStaffTodayPunchStatus(id as string)
-            ]);
-            if (res) setData(res);
-            if (punchRes) setPunchStatus(punchRes);
+            const bundle = await getStaffProfileBundle(id as string, month, year);
+            if (bundle.success) {
+                if (bundle.staff) {
+                    setStaff(bundle.staff);
+                    setNotFound(false);
+                } else if (bundle.notFound) {
+                    setNotFound(true);
+                }
+                setData({
+                    attendance: bundle.attendance || [],
+                    advances: bundle.advances || []
+                });
+                if (bundle.punchStatus) {
+                    setPunchStatus(bundle.punchStatus);
+                }
+            } else {
+                console.warn('[Staff Details] Bundle load warning:', bundle.error);
+            }
         } catch (err) {
             console.warn('[Staff Details] Details load warning:', err);
         } finally {
@@ -171,19 +186,6 @@ export default function StaffDetailsPage() {
             loadData();
         }
     }, [id, month, year]);
-
-    // Keep staff in sync if staffList loads afterwards
-    useEffect(() => {
-        if (staffList && staffList.length > 0 && id) {
-            const s = staffList.find((s: any) => String(s.id) === String(id));
-            if (s) {
-                setStaff(s);
-                setNotFound(false);
-            } else if (!loading && !staff) {
-                setNotFound(true);
-            }
-        }
-    }, [staffList, id, loading]);
 
     const formatDateFriendly = (dateStr: string) => {
         if (!dateStr) return '';
@@ -738,6 +740,18 @@ export default function StaffDetailsPage() {
                                     })()}
                                 </div>
                             ))
+                        ) : loading ? (
+                            <div className="flex flex-col gap-2">
+                                {[1, 2, 3].map(i => (
+                                    <div key={i} className="animate-pulse flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                                        <div className="flex flex-col gap-1.5">
+                                            <div className="h-3.5 bg-white/10 rounded w-24"></div>
+                                            <div className="h-2.5 bg-white/5 rounded w-16"></div>
+                                        </div>
+                                        <div className="h-5 bg-white/10 rounded w-16"></div>
+                                    </div>
+                                ))}
+                            </div>
                         ) : <div className="text-gray-500 italic text-sm">No records this month</div>}
                     </div>
                 </div>
@@ -792,6 +806,18 @@ export default function StaffDetailsPage() {
                                     </div>
                                 </div>
                             ))
+                        ) : loading ? (
+                            <div className="flex flex-col gap-2">
+                                {[1, 2].map(i => (
+                                    <div key={i} className="animate-pulse flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                                        <div className="flex flex-col gap-1.5">
+                                            <div className="h-3.5 bg-white/10 rounded w-16"></div>
+                                            <div className="h-2.5 bg-white/5 rounded w-12"></div>
+                                        </div>
+                                        <div className="h-3 bg-white/5 rounded w-20"></div>
+                                    </div>
+                                ))}
+                            </div>
                         ) : <div className="text-gray-500 italic text-sm">No payments recorded</div>}
                     </div>
                 </div>

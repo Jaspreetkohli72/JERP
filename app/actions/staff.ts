@@ -470,6 +470,74 @@ export async function getStaffTodayPunchStatus(staffId: string | number) {
     }
 }
 
+export async function getStaffProfileBundle(id: string | number, month: number, year: number) {
+    try {
+        const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+        const [staffRes, attRes, advRes, kioskList] = await Promise.all([
+            supabase.from('staff').select('*').eq('id', id).maybeSingle(),
+            supabase.from('staff_attendance')
+                .select('*')
+                .eq('staff_id', id)
+                .gte('date', startDate)
+                .lte('date', endDate)
+                .order('date', { ascending: true }),
+            supabase.from('staff_advances')
+                .select('*')
+                .eq('staff_id', id)
+                .order('date', { ascending: false }),
+            getActiveStaffKioskList().catch(() => [])
+        ]);
+
+        let staff = staffRes.data || null;
+        let attendance = attRes.data || [];
+        let advances = advRes.data || [];
+
+        // Fallbacks to local backup files if empty or paused
+        if (!staff) {
+            const localStaffList = loadBackupJson<any[]>('staff.json', []);
+            staff = localStaffList.find((s: any) => String(s.id) === String(id)) || null;
+        }
+        if (attendance.length === 0) {
+            const localAtt = loadBackupJson<any[]>('staff_attendance.json', []);
+            attendance = localAtt.filter((a: any) =>
+                String(a.staff_id) === String(id) && a.date >= startDate && a.date <= endDate
+            );
+        }
+        if (advances.length === 0) {
+            const localAdv = loadBackupJson<any[]>('staff_advances.json', []);
+            advances = localAdv.filter((a: any) => String(a.staff_id) === String(id));
+        }
+
+        const kioskItem = kioskList.find((k: any) => String(k.id) === String(id));
+        const punchStatus = kioskItem
+            ? { clockedIn: kioskItem.clockedIn, since: kioskItem.since }
+            : { clockedIn: false, since: null };
+
+        return {
+            success: true,
+            staff,
+            attendance,
+            advances,
+            punchStatus,
+            notFound: !staff
+        };
+    } catch (e: any) {
+        console.error("Error in getStaffProfileBundle:", e);
+        return {
+            success: false,
+            error: e.message,
+            staff: null,
+            attendance: [],
+            advances: [],
+            punchStatus: { clockedIn: false, since: null },
+            notFound: false
+        };
+    }
+}
+
 export async function deleteAttendanceAction(id: string | number) {
     try {
         // 1. Fetch the attendance record first to get staff_id and date
