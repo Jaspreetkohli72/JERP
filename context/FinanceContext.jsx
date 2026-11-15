@@ -1212,8 +1212,18 @@ export function FinanceProvider({ children }) {
 
     const deleteAttendance = async (id) => {
         try {
+            const existing = (attendance || []).find(a => String(a.id) === String(id));
             const { error } = await supabase.from('staff_attendance').delete().eq('id', id);
             if (error) throw error;
+
+            if (existing && existing.staff_id && existing.date) {
+                try {
+                    await supabase.from('staff_punches').delete().eq('staff_id', existing.staff_id).eq('date', existing.date);
+                } catch (pErr) {
+                    console.warn('[FinanceContext] Error deleting linked punches:', pErr);
+                }
+            }
+
             setAttendance(prev => prev.filter(a => String(a.id) !== String(id)));
             return { success: true };
         } catch (error) {

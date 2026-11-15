@@ -433,13 +433,14 @@ export default function StaffDetailsPage() {
             attendance: prev.attendance.filter((a: any) => String(a.id) !== String(attendanceId))
         }));
 
-        const res = deleteAttendance ? await deleteAttendance(attendanceId) : await deleteAttendanceAction(attendanceId);
+        const res = await deleteAttendanceAction(attendanceId);
 
         if (res.success) {
+            if (deleteAttendance) deleteAttendance(attendanceId);
+            if (refreshData) await refreshData();
             await loadData();
-            if (refreshData) {
-                await refreshData();
-            }
+            getStaffTodayPunchStatus(id as string).then(setPunchStatus);
+            router.refresh();
         } else {
             alert(`Failed to delete attendance: ${res.error?.message || res.error}`);
             await loadData();

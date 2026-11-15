@@ -472,10 +472,65 @@ export async function getStaffTodayPunchStatus(staffId: string | number) {
 
 export async function deleteAttendanceAction(id: string | number) {
     try {
+        // 1. Fetch the attendance record first to get staff_id and date
+        let record: any = null;
+        try {
+            const { data } = await supabase
+                .from('staff_attendance')
+                .select('*')
+                .eq('id', id)
+                .maybeSingle();
+            if (data) record = data;
+        } catch (e) {
+            console.warn('[Delete Attendance] Fetch record warning:', e);
+        }
+
+        // 2. Delete the attendance record from Supabase
         const { error } = await supabase.from('staff_attendance').delete().eq('id', id);
         if (error) throw error;
+
+        // 3. Delete all raw punch records for that staff member on that date
+        if (record?.staff_id && record?.date) {
+            try {
+                await supabase
+                    .from('staff_punches')
+                    .delete()
+                    .eq('staff_id', record.staff_id)
+                    .eq('date', record.date);
+            } catch (pErr) {
+                console.warn('[Delete Attendance] Punches delete warning:', pErr);
+            }
+
+            // Also clean up local backup punches if present
+            try {
+                const punchesPath = path.join(process.cwd(), 'backups', 'latest', 'staff_punches.json');
+                if (fs.existsSync(punchesPath)) {
+                    const localPunches = JSON.parse(fs.readFileSync(punchesPath, 'utf-8'));
+                    const filteredPunches = localPunches.filter((p: any) =>
+                        !(Number(p.staff_id) === Number(record.staff_id) && p.date === record.date)
+                    );
+                    fs.writeFileSync(punchesPath, JSON.stringify(filteredPunches, null, 2), 'utf-8');
+                }
+            } catch (backupErr) {
+                console.warn('[Delete Attendance] Punches backup delete warning:', backupErr);
+            }
+        }
+
+        // 4. Clean up local backup attendance
+        try {
+            const attPath = path.join(process.cwd(), 'backups', 'latest', 'staff_attendance.json');
+            if (fs.existsSync(attPath)) {
+                const localAtt = JSON.parse(fs.readFileSync(attPath, 'utf-8'));
+                const filteredAtt = localAtt.filter((a: any) => String(a.id) !== String(id));
+                fs.writeFileSync(attPath, JSON.stringify(filteredAtt, null, 2), 'utf-8');
+            }
+        } catch (backupErr) {
+            console.warn('[Delete Attendance] Attendance backup delete warning:', backupErr);
+        }
+
         revalidatePath('/staff');
         revalidatePath('/staff/calendar');
+        revalidatePath('/staff/attendance');
         revalidatePath('/staff/[id]', 'page');
         return { success: true };
     } catch (e: any) {
