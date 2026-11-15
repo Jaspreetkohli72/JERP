@@ -160,7 +160,27 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
             tooltip += ` (Work: ${cleanWork})`;
         }
 
-        return { bgColor, text, tooltip, textClass };
+        let punchText = '';
+        if (record.punch_in || record.punch_out) {
+            const formatTime = (ts?: string) => {
+                if (!ts) return '';
+                try {
+                    return new Intl.DateTimeFormat('en-US', {
+                        timeZone: 'Asia/Kolkata',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    }).format(new Date(ts));
+                } catch {
+                    return '';
+                }
+            };
+            const inT = formatTime(record.punch_in) || '--';
+            const outT = formatTime(record.punch_out) || 'Working';
+            punchText = `🕒 In: ${inT} | Out: ${outT}`;
+        }
+
+        return { bgColor, text, tooltip, textClass, punchText };
     };
 
     return (
@@ -211,16 +231,26 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
                                     {daysArray.map(day => {
                                         const record = getAttendanceRecord(staff.id, day);
                                         const cell = getCellDetails(record);
+                                        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                                         return (
                                             <td key={day} className="p-1 text-center min-w-[40px]">
                                                 {cell && (
-                                                    <div className={`w-8 h-8 mx-auto rounded-lg flex items-center justify-center font-bold transition-all hover:scale-110 cursor-default group/cell relative hover:z-30 ${cell.textClass} ${cell.bgColor}`}>
+                                                    <Link
+                                                        href={`/staff/attendance?date=${dateStr}`}
+                                                        className={`w-8 h-8 mx-auto rounded-lg flex items-center justify-center font-bold transition-all hover:scale-110 cursor-pointer group/cell relative hover:z-30 ${cell.textClass} ${cell.bgColor}`}
+                                                    >
                                                         {cell.text}
-                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/cell:block z-30 bg-[#0e0e0e] border border-white/10 text-xs px-3 py-2 rounded-lg whitespace-normal w-max max-w-[200px] break-words shadow-xl pointer-events-none text-left">
-                                                            <div className="font-semibold text-gray-300 mb-0.5">{year}-{String(month + 1).padStart(2, '0')}-{String(day).padStart(2, '0')}</div>
+                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/cell:block z-30 bg-[#0e0e0e] border border-white/10 text-xs px-3 py-2 rounded-lg whitespace-normal w-max max-w-[220px] break-words shadow-xl pointer-events-none text-left">
+                                                            <div className="font-semibold text-gray-300 mb-0.5">{dateStr}</div>
                                                             <div className="text-gray-400">{cell.tooltip}</div>
+                                                            {cell.punchText && (
+                                                                <div className="text-emerald-400 mt-1 font-mono text-[11px] font-medium border-t border-white/10 pt-1">
+                                                                    {cell.punchText}
+                                                                </div>
+                                                            )}
+                                                            <div className="text-[10px] text-gray-500 mt-1 italic">Click to edit</div>
                                                         </div>
-                                                    </div>
+                                                    </Link>
                                                 )}
                                             </td>
                                         );

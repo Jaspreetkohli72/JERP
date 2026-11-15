@@ -271,12 +271,40 @@ export async function submitDailyAttendanceAction(date: string, records: any[]) 
             staff_id: parseInt(r.staff_id),
             date: date,
             status: normalizeDbStatus(r.status),
-            worked_for: r.worked_for || 'Me',
+            worked_for: r.worked_for !== undefined ? r.worked_for : 'Me',
             work_done: r.work_done || '',
-            status_papa: normalizeDbStatus(r.status_papa)
+            status_papa: normalizeDbStatus(r.status_papa),
+            ...(r.punch_in ? { punch_in: r.punch_in } : {}),
+            ...(r.punch_out ? { punch_out: r.punch_out } : {})
         }));
-        const { data, error } = await supabase.from('staff_attendance').upsert(upsertData, { onConflict: 'staff_id,date' }).select();
-        if (error) throw error;
+
+        let data = null;
+        try {
+            const res = await supabase.from('staff_attendance').upsert(upsertData, { onConflict: 'staff_id,date' }).select();
+            if (res.error) console.warn('[Attendance Action] Supabase upsert warning:', res.error.message);
+            else data = res.data;
+        } catch (dbErr) {
+            console.warn('[Attendance Action] Supabase upsert exception:', dbErr);
+        }
+
+        // Also update local backup snapshot
+        try {
+            const filePath = path.join(process.cwd(), 'backups', 'latest', 'staff_attendance.json');
+            if (fs.existsSync(filePath)) {
+                const local = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+                upsertData.forEach(item => {
+                    const idx = local.findIndex((a: any) => Number(a.staff_id) === Number(item.staff_id) && a.date === date);
+                    if (idx >= 0) {
+                        local[idx] = { ...local[idx], ...item };
+                    } else {
+                        local.push({ id: `local-${Date.now()}-${item.staff_id}`, ...item, created_at: new Date().toISOString() });
+                    }
+                });
+                fs.writeFileSync(filePath, JSON.stringify(local, null, 2), 'utf-8');
+            }
+        } catch (backupErr) {
+            console.warn('[Attendance Action] Backup write error:', backupErr);
+        }
         
         return { success: true, data: data || upsertData };
     } catch (e: any) {

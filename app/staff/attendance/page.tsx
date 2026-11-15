@@ -10,6 +10,8 @@ interface AttendanceRecord {
     worked_for: string;
     work_done: string;
     status_papa: string;
+    punch_in?: string;
+    punch_out?: string;
 }
 
 export default function AttendancePage() {
@@ -20,6 +22,17 @@ export default function AttendancePage() {
         d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
         return d.toISOString().split('T')[0];
     });
+
+    // Support ?date=YYYY-MM-DD from calendar or URL
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const qDate = params.get('date');
+            if (qDate && /^\d{4}-\d{2}-\d{2}$/.test(qDate)) {
+                setDate(qDate);
+            }
+        }
+    }, []);
 
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -76,7 +89,9 @@ export default function AttendancePage() {
                         status: a.status || 'Absent',
                         worked_for: a.worked_for || defaultWorkedFor,
                         work_done: a.work_done || '',
-                        status_papa: a.status_papa || 'Absent'
+                        status_papa: a.status_papa || 'Absent',
+                        punch_in: a.punch_in,
+                        punch_out: a.punch_out
                     };
                 }
             });
@@ -93,7 +108,9 @@ export default function AttendancePage() {
                 status: (workedFor === 'Papa' || clickedStatus === 'Absent') ? 'Absent' : clickedStatus,
                 worked_for: workedFor,
                 work_done: existing?.work_done || '',
-                status_papa: (workedFor === 'Me' || clickedStatus === 'Absent') ? 'Absent' : clickedStatus
+                status_papa: (workedFor === 'Me' || clickedStatus === 'Absent') ? 'Absent' : clickedStatus,
+                punch_in: existing?.punch_in,
+                punch_out: existing?.punch_out
             }
         }));
     };
@@ -147,7 +164,9 @@ export default function AttendancePage() {
                 status: finalStatus,
                 worked_for: modalData.worked_for,
                 work_done: finalWorkDone,
-                status_papa: finalStatusPapa
+                status_papa: finalStatusPapa,
+                punch_in: prev[modalStaff.id]?.punch_in,
+                punch_out: prev[modalStaff.id]?.punch_out
             }
         }));
         setModalStaff(null);
@@ -161,7 +180,9 @@ export default function AttendancePage() {
             status: attendance[staffId].status,
             worked_for: attendance[staffId].worked_for,
             work_done: attendance[staffId].work_done,
-            status_papa: attendance[staffId].status_papa
+            status_papa: attendance[staffId].status_papa,
+            punch_in: attendance[staffId].punch_in,
+            punch_out: attendance[staffId].punch_out
         }));
 
         // Include absent records for staff who are currently 'On Leave'
@@ -210,6 +231,20 @@ export default function AttendancePage() {
             setSaveMessage({ type: 'error', text: `Failed to clear attendance: ${error}` });
         }
         setLoading(false);
+    };
+
+    const formatPunchTime = (ts?: string) => {
+        if (!ts) return '';
+        try {
+            return new Intl.DateTimeFormat('en-US', {
+                timeZone: 'Asia/Kolkata',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            }).format(new Date(ts));
+        } catch {
+            return '';
+        }
     };
 
     const getAttendanceSummary = (rec: AttendanceRecord) => {
@@ -388,6 +423,14 @@ export default function AttendancePage() {
                                             <Pencil size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400" />
                                         </div>
                                         <div className="text-xs text-gray-500">{staff.role}</div>
+                                        {(rec?.punch_in || rec?.punch_out) && (
+                                            <div className="flex items-center gap-1.5 mt-1 text-[11px] font-mono font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md w-fit">
+                                                <Clock size={11} className="text-emerald-400 shrink-0" />
+                                                <span>In: {formatPunchTime(rec.punch_in) || '--'}</span>
+                                                <span className="text-white/30">•</span>
+                                                <span>Out: {formatPunchTime(rec.punch_out) || 'Working'}</span>
+                                            </div>
+                                        )}
                                         {rec && (
                                             <div className="text-xs text-[var(--accent)] mt-1 font-medium max-w-[400px] truncate" title={getAttendanceSummary(rec) || ""}>
                                                 {getAttendanceSummary(rec)}
