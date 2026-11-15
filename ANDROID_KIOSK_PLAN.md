@@ -91,9 +91,11 @@ Base URL is configurable in the app settings (e.g., `http://192.168.1.100:3000` 
 ```json
 {
   "staffId": "29",
-  "amount": 500
+  "amount": 500,
+  "notes": "Jaspreet"
 }
 ```
+*(Where `"notes"` receives the selected person who gave the advance: "Sandeep", "Harjeet", "Jaspreet", or "Jaskaran")*
 - **Response `200 OK`**:
 ```json
 {

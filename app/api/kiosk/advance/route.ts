@@ -13,14 +13,14 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
         }
 
-        const { staffId, amount } = body || {};
+        const { staffId, amount, notes, givenBy } = body || {};
 
         const numStaffId = parseInt(String(staffId), 10);
         const numAmount = Number(amount);
 
         if (isNaN(numStaffId) || isNaN(numAmount) || numAmount <= 0) {
             return NextResponse.json(
-                { error: 'Invalid parameters. Expected: { staffId: string, amount: positive number }' },
+                { error: 'Invalid parameters. Expected: { staffId: string, amount: positive number, notes?: string }' },
                 { status: 400 }
             );
         }
@@ -52,11 +52,16 @@ export async function POST(request: Request) {
         const today = getTodayIST();
         const nowIso = new Date().toISOString();
 
+        // Use custom notes from radio button selection (e.g. "Sandeep", "Harjeet", etc.) or fallback
+        const advanceNotes = (typeof notes === 'string' && notes.trim())
+            ? notes.trim()
+            : (typeof givenBy === 'string' && givenBy.trim() ? givenBy.trim() : 'Kiosk Advance');
+
         const advancePayload = {
             staff_id: numStaffId,
             amount: numAmount,
             date: today,
-            notes: 'Kiosk Advance',
+            notes: advanceNotes,
             created_at: nowIso,
         };
 
