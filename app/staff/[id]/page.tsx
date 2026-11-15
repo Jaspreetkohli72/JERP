@@ -6,7 +6,7 @@ import { ArrowLeft, Wallet, Calendar as CalendarIcon, Save, Trash2, Pencil } fro
 import Link from 'next/link';
 import CustomSelect from '@/components/CustomSelect';
 import { supabase } from '@/lib/supabase';
-import { updateStaffAction, deleteStaffAction, updateStaffAdvanceAction, deleteStaffAdvanceAction, deleteAttendanceAction } from '@/app/actions/staff';
+import { updateStaffAction, deleteStaffAction, updateStaffAdvanceAction, deleteStaffAdvanceAction, deleteAttendanceAction, getStaffTodayPunchStatus } from '@/app/actions/staff';
 
 export default function StaffDetailsPage() {
     const { id } = useParams();
@@ -16,6 +16,7 @@ export default function StaffDetailsPage() {
 
     // State
     const [staff, setStaff] = useState<any>(null);
+    const [punchStatus, setPunchStatus] = useState<{ clockedIn: boolean; since: string | null }>({ clockedIn: false, since: null });
     const [month, setMonth] = useState(new Date().getMonth());
     const [year, setYear] = useState(new Date().getFullYear());
     const [data, setData] = useState({ attendance: [], advances: [] });
@@ -138,7 +139,10 @@ export default function StaffDetailsPage() {
     };
 
     useEffect(() => {
-        if (id) loadData();
+        if (id) {
+            loadData();
+            getStaffTodayPunchStatus(id as string).then(setPunchStatus);
+        }
     }, [id, month, year]);
 
     const formatDateFriendly = (dateStr: string) => {
@@ -234,7 +238,9 @@ export default function StaffDetailsPage() {
                 setIsAdvanceModalOpen(false);
                 setEditingAdvanceId(null);
                 setAdvanceForm({ amount: '', date: new Date().toISOString().split('T')[0], notes: '', walletId: '' });
-                loadData();
+                if (refreshData) await refreshData();
+                await loadData();
+                router.refresh();
             } else {
                 alert(`Failed to update advance: ${error}`);
             }
@@ -249,7 +255,9 @@ export default function StaffDetailsPage() {
             if (success) {
                 setIsAdvanceModalOpen(false);
                 setAdvanceForm({ amount: '', date: new Date().toISOString().split('T')[0], notes: '', walletId: '' });
-                loadData();
+                if (refreshData) await refreshData();
+                await loadData();
+                router.refresh();
             }
         }
     };
@@ -362,12 +370,14 @@ export default function StaffDetailsPage() {
     };
 
     const handleDeleteAdvance = async (advanceId: string | number) => {
+        const confirm = window.confirm("Are you sure you want to delete this payment/advance entry?");
+        if (!confirm) return;
+
         const { success, error } = await deleteStaffAdvanceAction(advanceId);
         if (success) {
-            loadData();
-            if (refreshData) {
-                await refreshData();
-            }
+            if (refreshData) await refreshData();
+            await loadData();
+            router.refresh();
         } else {
             alert(`Failed to delete advance: ${error}`);
         }
@@ -434,6 +444,22 @@ export default function StaffDetailsPage() {
                             </span>
                         )}
                     </p>
+                    <div className="mt-1.5 flex items-center gap-2">
+                        {punchStatus.clockedIn ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                                Clocked IN {punchStatus.since ? `since ${punchStatus.since}` : ''}
+                            </span>
+                        ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-white/5 text-gray-400 border border-white/10">
+                                <span className="h-1.5 w-1.5 rounded-full bg-gray-500"></span>
+                                Clocked OUT
+                            </span>
+                        )}
+                    </div>
                 </div>
                 <button
                     onClick={handleToggleLeave}
@@ -583,6 +609,27 @@ export default function StaffDetailsPage() {
                                                     <span className="text-xs text-gray-400 mt-0.5">
                                                         Worked for: <strong className="text-white">{rec.worked_for || 'Me'}</strong>
                                                     </span>
+                                                    {(() => {
+                                                        const formatTime = (ts?: string) => {
+                                                            if (!ts) return '';
+                                                            try {
+                                                                return new Intl.DateTimeFormat('en-US', {
+                                                                    timeZone: 'Asia/Kolkata',
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit',
+                                                                    hour12: true
+                                                                }).format(new Date(ts));
+                                                            } catch { return ''; }
+                                                        };
+                                                        const inT = formatTime(rec.punch_in) || (rec.work_done?.match(/In:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i)?.[1]);
+                                                        const outT = formatTime(rec.punch_out) || (rec.work_done?.match(/Out:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i)?.[1]);
+                                                        if (!inT && !outT) return null;
+                                                        return (
+                                                            <span className="text-[11px] font-mono text-emerald-400 mt-0.5">
+                                                                🕒 In: {inT || '--'} | Out: {outT || 'Working'}
+                                                            </span>
+                                                        );
+                                                    })()}
                                                     {cleanWork && (
                                                         <span className="text-xs text-gray-500 italic mt-0.5 break-words" title={cleanWork}>
                                                             "{cleanWork}"
@@ -655,17 +702,27 @@ export default function StaffDetailsPage() {
                                         <div className="text-xs text-gray-500">{new Date(rec.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')}</div>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <div className="text-xs text-gray-400 max-w-[80px] truncate">{rec.notes || '-'}</div>
-                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => {
-                                                setEditingAdvanceId(rec.id);
-                                                setAdvanceForm({ amount: String(rec.amount), date: rec.date, notes: rec.notes || '', walletId: '' });
-                                                setIsAdvanceModalOpen(true);
-                                            }} className="p-1.5 text-blue-400 hover:bg-blue-500/10 rounded-lg">
-                                                <Pencil size={14} />
+                                        <div className="text-xs text-gray-400 max-w-[130px] truncate" title={rec.notes || ''}>{rec.notes || '-'}</div>
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setEditingAdvanceId(rec.id);
+                                                    setAdvanceForm({ amount: String(rec.amount), date: rec.date, notes: rec.notes || '', walletId: '' });
+                                                    setIsAdvanceModalOpen(true);
+                                                }}
+                                                className="p-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 bg-blue-500/10 rounded-lg transition-colors cursor-pointer"
+                                                title="Edit Advance"
+                                            >
+                                                <Pencil size={15} />
                                             </button>
-                                            <button onClick={() => handleDeleteAdvance(rec.id)} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg">
-                                                <Trash2 size={14} />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteAdvance(rec.id)}
+                                                className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/20 bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                                                title="Delete Advance"
+                                            >
+                                                <Trash2 size={15} />
                                             </button>
                                         </div>
                                     </div>

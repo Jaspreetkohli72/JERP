@@ -142,34 +142,63 @@ export default function StaffList({ staffList, staffWithPay, settings }: any) {
                     const isTerminated = staff.status?.startsWith('Terminated');
                     const isOnLeave = staff.status?.startsWith('On Leave');
 
+                    const isClockedIn = staff.kioskStatus?.clockedIn;
+                    const punchSince = staff.kioskStatus?.since;
+
                     return (
                         <Link key={staff.id} href={`/staff/${staff.id}`} className="glass p-5 rounded-xl border border-white/5 hover:border-[var(--accent)]/50 transition-colors flex flex-col gap-4 group relative overflow-hidden">
 
-                            <div className={`absolute top-4 right-4 h-2 w-2 rounded-full ${isTerminated ? 'bg-red-500' : isOnLeave ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]'}`} />
+                            <div className="absolute top-4 right-4 flex items-center gap-1.5">
+                                {isTerminated ? (
+                                    <span className="h-2.5 w-2.5 rounded-full bg-red-500" title="Terminated" />
+                                ) : isOnLeave ? (
+                                    <span className="h-2.5 w-2.5 rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]" title="On Leave" />
+                                ) : isClockedIn ? (
+                                    <span className="relative flex h-2.5 w-2.5" title={`Clocked IN${punchSince ? ` (${punchSince})` : ''}`}>
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
+                                    </span>
+                                ) : (
+                                    <span className="h-2 w-2 rounded-full bg-gray-600" title="Clocked OUT" />
+                                )}
+                            </div>
 
                             <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-xl font-bold text-gray-400 border border-white/10">
+                                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-xl font-bold text-gray-400 border border-white/10 shrink-0">
                                     {staff.name.charAt(0)}
                                 </div>
-                                <div>
-                                    <h4 className="font-bold text-lg text-gray-200 group-hover:text-[var(--accent)] transition-colors flex items-center gap-2">
+                                <div className="flex-1 min-w-0">
+                                    <h4 className="font-bold text-lg text-gray-200 group-hover:text-[var(--accent)] transition-colors flex items-center gap-2 truncate">
                                         {staff.name}
                                         {isTerminated && (
-                                            <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                                            <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider shrink-0">
                                                 Terminated
                                             </span>
                                         )}
                                         {isOnLeave && (
-                                            <span className="text-[10px] bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                                            <span className="text-[10px] bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded font-bold uppercase tracking-wider shrink-0">
                                                 On Leave
                                             </span>
                                         )}
                                     </h4>
                                     <div className="flex items-center gap-2 text-xs text-muted text-gray-400">
-                                        <Briefcase size={12} />
+                                        <Briefcase size={12} className="shrink-0" />
                                         <span>{staff.role}</span>
                                         <span className="text-white/20">|</span>
                                         <span>₹{staff.salary}/day</span>
+                                    </div>
+                                    <div className="mt-1.5">
+                                        {isClockedIn ? (
+                                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                                Clocked IN {punchSince ? `(${punchSince})` : ''}
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono font-medium bg-white/5 text-gray-400 border border-white/10">
+                                                <span className="h-1.5 w-1.5 rounded-full bg-gray-500"></span>
+                                                Clocked OUT
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>

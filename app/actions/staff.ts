@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { revalidatePath } from 'next/cache';
 import fs from 'fs';
 import path from 'path';
+import { getActiveStaffKioskList } from '@/lib/kiosk';
 
 function loadBackupJson<T>(filename: string, fallback: T): T {
     try {
@@ -56,9 +57,19 @@ export async function getStaffStats() {
         settings = Array.isArray(settingsArr) ? settingsArr[0] : settingsArr;
     }
 
+    // Fetch live Kiosk punch state for today
+    const kioskStatusMap = new Map<string, { clockedIn: boolean; since: string | null }>();
+    try {
+        const kioskList = await getActiveStaffKioskList();
+        kioskList.forEach(k => kioskStatusMap.set(String(k.id), { clockedIn: k.clockedIn, since: k.since }));
+    } catch (kErr) {
+        console.warn('getActiveStaffKioskList error in getStaffStats:', kErr);
+    }
+
     try {
         // 2. Calculate Payroll Logic (Ported from FinanceContext)
         const staffWithPay = staffList.map(staff => {
+            const kioskStatus = kioskStatusMap.get(String(staff.id)) || { clockedIn: false, since: null };
             // Find latest settlement date
             let latestSettleDate = '';
             let paymentDate = '';
@@ -141,6 +152,7 @@ export async function getStaffStats() {
 
             return {
                 ...staff,
+                kioskStatus,
                 attendanceStats: {
                     daysPresent,
                     halfDays,
@@ -327,7 +339,24 @@ export async function updateStaffAdvanceAction(id: string | number, updates: any
     try {
         const { error } = await supabase.from('staff_advances').update(updates).eq('id', id);
         if (error) throw error;
+
+        // Update local backup
+        try {
+            const filePath = path.join(process.cwd(), 'backups', 'latest', 'staff_advances.json');
+            if (fs.existsSync(filePath)) {
+                const local = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+                const idx = local.findIndex((a: any) => String(a.id) === String(id));
+                if (idx >= 0) {
+                    local[idx] = { ...local[idx], ...updates };
+                    fs.writeFileSync(filePath, JSON.stringify(local, null, 2), 'utf-8');
+                }
+            }
+        } catch (backupErr) {
+            console.warn('[Staff Advance] Backup update warning:', backupErr);
+        }
+
         revalidatePath('/staff');
+        revalidatePath('/staff/[id]', 'page');
         return { success: true };
     } catch (e: any) {
         return { success: false, error: e.message };
@@ -337,75 +366,72 @@ export async function updateStaffAdvanceAction(id: string | number, updates: any
 export async function deleteStaffAdvanceAction(id: string | number) {
     try {
         // 1. Get the staff advance details first
-        const { data: advance, error: getAdvError } = await supabase
+        const { data: advance } = await supabase
             .from('staff_advances')
             .select('*')
             .eq('id', id)
-            .single();
-
-        if (getAdvError) throw getAdvError;
+            .maybeSingle();
 
         if (advance) {
-            // 2. Get the staff member name to recreate the description
-            const { data: staff, error: getStaffError } = await supabase
-                .from('staff')
-                .select('name')
-                .eq('id', advance.staff_id)
-                .single();
+            // 2. Try to get the staff member name to check for linked transaction
+            let staffName = '';
+            try {
+                const { data: staff } = await supabase
+                    .from('staff')
+                    .select('name')
+                    .eq('id', advance.staff_id)
+                    .maybeSingle();
+                if (staff?.name) staffName = staff.name;
+            } catch (staffErr) {
+                console.warn('[Delete Advance] Staff lookup warning:', staffErr);
+            }
 
-            if (getStaffError) throw getStaffError;
+            // 3. Find matching transaction (supporting precise and fallback description)
+            try {
+                const descriptions = ['Advance to Staff'];
+                if (staffName) descriptions.unshift(`Advance to ${staffName}`);
 
-            if (staff) {
-                const description = `Advance to ${staff.name}`;
-
-                // 3. Find matching transaction (supporting precise and fallback description)
-                const { data: txList, error: txError } = await supabase
+                const { data: txList } = await supabase
                     .from('transactions')
                     .select('*')
                     .eq('amount', advance.amount)
                     .eq('type', 'expense')
                     .eq('transaction_date', advance.date)
-                    .in('description', [description, 'Advance to Staff'])
+                    .in('description', descriptions)
                     .limit(1);
-
-                if (txError) throw txError;
 
                 if (txList && txList.length > 0) {
                     const tx = txList[0];
 
                     // 4. Revert the wallet balance
                     if (tx.wallet_id) {
-                        const { data: wallet, error: walletError } = await supabase
+                        const { data: wallet } = await supabase
                             .from('wallets')
                             .select('balance')
                             .eq('id', tx.wallet_id)
-                            .single();
-
-                        if (walletError) throw walletError;
+                            .maybeSingle();
 
                         if (wallet) {
                             const newBalance = Number(wallet.balance) + Number(tx.amount);
-                            const { error: updateWalletError } = await supabase
+                            await supabase
                                 .from('wallets')
                                 .update({ balance: newBalance })
                                 .eq('id', tx.wallet_id);
-
-                            if (updateWalletError) throw updateWalletError;
                         }
                     }
 
                     // 5. Delete the transaction
-                    const { error: deleteTxError } = await supabase
+                    await supabase
                         .from('transactions')
                         .delete()
                         .eq('id', tx.id);
-
-                    if (deleteTxError) throw deleteTxError;
                 }
+            } catch (txErr) {
+                console.warn('[Delete Advance] Transaction reversion warning:', txErr);
             }
         }
 
-        // 6. Delete the staff advance
+        // 6. Delete the staff advance from Supabase
         const { error: deleteAdvError } = await supabase
             .from('staff_advances')
             .delete()
@@ -413,11 +439,34 @@ export async function deleteStaffAdvanceAction(id: string | number) {
 
         if (deleteAdvError) throw deleteAdvError;
 
+        // 7. Remove from local backup
+        try {
+            const filePath = path.join(process.cwd(), 'backups', 'latest', 'staff_advances.json');
+            if (fs.existsSync(filePath)) {
+                const local = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+                const filtered = local.filter((a: any) => String(a.id) !== String(id));
+                fs.writeFileSync(filePath, JSON.stringify(filtered, null, 2), 'utf-8');
+            }
+        } catch (backupErr) {
+            console.warn('[Delete Advance] Backup deletion warning:', backupErr);
+        }
+
         revalidatePath('/staff');
+        revalidatePath('/staff/[id]', 'page');
         return { success: true };
     } catch (e: any) {
         console.error("Error in deleteStaffAdvanceAction:", e);
         return { success: false, error: e.message };
+    }
+}
+
+export async function getStaffTodayPunchStatus(staffId: string | number) {
+    try {
+        const kioskList = await getActiveStaffKioskList();
+        const found = kioskList.find(k => String(k.id) === String(staffId));
+        return found ? { clockedIn: found.clockedIn, since: found.since } : { clockedIn: false, since: null };
+    } catch {
+        return { clockedIn: false, since: null };
     }
 }
 
