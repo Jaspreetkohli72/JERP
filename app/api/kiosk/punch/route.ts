@@ -72,7 +72,33 @@ export async function POST(request: Request) {
             .sort((a, b) => new Date(a.punched_at).getTime() - new Date(b.punched_at).getTime());
 
         const latestPunch = workerPunches.length > 0 ? workerPunches[workerPunches.length - 1] : null;
-        const isClockedIn = latestPunch?.punch_type === 'IN';
+        let isClockedIn = latestPunch?.punch_type === 'IN';
+
+        // Check fallback in staff_attendance if staff_punches table is empty / pending migration
+        let existingAtt: any = null;
+        try {
+            const { data } = await supabase
+                .from('staff_attendance')
+                .select('*')
+                .eq('staff_id', numStaffId)
+                .eq('date', today)
+                .maybeSingle();
+            if (data) existingAtt = data;
+        } catch (e) {
+            console.warn('[Kiosk Punch] Attendance check error:', e);
+        }
+
+        if (workerPunches.length === 0 && existingAtt) {
+            if (existingAtt.punch_in && !existingAtt.punch_out) {
+                isClockedIn = true;
+            } else if (existingAtt.work_done && typeof existingAtt.work_done === 'string') {
+                const inMatch = existingAtt.work_done.match(/In:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i);
+                const hasOut = /Out:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i.test(existingAtt.work_done);
+                if (inMatch && !hasOut) {
+                    isClockedIn = true;
+                }
+            }
+        }
 
         // 3. Prevent duplicate consecutive punches
         if (action === 'IN' && isClockedIn) {
@@ -105,8 +131,16 @@ export async function POST(request: Request) {
             await recordPunchEvent(newPunch);
 
             // Calculate total cumulative worked hours across all completed IN/OUT pairs today
-            const allPunchesToday = [...workerPunches, newPunch];
-            const totalHours = calculateCumulativeWorkedHours(allPunchesToday);
+            let totalHours = 0;
+            if (workerPunches.length > 0) {
+                const allPunchesToday = [...workerPunches, newPunch];
+                totalHours = calculateCumulativeWorkedHours(allPunchesToday);
+            } else if (existingAtt?.punch_in) {
+                totalHours = Math.max(0, (new Date(nowIso).getTime() - new Date(existingAtt.punch_in).getTime()) / (1000 * 3600));
+            } else if (existingAtt?.created_at) {
+                totalHours = Math.max(0, (new Date(nowIso).getTime() - new Date(existingAtt.created_at).getTime()) / (1000 * 3600));
+            }
+
             const calculatedStatus = calculateAttendanceStatus(totalHours);
 
             await syncStaffAttendanceOnPunch(numStaffId, 'OUT', nowIso, calculatedStatus);

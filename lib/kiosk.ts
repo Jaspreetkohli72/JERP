@@ -179,8 +179,25 @@ export async function getActiveStaffKioskList(): Promise<KioskStaffItem[]> {
         !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave')
     );
 
-    // Fetch punches strictly for todayIST
+    // 1. Fetch punches strictly for todayIST from staff_punches table
     const todayPunches = await getPunchesForDate(today);
+
+    // 2. Also fetch today's attendance records from staff_attendance table as resilient fallback
+    let todayAttendance: any[] = [];
+    try {
+        const { data: attData } = await supabase
+            .from('staff_attendance')
+            .select('*')
+            .eq('date', today);
+        if (attData && attData.length > 0) todayAttendance = attData;
+    } catch (e) {
+        console.warn('[Kiosk] Supabase todayAttendance query warning:', e);
+    }
+
+    if (todayAttendance.length === 0) {
+        const localAtt = loadBackupJson<any[]>('staff_attendance.json', []);
+        todayAttendance = localAtt.filter((a) => a.date === today);
+    }
 
     // Group punches by staff_id
     const punchesByStaff = new Map<number, PunchRecord[]>();
@@ -190,14 +207,42 @@ export async function getActiveStaffKioskList(): Promise<KioskStaffItem[]> {
         punchesByStaff.set(p.staff_id, list);
     }
 
+    // Group attendance by staff_id
+    const attendanceByStaff = new Map<number, any>();
+    for (const a of todayAttendance) {
+        attendanceByStaff.set(Number(a.staff_id), a);
+    }
+
     const result: KioskStaffItem[] = activeStaff.map((s: any) => {
-        const sPunches = punchesByStaff.get(Number(s.id)) || [];
+        const staffIdNum = Number(s.id);
+        const sPunches = punchesByStaff.get(staffIdNum) || [];
         // Sort chronologically
         sPunches.sort((a, b) => new Date(a.punched_at).getTime() - new Date(b.punched_at).getTime());
 
-        const latestPunch = sPunches.length > 0 ? sPunches[sPunches.length - 1] : null;
-        const isClockedIn = latestPunch?.punch_type === 'IN';
-        const sinceTime = isClockedIn && latestPunch ? formatTimeIST(latestPunch.punched_at) : null;
+        let isClockedIn = false;
+        let sinceTime: string | null = null;
+
+        if (sPunches.length > 0) {
+            const latestPunch = sPunches[sPunches.length - 1];
+            isClockedIn = latestPunch.punch_type === 'IN';
+            sinceTime = isClockedIn ? formatTimeIST(latestPunch.punched_at) : null;
+        } else {
+            // Check todayAttendance fallback
+            const att = attendanceByStaff.get(staffIdNum);
+            if (att) {
+                if (att.punch_in && !att.punch_out) {
+                    isClockedIn = true;
+                    sinceTime = formatTimeIST(att.punch_in);
+                } else if (att.work_done && typeof att.work_done === 'string') {
+                    const inMatch = att.work_done.match(/In:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i);
+                    const hasOut = /Out:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i.test(att.work_done);
+                    if (inMatch && !hasOut) {
+                        isClockedIn = true;
+                        sinceTime = inMatch[1];
+                    }
+                }
+            }
+        }
 
         return {
             id: String(s.id),
@@ -215,8 +260,9 @@ export async function getActiveStaffKioskList(): Promise<KioskStaffItem[]> {
 
 /**
  * Updates staff_attendance for (staff_id, todayIST):
- * - If action === 'IN', sets punch_in if not present (preserves earliest punch_in), status = 'Present', worked_for = null.
+ * - If action === 'IN', sets punch_in if not present, status = 'Present', worked_for = null.
  * - If action === 'OUT', sets punch_out = now, status = calculatedStatus, worked_for = null.
+ * Works seamlessly whether punch_in/punch_out columns exist in Supabase or uses work_done.
  */
 export async function syncStaffAttendanceOnPunch(
     staffId: number,
@@ -248,7 +294,10 @@ export async function syncStaffAttendanceOnPunch(
         existingRecord = localAtt.find((a) => Number(a.staff_id) === Number(staffId) && a.date === today) || null;
     }
 
-    const payload: any = {
+    const inTimeDisplay = formatTimeIST(existingRecord?.punch_in || nowIso);
+    const outTimeDisplay = formatTimeIST(nowIso);
+
+    const payloadWithColumns: any = {
         staff_id: staffId,
         date: today,
         worked_for: null,
@@ -256,35 +305,63 @@ export async function syncStaffAttendanceOnPunch(
     };
 
     if (action === 'IN') {
-        payload.status = existingRecord?.status || 'Present';
-        // Preserve earliest punch_in if already present
-        payload.punch_in = existingRecord?.punch_in || nowIso;
+        payloadWithColumns.status = existingRecord?.status === 'Half-Day' || existingRecord?.status === 'Overtime' ? existingRecord.status : 'Present';
+        payloadWithColumns.punch_in = existingRecord?.punch_in || nowIso;
         if (existingRecord?.punch_out) {
-            payload.punch_out = existingRecord.punch_out;
+            payloadWithColumns.punch_out = existingRecord.punch_out;
         }
+        payloadWithColumns.work_done = `🕒 In: ${formatTimeIST(payloadWithColumns.punch_in)}`;
     } else {
         // action === 'OUT'
-        payload.punch_in = existingRecord?.punch_in || nowIso;
-        payload.punch_out = nowIso;
-        payload.status = calculatedStatus || 'Present';
+        payloadWithColumns.punch_in = existingRecord?.punch_in || nowIso;
+        payloadWithColumns.punch_out = nowIso;
+        payloadWithColumns.status = calculatedStatus || 'Present';
+        payloadWithColumns.work_done = `🕒 In: ${formatTimeIST(payloadWithColumns.punch_in)} | Out: ${outTimeDisplay}`;
     }
 
-    // Persist to Supabase
+    // 2. Persist to Supabase: first try with punch columns, fallback to standard schema if columns not yet added
+    let upsertOk = false;
     try {
-        await supabase
+        const { error } = await supabase
             .from('staff_attendance')
-            .upsert(payload, { onConflict: 'staff_id,date' });
+            .upsert(payloadWithColumns, { onConflict: 'staff_id,date' });
+        if (!error) {
+            upsertOk = true;
+        } else {
+            console.warn('[Kiosk] Supabase upsert error with punch columns:', error.message);
+        }
     } catch (e) {
         console.warn('[Kiosk] Supabase staff_attendance upsert warning:', e);
     }
 
-    // Persist to local backup
+    if (!upsertOk) {
+        try {
+            const fallbackPayload = {
+                staff_id: staffId,
+                date: today,
+                status: payloadWithColumns.status,
+                worked_for: null,
+                status_papa: null,
+                work_done: payloadWithColumns.work_done,
+            };
+            const { error: fbErr } = await supabase
+                .from('staff_attendance')
+                .upsert(fallbackPayload, { onConflict: 'staff_id,date' });
+            if (fbErr) {
+                console.warn('[Kiosk] Fallback upsert failed:', fbErr.message);
+            }
+        } catch (e) {
+            console.warn('[Kiosk] Fallback upsert exception:', e);
+        }
+    }
+
+    // 3. Persist to local backup
     const localAtt = loadBackupJson<any[]>('staff_attendance.json', []);
     const idx = localAtt.findIndex((a) => Number(a.staff_id) === Number(staffId) && a.date === today);
     if (idx >= 0) {
-        localAtt[idx] = { ...localAtt[idx], ...payload };
+        localAtt[idx] = { ...localAtt[idx], ...payloadWithColumns };
     } else {
-        localAtt.push({ id: `local-${Date.now()}`, ...payload, created_at: nowIso });
+        localAtt.push({ id: `local-${Date.now()}`, ...payloadWithColumns, created_at: nowIso });
     }
     saveBackupJson('staff_attendance.json', localAtt);
 }

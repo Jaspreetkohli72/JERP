@@ -161,23 +161,23 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
         }
 
         let punchText = '';
-        if (record.punch_in || record.punch_out) {
-            const formatTime = (ts?: string) => {
-                if (!ts) return '';
-                try {
-                    return new Intl.DateTimeFormat('en-US', {
-                        timeZone: 'Asia/Kolkata',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
-                    }).format(new Date(ts));
-                } catch {
-                    return '';
-                }
-            };
-            const inT = formatTime(record.punch_in) || '--';
-            const outT = formatTime(record.punch_out) || 'Working';
-            punchText = `🕒 In: ${inT} | Out: ${outT}`;
+        const formatTime = (ts?: string) => {
+            if (!ts) return '';
+            try {
+                return new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'Asia/Kolkata',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                }).format(new Date(ts));
+            } catch {
+                return '';
+            }
+        };
+        const inT = formatTime(record.punch_in) || (record.work_done?.match(/In:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i)?.[1]) || '';
+        const outT = formatTime(record.punch_out) || (record.work_done?.match(/Out:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i)?.[1]) || '';
+        if (inT || outT) {
+            punchText = `🕒 In: ${inT || '--'} | Out: ${outT || 'Working'}`;
         }
 
         return { bgColor, text, tooltip, textClass, punchText };

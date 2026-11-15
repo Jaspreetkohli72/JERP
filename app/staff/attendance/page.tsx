@@ -423,14 +423,19 @@ export default function AttendancePage() {
                                             <Pencil size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400" />
                                         </div>
                                         <div className="text-xs text-gray-500">{staff.role}</div>
-                                        {(rec?.punch_in || rec?.punch_out) && (
-                                            <div className="flex items-center gap-1.5 mt-1 text-[11px] font-mono font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md w-fit">
-                                                <Clock size={11} className="text-emerald-400 shrink-0" />
-                                                <span>In: {formatPunchTime(rec.punch_in) || '--'}</span>
-                                                <span className="text-white/30">•</span>
-                                                <span>Out: {formatPunchTime(rec.punch_out) || 'Working'}</span>
-                                            </div>
-                                        )}
+                                        {(() => {
+                                            const inDisplay = formatPunchTime(rec?.punch_in) || (rec?.work_done?.match(/In:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i)?.[1]);
+                                            const outDisplay = formatPunchTime(rec?.punch_out) || (rec?.work_done?.match(/Out:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i)?.[1]);
+                                            if (!inDisplay && !outDisplay) return null;
+                                            return (
+                                                <div className="flex items-center gap-1.5 mt-1 text-[11px] font-mono font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md w-fit">
+                                                    <Clock size={11} className="text-emerald-400 shrink-0" />
+                                                    <span>In: {inDisplay || '--'}</span>
+                                                    <span className="text-white/30">•</span>
+                                                    <span>Out: {outDisplay || 'Working'}</span>
+                                                </div>
+                                            );
+                                        })()}
                                         {rec && (
                                             <div className="text-xs text-[var(--accent)] mt-1 font-medium max-w-[400px] truncate" title={getAttendanceSummary(rec) || ""}>
                                                 {getAttendanceSummary(rec)}
