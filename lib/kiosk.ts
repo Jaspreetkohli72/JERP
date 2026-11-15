@@ -268,7 +268,8 @@ export async function syncStaffAttendanceOnPunch(
     staffId: number,
     action: 'IN' | 'OUT',
     nowIso: string,
-    calculatedStatus?: string
+    calculatedStatus?: string,
+    explicitPunchIn?: string
 ): Promise<void> {
     const today = getTodayIST();
 
@@ -294,9 +295,6 @@ export async function syncStaffAttendanceOnPunch(
         existingRecord = localAtt.find((a) => Number(a.staff_id) === Number(staffId) && a.date === today) || null;
     }
 
-    const inTimeDisplay = formatTimeIST(existingRecord?.punch_in || nowIso);
-    const outTimeDisplay = formatTimeIST(nowIso);
-
     const payloadWithColumns: any = {
         staff_id: staffId,
         date: today,
@@ -306,17 +304,45 @@ export async function syncStaffAttendanceOnPunch(
 
     if (action === 'IN') {
         payloadWithColumns.status = existingRecord?.status === 'Half-Day' || existingRecord?.status === 'Overtime' ? existingRecord.status : 'Present';
-        payloadWithColumns.punch_in = existingRecord?.punch_in || nowIso;
+        // Preserve earliest punch_in if already present
+        payloadWithColumns.punch_in = existingRecord?.punch_in || explicitPunchIn || nowIso;
         if (existingRecord?.punch_out) {
             payloadWithColumns.punch_out = existingRecord.punch_out;
         }
         payloadWithColumns.work_done = `🕒 In: ${formatTimeIST(payloadWithColumns.punch_in)}`;
     } else {
-        // action === 'OUT'
-        payloadWithColumns.punch_in = existingRecord?.punch_in || nowIso;
+        // action === 'OUT': resolve earliest punch_in of the day
+        let resolvedPunchIn = explicitPunchIn || existingRecord?.punch_in;
+
+        if (!resolvedPunchIn) {
+            // Check staff_punches table for today's earliest IN punch
+            try {
+                const todayPunches = await getPunchesForDate(today);
+                const workerInPunches = todayPunches
+                    .filter((p) => Number(p.staff_id) === Number(staffId) && p.punch_type === 'IN')
+                    .sort((a, b) => new Date(a.punched_at).getTime() - new Date(b.punched_at).getTime());
+                if (workerInPunches.length > 0) {
+                    resolvedPunchIn = workerInPunches[0].punched_at;
+                }
+            } catch (pErr) {
+                console.warn('[Kiosk] Error finding earliest punch IN:', pErr);
+            }
+        }
+
+        if (!resolvedPunchIn && existingRecord?.work_done) {
+            const inMatch = existingRecord.work_done.match(/In:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i);
+            if (inMatch) {
+                resolvedPunchIn = existingRecord.created_at || nowIso;
+            }
+        }
+
+        // Final fallback only if no prior punch IN exists
+        resolvedPunchIn = resolvedPunchIn || nowIso;
+
+        payloadWithColumns.punch_in = resolvedPunchIn;
         payloadWithColumns.punch_out = nowIso;
         payloadWithColumns.status = calculatedStatus || 'Present';
-        payloadWithColumns.work_done = `🕒 In: ${formatTimeIST(payloadWithColumns.punch_in)} | Out: ${outTimeDisplay}`;
+        payloadWithColumns.work_done = `🕒 In: ${formatTimeIST(resolvedPunchIn)} | Out: ${formatTimeIST(nowIso)}`;
     }
 
     // 2. Persist to Supabase: first try with punch columns, fallback to standard schema if columns not yet added

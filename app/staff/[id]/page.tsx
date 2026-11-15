@@ -599,6 +599,8 @@ export default function StaffDetailsPage() {
                                 <div key={rec.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg text-sm group">
                                     {(() => {
                                         const cleanWork = (rec.work_done || '').replace(/\[2x\s*OT\]\s*/gi, '').replace(/\[1\.5x\s*OT\]\s*/gi, '').trim();
+                                        const isPunchString = /^🕒\s*In:/i.test(cleanWork);
+                                        const manualNotes = isPunchString ? '' : cleanWork;
                                         const is2x = is2xOvertime(rec.status, rec.work_done) || is2xOvertime(rec.status_papa, rec.work_done);
                                         const otLabel = is2x ? 'Overtime (2)' : 'Overtime (1.5)';
 
@@ -625,14 +627,14 @@ export default function StaffDetailsPage() {
                                                         const outT = formatTime(rec.punch_out) || (rec.work_done?.match(/Out:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i)?.[1]);
                                                         if (!inT && !outT) return null;
                                                         return (
-                                                            <span className="text-[11px] font-mono text-emerald-400 mt-0.5">
+                                                            <span className="text-[11px] font-mono text-emerald-400 mt-0.5 font-medium">
                                                                 🕒 In: {inT || '--'} | Out: {outT || 'Working'}
                                                             </span>
                                                         );
                                                     })()}
-                                                    {cleanWork && (
-                                                        <span className="text-xs text-gray-500 italic mt-0.5 break-words" title={cleanWork}>
-                                                            "{cleanWork}"
+                                                    {manualNotes && (
+                                                        <span className="text-xs text-gray-500 italic mt-0.5 break-words" title={manualNotes}>
+                                                            "{manualNotes}"
                                                         </span>
                                                     )}
                                                 </div>

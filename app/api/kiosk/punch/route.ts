@@ -143,7 +143,10 @@ export async function POST(request: Request) {
 
             const calculatedStatus = calculateAttendanceStatus(totalHours);
 
-            await syncStaffAttendanceOnPunch(numStaffId, 'OUT', nowIso, calculatedStatus);
+            const inPunches = workerPunches.filter((p) => p.punch_type === 'IN');
+            const earliestInIso = inPunches.length > 0 ? inPunches[0].punched_at : (existingAtt?.punch_in || undefined);
+
+            await syncStaffAttendanceOnPunch(numStaffId, 'OUT', nowIso, calculatedStatus, earliestInIso);
 
             const hoursDisplay = totalHours.toFixed(1);
             message = `Punched OUT successfully (Total: ${hoursDisplay} hrs, Status: ${calculatedStatus})`;
