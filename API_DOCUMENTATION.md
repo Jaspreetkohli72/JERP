@@ -59,6 +59,8 @@ Retrieves staff members along with their real-time clock-in/out status for today
     "id": "47",
     "name": "Test",
     "role": "Helper",
+    "salary": 800,
+    "phone": "9876543210",
     "status": "Available",
     "clockedIn": false,
     "since": null
@@ -67,6 +69,8 @@ Retrieves staff members along with their real-time clock-in/out status for today
     "id": "29",
     "name": "Bhavesh",
     "role": "Welder",
+    "salary": 850,
+    "phone": "9876543211",
     "status": "Available",
     "clockedIn": true,
     "since": "09:15 AM"
@@ -75,6 +79,8 @@ Retrieves staff members along with their real-time clock-in/out status for today
     "id": "42",
     "name": "Ramesh",
     "role": "Welder",
+    "salary": 800,
+    "phone": "9876543212",
     "status": "On Leave",
     "clockedIn": false,
     "since": null
@@ -96,6 +102,8 @@ Retrieves staff members along with their real-time clock-in/out status for today
   "id": "47",
   "name": "Test",
   "role": "Helper",
+  "salary": 800,
+  "phone": "9876543210",
   "status": "Available",
   "clockedIn": false,
   "since": null

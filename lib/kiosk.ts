@@ -5,10 +5,12 @@ import path from 'path';
 export interface KioskStaffItem {
     id: string;
     name: string;
+    role?: string;
+    salary?: number;
+    phone?: string;
+    status?: string;
     clockedIn: boolean;
     since: string | null;
-    status?: string;
-    role?: string;
 }
 
 export interface PunchRecord {
@@ -255,6 +257,8 @@ export async function getActiveStaffKioskList(options?: { includeAll?: boolean }
             id: String(s.id),
             name: s.name,
             role: s.role,
+            salary: s.salary !== undefined && s.salary !== null ? Number(s.salary) : 0,
+            phone: s.phone || '',
             status: s.status || 'Available',
             clockedIn: isClockedIn,
             since: sinceTime,
