@@ -429,11 +429,17 @@ export async function syncStaffAttendanceOnPunch(
         }
     }
 
+    const existingWorkDone = existingRecord?.work_done || '';
+    const cleanWorkDone = existingWorkDone
+        .replace(/🕒?\s*In:\s*\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*\|\s*Out:\s*\d{1,2}:\d{2}\s*(?:AM|PM)?)?/gi, '')
+        .trim();
+
     const payloadWithColumns: any = {
         staff_id: staffId,
         date: today,
-        worked_for: null,
-        status_papa: null,
+        worked_for: existingRecord?.worked_for || null,
+        status_papa: existingRecord?.status_papa || null,
+        work_done: cleanWorkDone || null,
     };
 
     if (action === 'IN') {
@@ -443,7 +449,6 @@ export async function syncStaffAttendanceOnPunch(
         if (existingRecord?.punch_out) {
             payloadWithColumns.punch_out = existingRecord.punch_out;
         }
-        payloadWithColumns.work_done = `🕒 In: ${formatTimeIST(payloadWithColumns.punch_in)}`;
     } else {
         // action === 'OUT': resolve earliest punch_in of the day
         let resolvedPunchIn = explicitPunchIn || existingRecord?.punch_in;
@@ -463,20 +468,12 @@ export async function syncStaffAttendanceOnPunch(
             }
         }
 
-        if (!resolvedPunchIn && existingRecord?.work_done) {
-            const inMatch = existingRecord.work_done.match(/In:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i);
-            if (inMatch) {
-                resolvedPunchIn = existingRecord.created_at || nowIso;
-            }
-        }
-
         // Final fallback only if no prior punch IN exists
         resolvedPunchIn = resolvedPunchIn || nowIso;
 
         payloadWithColumns.punch_in = resolvedPunchIn;
         payloadWithColumns.punch_out = nowIso;
         payloadWithColumns.status = calculatedStatus || 'Present';
-        payloadWithColumns.work_done = `🕒 In: ${formatTimeIST(resolvedPunchIn)} | Out: ${formatTimeIST(nowIso)}`;
     }
 
     // 2. Persist to Supabase: first try with punch columns, fallback to standard schema if columns not yet added

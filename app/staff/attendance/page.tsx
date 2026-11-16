@@ -62,8 +62,51 @@ export default function AttendancePage() {
         status: 'Present',
         status_papa: 'Absent',
         ot_mult: '1.5',
-        ot_mult_papa: '1.5'
+        ot_mult_papa: '1.5',
+        punch_in_time: '',
+        punch_out_time: '',
+        punch_in_display: '',
+        punch_out_display: '',
+        raw_punch_in: '',
+        raw_punch_out: ''
     });
+
+    const getIstTimeInput = (ts?: string) => {
+        if (!ts) return '';
+        try {
+            const d = new Date(ts);
+            const parts = new Intl.DateTimeFormat('en-GB', {
+                timeZone: 'Asia/Kolkata',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }).formatToParts(d);
+            const hour = parts.find(p => p.type === 'hour')?.value || '00';
+            const minute = parts.find(p => p.type === 'minute')?.value || '00';
+            return `${hour}:${minute}`;
+        } catch {
+            return '';
+        }
+    };
+
+    const parseTimeToIso = (timeStr: string, dateStr: string): string | null => {
+        if (!timeStr || !timeStr.trim()) return null;
+        const trimmed = timeStr.trim();
+        if (trimmed.includes('T')) return trimmed;
+
+        const match = trimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+        if (!match) return null;
+
+        let hours = parseInt(match[1], 10);
+        const minutes = parseInt(match[2], 10);
+        const ampm = match[4]?.toUpperCase();
+
+        if (ampm === 'PM' && hours < 12) hours += 12;
+        if (ampm === 'AM' && hours === 12) hours = 0;
+
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${dateStr}T${pad(hours)}:${pad(minutes)}:00+05:30`;
+    };
 
     // Auto-focus textarea when modal opens
     useEffect(() => {
@@ -122,8 +165,25 @@ export default function AttendancePage() {
         const rawStatusPapa = clickedStatus || existing?.status_papa || (existing?.status && existing.status !== 'Absent' ? existing.status : 'Present');
 
         const rawWorkDone = existing?.work_done || '';
-        const has2xTag = /\[2x\s*OT\]|\[OT:2\]|\[2x\]|\(2x\s*OT\)/i.test(rawWorkDone);
-        const cleanWork = rawWorkDone.replace(/\[2x\s*OT\]\s*/gi, '').replace(/\[1\.5x\s*OT\]\s*/gi, '').trim();
+        // Strip any clock in/out strings from work_done completely
+        const withoutPunches = rawWorkDone
+            .replace(/🕒?\s*In:\s*\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*\|\s*Out:\s*\d{1,2}:\d{2}\s*(?:AM|PM)?)?/gi, '')
+            .trim();
+        const has2xTag = /\[2x\s*OT\]|\[OT:2\]|\[2x\]|\(2x\s*OT\)/i.test(withoutPunches);
+        const cleanWork = withoutPunches.replace(/\[2x\s*OT\]\s*/gi, '').replace(/\[1\.5x\s*OT\]\s*/gi, '').trim();
+
+        // Resolve punch_in and punch_out (using direct column first, falling back to legacy work_done if needed)
+        let inIso = existing?.punch_in || '';
+        let outIso = existing?.punch_out || '';
+
+        if (!inIso && rawWorkDone) {
+            const inMatch = rawWorkDone.match(/In:\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+            if (inMatch) inIso = parseTimeToIso(inMatch[1], date) || '';
+        }
+        if (!outIso && rawWorkDone) {
+            const outMatch = rawWorkDone.match(/Out:\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+            if (outMatch) outIso = parseTimeToIso(outMatch[1], date) || '';
+        }
 
         let statusVal = rawStatus.startsWith('Overtime') ? 'Overtime' : rawStatus;
         let otMultVal = (rawStatus.includes('2') || has2xTag) ? '2' : '1.5';
@@ -138,7 +198,13 @@ export default function AttendancePage() {
             status: statusVal,
             status_papa: statusPapaVal,
             ot_mult: otMultVal,
-            ot_mult_papa: otMultPapaVal
+            ot_mult_papa: otMultPapaVal,
+            punch_in_time: inIso ? getIstTimeInput(inIso) : '',
+            punch_out_time: outIso ? getIstTimeInput(outIso) : '',
+            punch_in_display: formatPunchTime(inIso),
+            punch_out_display: formatPunchTime(outIso),
+            raw_punch_in: inIso,
+            raw_punch_out: outIso
         });
     };
 
@@ -158,6 +224,21 @@ export default function AttendancePage() {
             finalWorkDone = cleanWork ? `[2x OT] ${cleanWork}` : '[2x OT]';
         }
 
+        // Resolve punch_in and punch_out timestamps
+        let finalPunchIn: string | undefined = modalData.raw_punch_in || undefined;
+        if (modalData.punch_in_time) {
+            finalPunchIn = `${date}T${modalData.punch_in_time}:00+05:30`;
+        } else if (modalData.punch_in_time === '') {
+            finalPunchIn = undefined;
+        }
+
+        let finalPunchOut: string | undefined = modalData.raw_punch_out || undefined;
+        if (modalData.punch_out_time) {
+            finalPunchOut = `${date}T${modalData.punch_out_time}:00+05:30`;
+        } else if (modalData.punch_out_time === '') {
+            finalPunchOut = undefined;
+        }
+
         setAttendance(prev => ({
             ...prev,
             [modalStaff.id]: {
@@ -165,8 +246,8 @@ export default function AttendancePage() {
                 worked_for: modalData.worked_for,
                 work_done: finalWorkDone,
                 status_papa: finalStatusPapa,
-                punch_in: prev[modalStaff.id]?.punch_in,
-                punch_out: prev[modalStaff.id]?.punch_out
+                punch_in: finalPunchIn,
+                punch_out: finalPunchOut
             }
         }));
         setModalStaff(null);
@@ -267,7 +348,8 @@ export default function AttendancePage() {
             parts.push(`Worked for Both (Me: ${formatStatus(rec.status)}, Papa: ${formatStatus(rec.status_papa)})`);
         }
         const cleanWork = (rec.work_done || '').replace(/\[2x\s*OT\]\s*/gi, '').replace(/\[1\.5x\s*OT\]\s*/gi, '').trim();
-        if (cleanWork) {
+        const isPunchString = /^🕒?\s*In:/i.test(cleanWork);
+        if (cleanWork && !isPunchString) {
             parts.push(`Work: "${cleanWork}"`);
         }
         return parts.join(' | ');
@@ -614,10 +696,91 @@ export default function AttendancePage() {
                             </div>
                         )}
 
+                        {/* Clocked In / Clocked Out Fields */}
+                        <div className="flex flex-col gap-2">
+                            <label className="text-xs text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+                                <Clock size={13} className="text-emerald-400" />
+                                Clock In & Out Time
+                            </label>
+                            <div className="grid grid-cols-2 gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
+                                <div className="flex flex-col gap-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[11px] text-emerald-400 font-semibold">Clocked In</span>
+                                        {modalData.punch_in_display && (
+                                            <span className="text-[10px] text-gray-400 font-mono">
+                                                {modalData.punch_in_display}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="relative flex items-center">
+                                        <input
+                                            type="time"
+                                            value={modalData.punch_in_time}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setModalData(prev => ({
+                                                    ...prev,
+                                                    punch_in_time: val,
+                                                    punch_in_display: val ? formatPunchTime(`${date}T${val}:00+05:30`) : ''
+                                                }));
+                                            }}
+                                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-emerald-500/50 [color-scheme:dark]"
+                                        />
+                                        {modalData.punch_in_time && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setModalData(prev => ({ ...prev, punch_in_time: '', punch_in_display: '', raw_punch_in: '' }))}
+                                                className="absolute right-2 text-gray-400 hover:text-white text-xs px-1 rounded hover:bg-white/10"
+                                                title="Clear Clock In"
+                                            >
+                                                ✕
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[11px] text-red-400 font-semibold">Clocked Out</span>
+                                        {modalData.punch_out_display && (
+                                            <span className="text-[10px] text-gray-400 font-mono">
+                                                {modalData.punch_out_display}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="relative flex items-center">
+                                        <input
+                                            type="time"
+                                            value={modalData.punch_out_time}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setModalData(prev => ({
+                                                    ...prev,
+                                                    punch_out_time: val,
+                                                    punch_out_display: val ? formatPunchTime(`${date}T${val}:00+05:30`) : ''
+                                                }));
+                                            }}
+                                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-red-500/50 [color-scheme:dark]"
+                                        />
+                                        {modalData.punch_out_time && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setModalData(prev => ({ ...prev, punch_out_time: '', punch_out_display: '', raw_punch_out: '' }))}
+                                                className="absolute right-2 text-gray-400 hover:text-white text-xs px-1 rounded hover:bg-white/10"
+                                                title="Clear Clock Out"
+                                            >
+                                                ✕
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Work Done Text Area */}
                         <div className="flex flex-col gap-2">
                             <div className="flex items-center justify-between">
-                                <label className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Work Done</label>
+                                <label className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Work Done (Notes)</label>
                                 <span className="text-[10px] text-gray-500 font-mono">Press Enter to confirm</span>
                             </div>
                             <textarea

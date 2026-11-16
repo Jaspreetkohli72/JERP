@@ -296,10 +296,10 @@ export async function submitDailyAttendanceAction(date: string, records: any[]) 
             date: date,
             status: normalizeDbStatus(r.status),
             worked_for: r.worked_for !== undefined ? r.worked_for : 'Me',
-            work_done: r.work_done || '',
+            work_done: (r.work_done || '').replace(/🕒?\s*In:\s*\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*\|\s*Out:\s*\d{1,2}:\d{2}\s*(?:AM|PM)?)?/gi, '').trim(),
             status_papa: normalizeDbStatus(r.status_papa),
-            ...(r.punch_in ? { punch_in: r.punch_in } : {}),
-            ...(r.punch_out ? { punch_out: r.punch_out } : {})
+            punch_in: r.punch_in || null,
+            punch_out: r.punch_out || null
         }));
 
         let data = null;
