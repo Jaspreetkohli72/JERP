@@ -545,9 +545,8 @@ export async function syncStaffAttendanceOnPunch(
         payloadWithColumns.status = existingRecord?.status === 'Half-Day' || existingRecord?.status === 'Overtime' ? existingRecord.status : 'Present';
         // Preserve earliest punch_in if already present
         payloadWithColumns.punch_in = existingRecord?.punch_in || explicitPunchIn || nowIso;
-        if (existingRecord?.punch_out) {
-            payloadWithColumns.punch_out = existingRecord.punch_out;
-        }
+        // Staff is currently clocked in, so punch_out MUST be null
+        payloadWithColumns.punch_out = null;
     } else {
         // action === 'OUT': resolve earliest punch_in of the day
         let resolvedPunchIn = explicitPunchIn || existingRecord?.punch_in;

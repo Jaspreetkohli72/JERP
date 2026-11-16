@@ -155,6 +155,24 @@ export default function StaffDetailsPage() {
         return `${dateStr}T${pad(hours)}:${pad(minutes)}:00+05:30`;
     };
 
+    const calculateAttendanceFromTimes = (inTime: string, outTime: string, currentStatus?: string): string => {
+        if (!inTime) return currentStatus || 'Absent';
+        if (!outTime) {
+            if (currentStatus === 'Overtime') return 'Overtime';
+            return 'Present';
+        }
+        const [inH, inM] = inTime.split(':').map(Number);
+        const [outH, outM] = outTime.split(':').map(Number);
+        let diffMinutes = (outH * 60 + outM) - (inH * 60 + inM);
+        if (diffMinutes < 0) diffMinutes += 24 * 60;
+        const hours = diffMinutes / 60;
+
+        if (hours < 4.0) return 'Absent';
+        if (hours < 6.0) return 'Half-Day';
+        if (hours <= 10.0) return 'Present';
+        return 'Overtime';
+    };
+
     const handleOpenEditAttendance = (rec: any) => {
         const rawWorkDone = rec.work_done || '';
         const withoutPunches = rawWorkDone
@@ -1410,7 +1428,14 @@ export default function StaffDetailsPage() {
                                             {editAttForm.punch_in_time && (
                                                 <button
                                                     type="button"
-                                                    onClick={() => setEditAttForm(prev => ({ ...prev, punch_in_time: '', punch_in_display: '', raw_punch_in: '' }))}
+                                                    onClick={() => setEditAttForm(prev => ({
+                                                        ...prev,
+                                                        punch_in_time: '',
+                                                        punch_in_display: '',
+                                                        raw_punch_in: '',
+                                                        status: prev.punch_out_time ? calculateAttendanceFromTimes('', prev.punch_out_time, 'Absent') : 'Absent',
+                                                        status_papa: prev.worked_for === 'Papa' || prev.worked_for === 'Both' ? 'Absent' : prev.status_papa
+                                                    }))}
                                                     className="text-[11px] text-gray-400 hover:text-red-400 hover:underline cursor-pointer"
                                                 >
                                                     Clear
@@ -1423,10 +1448,13 @@ export default function StaffDetailsPage() {
                                                 value={editAttForm.punch_in_time}
                                                 onChange={e => {
                                                     const val = e.target.value;
+                                                    const newStatus = calculateAttendanceFromTimes(val, editAttForm.punch_out_time, editAttForm.status);
                                                     setEditAttForm(prev => ({
                                                         ...prev,
                                                         punch_in_time: val,
-                                                        punch_in_display: val ? formatPunchTime(`${editingAttendance.date}T${val}:00+05:30`) : ''
+                                                        punch_in_display: val ? formatPunchTime(`${editingAttendance.date}T${val}:00+05:30`) : '',
+                                                        status: newStatus,
+                                                        status_papa: prev.worked_for === 'Papa' || prev.worked_for === 'Both' ? newStatus : prev.status_papa
                                                     }));
                                                 }}
                                                 className="w-full bg-transparent text-white font-mono text-sm focus:outline-none [color-scheme:dark] cursor-pointer"
@@ -1449,7 +1477,17 @@ export default function StaffDetailsPage() {
                                             {editAttForm.punch_out_time && (
                                                 <button
                                                     type="button"
-                                                    onClick={() => setEditAttForm(prev => ({ ...prev, punch_out_time: '', punch_out_display: '', raw_punch_out: '' }))}
+                                                    onClick={() => setEditAttForm(prev => {
+                                                        const newStatus = prev.punch_in_time ? 'Present' : 'Absent';
+                                                        return {
+                                                            ...prev,
+                                                            punch_out_time: '',
+                                                            punch_out_display: '',
+                                                            raw_punch_out: '',
+                                                            status: newStatus,
+                                                            status_papa: prev.worked_for === 'Papa' || prev.worked_for === 'Both' ? newStatus : prev.status_papa
+                                                        };
+                                                    })}
                                                     className="text-[11px] text-gray-400 hover:text-red-400 hover:underline cursor-pointer"
                                                 >
                                                     Clear
@@ -1462,10 +1500,13 @@ export default function StaffDetailsPage() {
                                                 value={editAttForm.punch_out_time}
                                                 onChange={e => {
                                                     const val = e.target.value;
+                                                    const newStatus = calculateAttendanceFromTimes(editAttForm.punch_in_time, val, editAttForm.status);
                                                     setEditAttForm(prev => ({
                                                         ...prev,
                                                         punch_out_time: val,
-                                                        punch_out_display: val ? formatPunchTime(`${editingAttendance.date}T${val}:00+05:30`) : ''
+                                                        punch_out_display: val ? formatPunchTime(`${editingAttendance.date}T${val}:00+05:30`) : '',
+                                                        status: newStatus,
+                                                        status_papa: prev.worked_for === 'Papa' || prev.worked_for === 'Both' ? newStatus : prev.status_papa
                                                     }));
                                                 }}
                                                 className="w-full bg-transparent text-white font-mono text-sm focus:outline-none [color-scheme:dark] cursor-pointer"

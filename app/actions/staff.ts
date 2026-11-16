@@ -182,6 +182,16 @@ export async function getStaffStats() {
             };
         });
 
+        // Sort active staff first (A-Z), followed by inactive staff (A-Z)
+        const isStaffActive = (s: any) => !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave');
+        staffWithPay.sort((a, b) => {
+            const aActive = isStaffActive(a);
+            const bActive = isStaffActive(b);
+            if (aActive && !bActive) return -1;
+            if (!aActive && bActive) return 1;
+            return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
+        });
+
         return {
             staffList,
             staffWithPay,

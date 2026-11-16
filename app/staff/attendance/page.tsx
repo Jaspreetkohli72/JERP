@@ -108,6 +108,24 @@ export default function AttendancePage() {
         return `${dateStr}T${pad(hours)}:${pad(minutes)}:00+05:30`;
     };
 
+    const calculateAttendanceFromTimes = (inTime: string, outTime: string, currentStatus?: string): string => {
+        if (!inTime) return currentStatus || 'Absent';
+        if (!outTime) {
+            if (currentStatus === 'Overtime') return 'Overtime';
+            return 'Present';
+        }
+        const [inH, inM] = inTime.split(':').map(Number);
+        const [outH, outM] = outTime.split(':').map(Number);
+        let diffMinutes = (outH * 60 + outM) - (inH * 60 + inM);
+        if (diffMinutes < 0) diffMinutes += 24 * 60;
+        const hours = diffMinutes / 60;
+
+        if (hours < 4.0) return 'Absent';
+        if (hours < 6.0) return 'Half-Day';
+        if (hours <= 10.0) return 'Present';
+        return 'Overtime';
+    };
+
     // Auto-focus textarea when modal opens
     useEffect(() => {
         if (modalStaff) {
@@ -239,18 +257,32 @@ export default function AttendancePage() {
             finalPunchOut = undefined;
         }
 
+        const updatedRecord = {
+            status: finalStatus,
+            worked_for: modalData.worked_for,
+            work_done: finalWorkDone,
+            status_papa: finalStatusPapa,
+            punch_in: finalPunchIn,
+            punch_out: finalPunchOut
+        };
+
         setAttendance(prev => ({
             ...prev,
-            [modalStaff.id]: {
-                status: finalStatus,
-                worked_for: modalData.worked_for,
-                work_done: finalWorkDone,
-                status_papa: finalStatusPapa,
-                punch_in: finalPunchIn,
-                punch_out: finalPunchOut
-            }
+            [modalStaff.id]: updatedRecord
         }));
         setModalStaff(null);
+
+        // Instantly persist the confirmed attendance record to Supabase and sync punches
+        submitDailyAttendanceAction(date, [{
+            staff_id: modalStaff.id,
+            ...updatedRecord
+        }]).then((res) => {
+            if (res.success && syncAttendance) {
+                syncAttendance();
+            }
+        }).catch(err => {
+            console.warn('[Attendance Modal] Auto-save error:', err);
+        });
     };
 
     const handleSave = async () => {
@@ -714,7 +746,14 @@ export default function AttendancePage() {
                                         {modalData.punch_in_time && (
                                             <button
                                                 type="button"
-                                                onClick={() => setModalData(prev => ({ ...prev, punch_in_time: '', punch_in_display: '', raw_punch_in: '' }))}
+                                                onClick={() => setModalData(prev => ({
+                                                    ...prev,
+                                                    punch_in_time: '',
+                                                    punch_in_display: '',
+                                                    raw_punch_in: '',
+                                                    status: prev.punch_out_time ? calculateAttendanceFromTimes('', prev.punch_out_time, 'Absent') : 'Absent',
+                                                    status_papa: prev.worked_for === 'Papa' || prev.worked_for === 'Both' ? 'Absent' : prev.status_papa
+                                                }))}
                                                 className="text-[11px] text-gray-400 hover:text-red-400 hover:underline cursor-pointer"
                                             >
                                                 Clear
@@ -727,10 +766,13 @@ export default function AttendancePage() {
                                             value={modalData.punch_in_time}
                                             onChange={e => {
                                                 const val = e.target.value;
+                                                const newStatus = calculateAttendanceFromTimes(val, modalData.punch_out_time, modalData.status);
                                                 setModalData(prev => ({
                                                     ...prev,
                                                     punch_in_time: val,
-                                                    punch_in_display: val ? formatPunchTime(`${date}T${val}:00+05:30`) : ''
+                                                    punch_in_display: val ? formatPunchTime(`${date}T${val}:00+05:30`) : '',
+                                                    status: newStatus,
+                                                    status_papa: prev.worked_for === 'Papa' || prev.worked_for === 'Both' ? newStatus : prev.status_papa
                                                 }));
                                             }}
                                             className="w-full bg-transparent text-white font-mono text-sm focus:outline-none [color-scheme:dark] cursor-pointer"
@@ -753,7 +795,17 @@ export default function AttendancePage() {
                                         {modalData.punch_out_time && (
                                             <button
                                                 type="button"
-                                                onClick={() => setModalData(prev => ({ ...prev, punch_out_time: '', punch_out_display: '', raw_punch_out: '' }))}
+                                                onClick={() => setModalData(prev => {
+                                                    const newStatus = prev.punch_in_time ? 'Present' : 'Absent';
+                                                    return {
+                                                        ...prev,
+                                                        punch_out_time: '',
+                                                        punch_out_display: '',
+                                                        raw_punch_out: '',
+                                                        status: newStatus,
+                                                        status_papa: prev.worked_for === 'Papa' || prev.worked_for === 'Both' ? newStatus : prev.status_papa
+                                                    };
+                                                })}
                                                 className="text-[11px] text-gray-400 hover:text-red-400 hover:underline cursor-pointer"
                                             >
                                                 Clear
@@ -766,10 +818,13 @@ export default function AttendancePage() {
                                             value={modalData.punch_out_time}
                                             onChange={e => {
                                                 const val = e.target.value;
+                                                const newStatus = calculateAttendanceFromTimes(modalData.punch_in_time, val, modalData.status);
                                                 setModalData(prev => ({
                                                     ...prev,
                                                     punch_out_time: val,
-                                                    punch_out_display: val ? formatPunchTime(`${date}T${val}:00+05:30`) : ''
+                                                    punch_out_display: val ? formatPunchTime(`${date}T${val}:00+05:30`) : '',
+                                                    status: newStatus,
+                                                    status_papa: prev.worked_for === 'Papa' || prev.worked_for === 'Both' ? newStatus : prev.status_papa
                                                 }));
                                             }}
                                             className="w-full bg-transparent text-white font-mono text-sm focus:outline-none [color-scheme:dark] cursor-pointer"

@@ -135,7 +135,16 @@ export default function StaffList({ staffList, staffWithPay, settings }: any) {
             {/* Staff List */}
             <h3 className="text-xl font-semibold mt-4">Team Members</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(staffWithPay || staffList || []).map((staff: any) => {
+                {(() => {
+                    const isStaffActive = (s: any) => !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave');
+                    const sorted = [...(staffWithPay || staffList || [])].sort((a: any, b: any) => {
+                        const aActive = isStaffActive(a);
+                        const bActive = isStaffActive(b);
+                        if (aActive && !bActive) return -1;
+                        if (!aActive && bActive) return 1;
+                        return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
+                    });
+                    return sorted.map((staff: any) => {
                     const earned = staff.financials?.salaryAccrued || 0;
                     const advances = staff.financials?.totalAdvances || 0;
                     const netPay = staff.financials?.netPayable ?? 0;
@@ -224,7 +233,8 @@ export default function StaffList({ staffList, staffWithPay, settings }: any) {
                             </div>
                         </Link>
                     );
-                })}
+                });
+            })()}
 
                 {staffList.length === 0 && (
                     <div className="col-span-full py-10 text-center text-gray-500">
