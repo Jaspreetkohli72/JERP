@@ -154,61 +154,73 @@ export async function recordPunchEvent(record: PunchRecord): Promise<void> {
     saveBackupJson('staff_punches.json', local);
 }
 
+interface KioskCache {
+    timestamp: number;
+    today: string;
+    allStaff: KioskStaffItem[];
+    activeStaff: KioskStaffItem[];
+}
+
+let kioskCache: KioskCache | null = null;
+const CACHE_TTL_MS = 4000; // 4 seconds fast memory cache for instant API responses
+
+export function invalidateKioskCache(): void {
+    kioskCache = null;
+}
+
 /**
  * Resolves the list of staff members with their live clock-in status for todayIST.
  * By default, returns only active staff (not terminated, not on leave).
  * Pass { includeAll: true } to return all staff irrespective of status.
+ * Uses high-speed parallel database queries and in-memory caching.
  */
-export async function getActiveStaffKioskList(options?: { includeAll?: boolean }): Promise<KioskStaffItem[]> {
+export async function getActiveStaffKioskList(options?: {
+    includeAll?: boolean;
+    bypassCache?: boolean;
+}): Promise<KioskStaffItem[]> {
     const includeAll = options?.includeAll ?? false;
+    const bypassCache = options?.bypassCache ?? false;
     const today = getTodayIST();
-    let staffList: any[] = [];
+    const now = Date.now();
 
-    try {
-        const { data, error } = await supabase
-            .from('staff')
-            .select('*')
-            .order('name', { ascending: true });
-
-        if (!error && data && data.length > 0) {
-            staffList = data;
-        }
-    } catch (e) {
-        console.warn('[Kiosk] Supabase staff query warning:', e);
+    // 1. Instant Cache Hit (<5ms)
+    if (!bypassCache && kioskCache && kioskCache.today === today && (now - kioskCache.timestamp) < CACHE_TTL_MS) {
+        return includeAll ? kioskCache.allStaff : kioskCache.activeStaff;
     }
 
+    let staffList: any[] = [];
+    let todayPunches: PunchRecord[] = [];
+    let todayAttendance: any[] = [];
+
+    // 2. High-speed Parallel Database Queries (1 round trip instead of 3 serial hops)
+    try {
+        const [staffRes, punchesRes, attRes] = await Promise.all([
+            supabase.from('staff').select('*').order('name', { ascending: true }),
+            supabase.from('staff_punches').select('*').eq('date', today).order('punched_at', { ascending: true }),
+            supabase.from('staff_attendance').select('*').eq('date', today),
+        ]);
+
+        if (staffRes.data && staffRes.data.length > 0) staffList = staffRes.data;
+        if (punchesRes.data && punchesRes.data.length > 0) todayPunches = punchesRes.data;
+        if (attRes.data && attRes.data.length > 0) todayAttendance = attRes.data;
+    } catch (e) {
+        console.warn('[Kiosk] Parallel Supabase query warning:', e);
+    }
+
+    // Fallbacks to local files if database empty or paused
     if (staffList.length === 0) {
         staffList = loadBackupJson<any[]>('staff.json', []);
     }
-
-    // Filter staff according to includeAll option
-    const filteredStaff = includeAll
-        ? staffList
-        : staffList.filter((s: any) =>
-            !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave')
-        );
-
-    // 1. Fetch punches strictly for todayIST from staff_punches table
-    const todayPunches = await getPunchesForDate(today);
-
-    // 2. Also fetch today's attendance records from staff_attendance table as resilient fallback
-    let todayAttendance: any[] = [];
-    try {
-        const { data: attData } = await supabase
-            .from('staff_attendance')
-            .select('*')
-            .eq('date', today);
-        if (attData && attData.length > 0) todayAttendance = attData;
-    } catch (e) {
-        console.warn('[Kiosk] Supabase todayAttendance query warning:', e);
+    if (todayPunches.length === 0) {
+        const local = loadBackupJson<PunchRecord[]>('staff_punches.json', []);
+        todayPunches = local.filter((p) => p.date === today);
     }
-
     if (todayAttendance.length === 0) {
         const localAtt = loadBackupJson<any[]>('staff_attendance.json', []);
         todayAttendance = localAtt.filter((a) => a.date === today);
     }
 
-    // Group punches by staff_id
+    // Index punches by staff_id
     const punchesByStaff = new Map<number, PunchRecord[]>();
     for (const p of todayPunches) {
         const list = punchesByStaff.get(p.staff_id) || [];
@@ -216,16 +228,15 @@ export async function getActiveStaffKioskList(options?: { includeAll?: boolean }
         punchesByStaff.set(p.staff_id, list);
     }
 
-    // Group attendance by staff_id
+    // Index attendance by staff_id
     const attendanceByStaff = new Map<number, any>();
     for (const a of todayAttendance) {
         attendanceByStaff.set(Number(a.staff_id), a);
     }
 
-    const result: KioskStaffItem[] = filteredStaff.map((s: any) => {
+    const allStaff: KioskStaffItem[] = staffList.map((s: any) => {
         const staffIdNum = Number(s.id);
         const sPunches = punchesByStaff.get(staffIdNum) || [];
-        // Sort chronologically
         sPunches.sort((a, b) => new Date(a.punched_at).getTime() - new Date(b.punched_at).getTime());
 
         let isClockedIn = false;
@@ -236,7 +247,6 @@ export async function getActiveStaffKioskList(options?: { includeAll?: boolean }
             isClockedIn = latestPunch.punch_type === 'IN';
             sinceTime = isClockedIn ? formatTimeIST(latestPunch.punched_at) : null;
         } else {
-            // Check todayAttendance fallback
             const att = attendanceByStaff.get(staffIdNum);
             if (att) {
                 if (att.punch_in && !att.punch_out) {
@@ -265,10 +275,21 @@ export async function getActiveStaffKioskList(options?: { includeAll?: boolean }
         };
     });
 
-    // Sort alphabetically by name
-    result.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    allStaff.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
-    return result;
+    const activeStaff = allStaff.filter(
+        (s) => !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave')
+    );
+
+    // Update in-memory cache
+    kioskCache = {
+        timestamp: Date.now(),
+        today,
+        allStaff,
+        activeStaff,
+    };
+
+    return includeAll ? allStaff : activeStaff;
 }
 
 /**
@@ -282,30 +303,33 @@ export async function syncStaffAttendanceOnPunch(
     action: 'IN' | 'OUT',
     nowIso: string,
     calculatedStatus?: string,
-    explicitPunchIn?: string
+    explicitPunchIn?: string,
+    existingAttendanceRecord?: any
 ): Promise<void> {
     const today = getTodayIST();
 
-    // 1. Check existing record in staff_attendance
-    let existingRecord: any = null;
-    try {
-        const { data, error } = await supabase
-            .from('staff_attendance')
-            .select('*')
-            .eq('staff_id', staffId)
-            .eq('date', today)
-            .maybeSingle();
-
-        if (!error && data) {
-            existingRecord = data;
-        }
-    } catch (e) {
-        console.warn('[Kiosk] Error fetching staff_attendance:', e);
-    }
-
+    // 1. Check existing record in staff_attendance (use pre-fetched record if available)
+    let existingRecord: any = existingAttendanceRecord || null;
     if (!existingRecord) {
-        const localAtt = loadBackupJson<any[]>('staff_attendance.json', []);
-        existingRecord = localAtt.find((a) => Number(a.staff_id) === Number(staffId) && a.date === today) || null;
+        try {
+            const { data, error } = await supabase
+                .from('staff_attendance')
+                .select('*')
+                .eq('staff_id', staffId)
+                .eq('date', today)
+                .maybeSingle();
+
+            if (!error && data) {
+                existingRecord = data;
+            }
+        } catch (e) {
+            console.warn('[Kiosk] Error fetching staff_attendance:', e);
+        }
+
+        if (!existingRecord) {
+            const localAtt = loadBackupJson<any[]>('staff_attendance.json', []);
+            existingRecord = localAtt.find((a) => Number(a.staff_id) === Number(staffId) && a.date === today) || null;
+        }
     }
 
     const payloadWithColumns: any = {

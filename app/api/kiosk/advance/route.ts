@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { getTodayIST, loadBackupJson, saveBackupJson } from '@/lib/kiosk';
+import { getTodayIST, loadBackupJson, saveBackupJson, invalidateKioskCache } from '@/lib/kiosk';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,19 +25,19 @@ export async function POST(request: Request) {
             );
         }
 
-        // 1. Verify staff exists and is active
-        let staffList: any[] = [];
+        // 1. Verify staff exists and is active via direct indexed query
+        let staffMember: any = null;
         try {
-            const { data } = await supabase.from('staff').select('*');
-            if (data && data.length > 0) staffList = data;
+            const { data } = await supabase.from('staff').select('id, name, status').eq('id', numStaffId).maybeSingle();
+            if (data) staffMember = data;
         } catch (e) {
             console.warn('[Kiosk Advance] Staff query error:', e);
         }
-        if (staffList.length === 0) {
-            staffList = loadBackupJson<any[]>('staff.json', []);
+        if (!staffMember) {
+            const staffList = loadBackupJson<any[]>('staff.json', []);
+            staffMember = staffList.find((s: any) => Number(s.id) === numStaffId) || null;
         }
 
-        const staffMember = staffList.find((s: any) => Number(s.id) === numStaffId);
         if (!staffMember) {
             return NextResponse.json({ error: 'Staff member not found' }, { status: 404 });
         }
@@ -77,6 +77,8 @@ export async function POST(request: Request) {
         const localAdvances = loadBackupJson<any[]>('staff_advances.json', []);
         localAdvances.push({ id: `kiosk-${Date.now()}`, ...advancePayload });
         saveBackupJson('staff_advances.json', localAdvances);
+
+        invalidateKioskCache();
 
         return NextResponse.json(
             {

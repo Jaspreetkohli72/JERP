@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { revalidatePath } from 'next/cache';
-import { getActiveStaffKioskList, loadBackupJson, saveBackupJson, getTodayIST } from '@/lib/kiosk';
+import { getActiveStaffKioskList, loadBackupJson, saveBackupJson, getTodayIST, invalidateKioskCache } from '@/lib/kiosk';
 
 export const dynamic = 'force-dynamic';
 
@@ -138,6 +138,7 @@ async function handleUpdateById(
         revalidatePath('/staff/calendar');
         revalidatePath('/staff/attendance');
         revalidatePath(`/staff/${id}`);
+        invalidateKioskCache();
 
         return NextResponse.json(
             {
