@@ -30,6 +30,8 @@ Base URL is configurable in the app settings (e.g., `http://192.168.1.100:3000` 
   - Without `?all=true`: Returns only active workers (excludes `On Leave` and `Terminated`).
   - With `?all=true`: Returns all staff irrespective of status, with their `status` field included (`Available`, `On Leave`, `Terminated:YYYY-MM-DD`, etc.).
 - **Headers**: `Accept: application/json` (No authentication required)
+- **Caching**: Emits `Cache-Control: no-store, no-cache`, ensuring live database state on every poll.
+- **Sorting**: Active staff are sorted alphabetically (A–Z) first, followed by inactive staff sorted alphabetically (A–Z).
 - **Response**: `200 OK`
 ```json
 [
@@ -51,7 +53,7 @@ Base URL is configurable in the app settings (e.g., `http://192.168.1.100:3000` 
   }
 ]
 ```
-> **Note**: `since` contains the formatted punch-in time in IST (e.g. `"09:15 AM"`) when `clockedIn: true`, or `null` when `clockedIn: false`. The list is pre-sorted alphabetically.
+> **Note**: `since` contains the formatted punch-in time in IST (e.g. `"09:15 AM"`) when `clockedIn: true`, or `null` when `clockedIn: false`. Active staff appear first (A–Z), followed by inactive staff (A–Z).
 
 ---
 

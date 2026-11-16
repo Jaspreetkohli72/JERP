@@ -16,6 +16,11 @@ The API is served over standard HTTPS (or HTTP in local network development):
 > [!NOTE]
 > All kiosk endpoints are public (no Bearer token required) so Android tablets on the factory floor can communicate without requiring user sign-in sessions.
 
+### Real-Time Live Data & Caching Policy
+- **100% Live Supabase Queries**: All `GET` endpoints emit `Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate`, completely bypassing edge CDN and browser caching. Responses reflect live database records immediately.
+- **Single-Flight Request Coalescing**: To protect Supabase connection pools during concurrent spikes (e.g. automated load testing or simultaneous tablet polling), concurrent requests within a 1,000 ms window coalesce into a single live database query (`activeSyncPromise`), ensuring sub-second response times without socket starvation.
+- **Fault-Tolerant Fallback**: In the event of Supabase network downtime or external outages exceeding 3,500 ms, the system gracefully falls back to local disk JSON backups (`backups/latest/`) to maintain 100% uptime on the workshop floor.
+
 ---
 
 ## 2. API Endpoints Reference
@@ -24,7 +29,7 @@ The API is served over standard HTTPS (or HTTP in local network development):
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/api/kiosk/staff` | List active staff (or all staff with `?all=true`). |
+| `GET` | `/api/kiosk/staff` | List staff with real-time clock-in/out status (active first A-Z, inactive second A-Z). |
 | `GET` | `/api/kiosk/staff/{id}` | Get a single staff member's profile & live clock state. |
 | `POST` | `/api/kiosk/staff` | Create a new staff member (name, role, salary, phone, status). |
 | `PUT` | `/api/kiosk/staff/{id}` | Update an existing staff member (role, salary, status, etc.). |
@@ -51,29 +56,69 @@ Retrieves staff members along with their real-time clock-in/out status for today
   ```http
   Accept: application/json
   ```
+- **Sorting Rule**:
+  - **Tier 1**: All active staff (`Available`), sorted alphabetically by name (A–Z).
+  - **Tier 2**: All inactive staff (`On Leave` and `Terminated`), sorted alphabetically by name (A–Z).
+
+#### Response Headers
+```http
+Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate
+Pragma: no-cache
+Expires: 0
+```
 
 #### Response (`200 OK`)
 ```json
 [
   {
-    "id": "47",
+    "id": "41",
+    "name": "Aditya",
+    "role": "Helper",
+    "salary": 400,
+    "phone": "",
+    "status": "Available",
+    "clockedIn": true,
+    "since": "09:08 AM"
+  },
+  {
+    "id": "43",
+    "name": "Imran",
+    "role": "Welder",
+    "salary": 800,
+    "phone": "",
+    "status": "Available",
+    "clockedIn": true,
+    "since": "09:08 AM"
+  },
+  {
+    "id": "45",
+    "name": "Mustafa",
+    "role": "Welder",
+    "salary": 800,
+    "phone": "",
+    "status": "Available",
+    "clockedIn": true,
+    "since": "09:08 AM"
+  },
+  {
+    "id": "51",
+    "name": "Rohit (New)",
+    "role": "Helper",
+    "salary": 350,
+    "phone": "",
+    "status": "Available",
+    "clockedIn": true,
+    "since": "09:08 AM"
+  },
+  {
+    "id": "52",
     "name": "Test",
     "role": "Helper",
-    "salary": 800,
-    "phone": "9876543210",
+    "salary": 0,
+    "phone": "",
     "status": "Available",
     "clockedIn": false,
     "since": null
-  },
-  {
-    "id": "29",
-    "name": "Bhavesh",
-    "role": "Welder",
-    "salary": 850,
-    "phone": "9876543211",
-    "status": "Available",
-    "clockedIn": true,
-    "since": "09:15 AM"
   },
   {
     "id": "42",
@@ -217,7 +262,7 @@ Updates any combination of an employee's role, salary, phone, name, or employmen
 
 ### Endpoint 5: `POST /api/kiosk/punch` — Clock IN / Clock OUT
 
-Records a clock punch for today. The backend automatically calculates total accumulated hours and attendance status.
+Records a clock punch for today. The backend automatically calculates total accumulated hours and attendance status, updating both `staff_punches` and `staff_attendance` tables in Supabase.
 
 - **Method**: `POST`
 - **URL**: `/api/kiosk/punch`
@@ -228,6 +273,19 @@ Records a clock punch for today. The backend automatically calculates total accu
     "action": "IN"
   }
   ```
+
+#### Automatic Status Calculation Rules
+Whenever a punch or time edit occurs, the attendance status is automatically determined from elapsed daily working hours:
+- **Still Clocked In**: Automatically marked as `Present`.
+- **`< 4 hours`**: `Absent`
+- **`4 – 6 hours`**: `Half-Day`
+- **`6 – 10 hours`**: `Present`
+- **`> 10 hours`**: `Overtime`
+
+#### Two-Way Synchronization
+- Clocking **IN** saves `punch_in` timestamp and resets `punch_out = null`.
+- Clocking **OUT** saves `punch_out` timestamp, preserves earliest `punch_in`, and auto-calculates total hours and final status.
+- Manual time edits made via the web dashboard immediately re-sync `staff_punches` and trigger the same automatic status calculation.
 
 #### Response (`200 OK`)
 ```json

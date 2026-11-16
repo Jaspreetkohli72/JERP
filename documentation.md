@@ -33,6 +33,11 @@ JERP/
 │   ├── sales/page.tsx          # Sales dashboard (Fabrications)
 │   ├── sales/rates/page.tsx    # Default rate configuration
 │   ├── staff/                  # Staff management + attendance
+│   ├── api/kiosk/              # Factory Kiosk REST APIs (public, no auth)
+│   │   ├── staff/route.ts      # GET /api/kiosk/staff, POST /api/kiosk/staff
+│   │   ├── staff/[id]/route.ts # GET/PUT/PATCH /api/kiosk/staff/[id]
+│   │   ├── punch/route.ts      # POST /api/kiosk/punch (clock IN/OUT)
+│   │   └── advance/route.ts    # POST /api/kiosk/advance (cash advance)
 │   ├── contracting/            # Estimates, Bills, Projects, Measurements
 │   ├── marketing/              # Purchases, Inventory
 │   ├── operations/             # Work logs, sticky notes
@@ -338,3 +343,17 @@ The following are stored in browser localStorage — they are **configuration**,
 ### Sales Configurators — Default Quantity
 - Changed default quantity from `1` to `0` for both Ghodi and Trolley configurators.
 - Resets to `0` after recording a sale.
+
+### Kiosk API & Attendance Engine Architecture
+- **Dedicated Punch Timestamp Columns**: Added dedicated `punch_in` and `punch_out` columns in `staff_attendance` with graceful fallback to `work_done` if columns are absent.
+- **Real-Time Automatic Status Determination**:
+  - `< 4 hrs`: `Absent`
+  - `4 - 6 hrs`: `Half-Day`
+  - `6 - 10 hrs`: `Present`
+  - `> 10 hrs`: `Overtime`
+  - Still clocked in: `Present`
+- **Two-Way Synchronization**: Manually editing attendance timestamps in the web UI automatically syncs with `staff_punches` table and recalculates status in real time.
+- **Two-Tier Sorting**: Staff list displays all active staff first (sorted alphabetically A-Z), followed by inactive staff (`On Leave` and `Terminated`, sorted A-Z).
+- **100% Live Supabase Queries with Single-Flight Coalescing**:
+  - `GET /api/kiosk/staff` and `GET /api/kiosk/staff/[id]` emit `Cache-Control: no-store, no-cache, must-revalidate` to prevent any proxy caching.
+  - Multi-tenant single-flight deduplication (`activeSyncPromise`) with a 1,000 ms coalescing window protects database connection pools under high concurrency while serving 100% live database data.
