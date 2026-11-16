@@ -697,22 +697,31 @@ export default function AttendancePage() {
                         )}
 
                         {/* Clocked In / Clocked Out Fields */}
-                        <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-2.5 bg-white/5 p-3.5 rounded-xl border border-white/10">
                             <label className="text-xs text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-1.5">
                                 <Clock size={13} className="text-emerald-400" />
                                 Clock In & Out Time
                             </label>
-                            <div className="grid grid-cols-2 gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {/* Clock In */}
                                 <div className="flex flex-col gap-1.5">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-[11px] text-emerald-400 font-semibold">Clocked In</span>
-                                        {modalData.punch_in_display && (
-                                            <span className="text-[10px] text-gray-400 font-mono">
-                                                {modalData.punch_in_display}
-                                            </span>
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                            Clocked In
+                                        </span>
+                                        {modalData.punch_in_time && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setModalData(prev => ({ ...prev, punch_in_time: '', punch_in_display: '', raw_punch_in: '' }))}
+                                                className="text-[11px] text-gray-400 hover:text-red-400 hover:underline cursor-pointer"
+                                            >
+                                                Clear
+                                            </button>
                                         )}
                                     </div>
-                                    <div className="relative flex items-center">
+                                    <div className="flex items-center gap-2 bg-black/50 border border-white/10 rounded-xl px-3 py-2 focus-within:border-emerald-500/50">
                                         <input
                                             type="time"
                                             value={modalData.punch_in_time}
@@ -724,31 +733,34 @@ export default function AttendancePage() {
                                                     punch_in_display: val ? formatPunchTime(`${date}T${val}:00+05:30`) : ''
                                                 }));
                                             }}
-                                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-emerald-500/50 [color-scheme:dark]"
+                                            className="w-full bg-transparent text-white font-mono text-sm focus:outline-none [color-scheme:dark] cursor-pointer"
                                         />
-                                        {modalData.punch_in_time && (
+                                    </div>
+                                    {modalData.punch_in_display && (
+                                        <span className="text-[10px] text-gray-500 font-mono">
+                                            Recorded: {modalData.punch_in_display}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Clock Out */}
+                                <div className="flex flex-col gap-1.5">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-red-400 font-semibold flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                                            Clocked Out
+                                        </span>
+                                        {modalData.punch_out_time && (
                                             <button
                                                 type="button"
-                                                onClick={() => setModalData(prev => ({ ...prev, punch_in_time: '', punch_in_display: '', raw_punch_in: '' }))}
-                                                className="absolute right-2 text-gray-400 hover:text-white text-xs px-1 rounded hover:bg-white/10"
-                                                title="Clear Clock In"
+                                                onClick={() => setModalData(prev => ({ ...prev, punch_out_time: '', punch_out_display: '', raw_punch_out: '' }))}
+                                                className="text-[11px] text-gray-400 hover:text-red-400 hover:underline cursor-pointer"
                                             >
-                                                ✕
+                                                Clear
                                             </button>
                                         )}
                                     </div>
-                                </div>
-
-                                <div className="flex flex-col gap-1.5">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-[11px] text-red-400 font-semibold">Clocked Out</span>
-                                        {modalData.punch_out_display && (
-                                            <span className="text-[10px] text-gray-400 font-mono">
-                                                {modalData.punch_out_display}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="relative flex items-center">
+                                    <div className="flex items-center gap-2 bg-black/50 border border-white/10 rounded-xl px-3 py-2 focus-within:border-red-500/50">
                                         <input
                                             type="time"
                                             value={modalData.punch_out_time}
@@ -760,19 +772,14 @@ export default function AttendancePage() {
                                                     punch_out_display: val ? formatPunchTime(`${date}T${val}:00+05:30`) : ''
                                                 }));
                                             }}
-                                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-red-500/50 [color-scheme:dark]"
+                                            className="w-full bg-transparent text-white font-mono text-sm focus:outline-none [color-scheme:dark] cursor-pointer"
                                         />
-                                        {modalData.punch_out_time && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setModalData(prev => ({ ...prev, punch_out_time: '', punch_out_display: '', raw_punch_out: '' }))}
-                                                className="absolute right-2 text-gray-400 hover:text-white text-xs px-1 rounded hover:bg-white/10"
-                                                title="Clear Clock Out"
-                                            >
-                                                ✕
-                                            </button>
-                                        )}
                                     </div>
+                                    {modalData.punch_out_display && (
+                                        <span className="text-[10px] text-gray-500 font-mono">
+                                            Recorded: {modalData.punch_out_display}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         </div>

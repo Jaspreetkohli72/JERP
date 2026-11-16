@@ -2,11 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFinance } from '@/context/FinanceContext';
-import { ArrowLeft, Wallet, Calendar as CalendarIcon, Save, Trash2, Pencil, LogIn, LogOut } from 'lucide-react';
+import { ArrowLeft, Wallet, Calendar as CalendarIcon, Save, Trash2, Pencil, LogIn, LogOut, Clock } from 'lucide-react';
 import Link from 'next/link';
 import CustomSelect from '@/components/CustomSelect';
 import { supabase } from '@/lib/supabase';
-import { updateStaffAction, deleteStaffAction, updateStaffAdvanceAction, deleteStaffAdvanceAction, deleteAttendanceAction, getStaffTodayPunchStatus, getStaffProfileBundle, punchStaffAction } from '@/app/actions/staff';
+import { updateStaffAction, deleteStaffAction, updateStaffAdvanceAction, deleteStaffAdvanceAction, deleteAttendanceAction, updateAttendanceRecordAction, getStaffTodayPunchStatus, getStaffProfileBundle, punchStaffAction } from '@/app/actions/staff';
 
 export default function StaffDetailsPage() {
     const { id } = useParams();
@@ -83,6 +83,171 @@ export default function StaffDetailsPage() {
             router.refresh();
         } else {
             alert(`Failed to terminate employee: ${res.error}`);
+        }
+    };
+
+    // Edit Attendance State & Handlers
+    const [editingAttendance, setEditingAttendance] = useState<any | null>(null);
+    const [editAttForm, setEditAttForm] = useState({
+        worked_for: 'Me',
+        status: 'Present',
+        status_papa: 'Absent',
+        ot_mult: '1.5',
+        ot_mult_papa: '1.5',
+        punch_in_time: '',
+        punch_out_time: '',
+        punch_in_display: '',
+        punch_out_display: '',
+        raw_punch_in: '',
+        raw_punch_out: '',
+        work_done: '',
+    });
+    const [editAttSubmitting, setEditAttSubmitting] = useState(false);
+
+    const getIstTimeInput = (ts?: string) => {
+        if (!ts) return '';
+        try {
+            const d = new Date(ts);
+            const parts = new Intl.DateTimeFormat('en-GB', {
+                timeZone: 'Asia/Kolkata',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }).formatToParts(d);
+            const hour = parts.find(p => p.type === 'hour')?.value || '00';
+            const minute = parts.find(p => p.type === 'minute')?.value || '00';
+            return `${hour}:${minute}`;
+        } catch {
+            return '';
+        }
+    };
+
+    const formatPunchTime = (ts?: string) => {
+        if (!ts) return '';
+        try {
+            return new Intl.DateTimeFormat('en-US', {
+                timeZone: 'Asia/Kolkata',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            }).format(new Date(ts));
+        } catch {
+            return '';
+        }
+    };
+
+    const parseTimeToIso = (timeStr: string, dateStr: string): string | null => {
+        if (!timeStr || !timeStr.trim()) return null;
+        const trimmed = timeStr.trim();
+        if (trimmed.includes('T')) return trimmed;
+
+        const match = trimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+        if (!match) return null;
+
+        let hours = parseInt(match[1], 10);
+        const minutes = parseInt(match[2], 10);
+        const ampm = match[4]?.toUpperCase();
+
+        if (ampm === 'PM' && hours < 12) hours += 12;
+        if (ampm === 'AM' && hours === 12) hours = 0;
+
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${dateStr}T${pad(hours)}:${pad(minutes)}:00+05:30`;
+    };
+
+    const handleOpenEditAttendance = (rec: any) => {
+        const rawWorkDone = rec.work_done || '';
+        const withoutPunches = rawWorkDone
+            .replace(/🕒?\s*In:\s*\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*\|\s*Out:\s*\d{1,2}:\d{2}\s*(?:AM|PM)?)?/gi, '')
+            .trim();
+        const has2xTag = /\[2x\s*OT\]|\[OT:2\]|\[2x\]|\(2x\s*OT\)/i.test(withoutPunches);
+        const cleanWork = withoutPunches.replace(/\[2x\s*OT\]\s*/gi, '').replace(/\[1\.5x\s*OT\]\s*/gi, '').trim();
+
+        const rawStatus = rec.status || 'Present';
+        const rawStatusPapa = rec.status_papa || 'Absent';
+
+        let inIso = rec.punch_in || '';
+        let outIso = rec.punch_out || '';
+        if (!inIso && rawWorkDone) {
+            const inMatch = rawWorkDone.match(/In:\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+            if (inMatch) inIso = parseTimeToIso(inMatch[1], rec.date) || '';
+        }
+        if (!outIso && rawWorkDone) {
+            const outMatch = rawWorkDone.match(/Out:\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+            if (outMatch) outIso = parseTimeToIso(outMatch[1], rec.date) || '';
+        }
+
+        setEditingAttendance(rec);
+        setEditAttForm({
+            worked_for: rec.worked_for || 'Me',
+            status: rawStatus.startsWith('Overtime') ? 'Overtime' : rawStatus,
+            status_papa: rawStatusPapa.startsWith('Overtime') ? 'Overtime' : rawStatusPapa,
+            ot_mult: (rawStatus.includes('2') || has2xTag) ? '2' : '1.5',
+            ot_mult_papa: (rawStatusPapa.includes('2') || has2xTag) ? '2' : '1.5',
+            punch_in_time: inIso ? getIstTimeInput(inIso) : '',
+            punch_out_time: outIso ? getIstTimeInput(outIso) : '',
+            punch_in_display: formatPunchTime(inIso),
+            punch_out_display: formatPunchTime(outIso),
+            raw_punch_in: inIso,
+            raw_punch_out: outIso,
+            work_done: cleanWork
+        });
+    };
+
+    const handleSaveEditAttendance = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingAttendance || editAttSubmitting) return;
+        setEditAttSubmitting(true);
+
+        try {
+            const finalStatus = editAttForm.worked_for === 'Papa' ? 'Absent' : editAttForm.status;
+            const finalStatusPapa = editAttForm.worked_for === 'Me' ? 'Absent' : editAttForm.status_papa;
+
+            let finalWorkDone = editAttForm.work_done.trim();
+            const is2xMe = (editAttForm.worked_for === 'Me' || editAttForm.worked_for === 'Both') && finalStatus === 'Overtime' && editAttForm.ot_mult === '2';
+            const is2xPapa = (editAttForm.worked_for === 'Papa' || editAttForm.worked_for === 'Both') && finalStatusPapa === 'Overtime' && editAttForm.ot_mult_papa === '2';
+
+            if (is2xMe || is2xPapa) {
+                finalWorkDone = finalWorkDone ? `[2x OT] ${finalWorkDone}` : '[2x OT]';
+            }
+
+            const dateStr = editingAttendance.date;
+            let finalPunchIn: string | null = editAttForm.raw_punch_in || null;
+            if (editAttForm.punch_in_time) {
+                finalPunchIn = `${dateStr}T${editAttForm.punch_in_time}:00+05:30`;
+            } else if (editAttForm.punch_in_time === '') {
+                finalPunchIn = null;
+            }
+
+            let finalPunchOut: string | null = editAttForm.raw_punch_out || null;
+            if (editAttForm.punch_out_time) {
+                finalPunchOut = `${dateStr}T${editAttForm.punch_out_time}:00+05:30`;
+            } else if (editAttForm.punch_out_time === '') {
+                finalPunchOut = null;
+            }
+
+            const res = await updateAttendanceRecordAction(editingAttendance.id, {
+                status: finalStatus,
+                worked_for: editAttForm.worked_for,
+                work_done: finalWorkDone,
+                status_papa: finalStatusPapa,
+                punch_in: finalPunchIn,
+                punch_out: finalPunchOut
+            });
+
+            if (res.success) {
+                setEditingAttendance(null);
+                await loadData();
+                if (refreshData) await refreshData();
+                getStaffTodayPunchStatus(id as string).then(setPunchStatus);
+                router.refresh();
+            } else {
+                alert(`Failed to update attendance: ${res.error}`);
+            }
+        } catch (err: any) {
+            alert(`Error updating attendance: ${err.message || err}`);
+        } finally {
+            setEditAttSubmitting(false);
         }
     };
 
@@ -785,13 +950,22 @@ export default function StaffDetailsPage() {
                                                             </div>
                                                         )}
                                                     </div>
-                                                    <button
-                                                        onClick={() => handleDeleteAttendance(rec.id)}
-                                                        className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors flex items-center justify-center cursor-pointer ml-1"
-                                                        title="Delete Attendance"
-                                                    >
-                                                        <Trash2 size={15} />
-                                                    </button>
+                                                    <div className="flex items-center gap-1 ml-1">
+                                                        <button
+                                                            onClick={() => handleOpenEditAttendance(rec)}
+                                                            className="p-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 rounded transition-colors flex items-center justify-center cursor-pointer"
+                                                            title="Edit Attendance"
+                                                        >
+                                                            <Pencil size={15} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteAttendance(rec.id)}
+                                                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors flex items-center justify-center cursor-pointer"
+                                                            title="Delete Attendance"
+                                                        >
+                                                            <Trash2 size={15} />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </>
                                         );
@@ -1063,6 +1237,277 @@ export default function StaffDetailsPage() {
                                     className="flex-1 bg-[var(--accent)] text-black font-bold rounded-lg py-3 hover:opacity-90 transition-opacity"
                                 >
                                     {settleIsSubmitting ? 'Settling...' : 'Confirm Settlement'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Attendance Modal */}
+            {editingAttendance && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-[#0a0a0a] border border-white/10 p-6 rounded-2xl w-full max-w-md shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                            <div>
+                                <h2 className="text-xl font-bold flex items-center gap-2">
+                                    <Pencil size={18} className="text-blue-400" /> Edit Attendance
+                                </h2>
+                                <p className="text-xs text-gray-400 mt-0.5">
+                                    {staff.name} • {new Date(editingAttendance.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setEditingAttendance(null)}
+                                className="text-gray-400 hover:text-white p-1 rounded hover:bg-white/10 text-sm"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSaveEditAttendance} className="flex flex-col gap-4">
+                            {/* Worked For Radio Group */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Worked For</label>
+                                <div className="flex gap-6 bg-white/5 p-3 rounded-xl border border-white/5">
+                                    {['Me', 'Papa', 'Both'].map(option => (
+                                        <label key={option} className="flex items-center gap-2 cursor-pointer text-sm">
+                                            <input
+                                                type="radio"
+                                                name="worked_for_edit"
+                                                value={option}
+                                                checked={editAttForm.worked_for === option}
+                                                onChange={e => {
+                                                    const newW = e.target.value;
+                                                    setEditAttForm(prev => {
+                                                        let newSt = prev.status;
+                                                        let newStPapa = prev.status_papa;
+                                                        if (newW === 'Papa' && newStPapa === 'Absent') newStPapa = 'Present';
+                                                        if (newW === 'Me' && newSt === 'Absent') newSt = 'Present';
+                                                        if (newW === 'Both') {
+                                                            if (newSt === 'Absent') newSt = 'Present';
+                                                            if (newStPapa === 'Absent') newStPapa = 'Present';
+                                                        }
+                                                        return { ...prev, worked_for: newW, status: newSt, status_papa: newStPapa };
+                                                    });
+                                                }}
+                                                className="accent-[var(--accent)] h-4 w-4 cursor-pointer"
+                                            />
+                                            <span>{option}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Status (Me) */}
+                            {(editAttForm.worked_for === 'Me' || editAttForm.worked_for === 'Both') && (
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs text-green-400 uppercase tracking-wider font-semibold">Attendance Status (Me)</label>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {['Present', 'Half-Day', 'Absent', 'Overtime'].map(st => {
+                                            const isSelected = editAttForm.status === st;
+                                            let cls = 'bg-white/5 text-gray-400 hover:bg-white/10';
+                                            if (isSelected) {
+                                                if (st === 'Present') cls = 'bg-green-500 text-black font-bold shadow-lg shadow-green-500/20';
+                                                if (st === 'Half-Day') cls = 'bg-yellow-500 text-black font-bold shadow-lg shadow-yellow-500/20';
+                                                if (st === 'Absent') cls = 'bg-red-500 text-black font-bold shadow-lg shadow-red-500/20';
+                                                if (st === 'Overtime') cls = 'bg-purple-500 text-black font-bold shadow-lg shadow-purple-500/20';
+                                            }
+                                            return (
+                                                <button
+                                                    key={st}
+                                                    type="button"
+                                                    onClick={() => setEditAttForm(prev => ({ ...prev, status: st }))}
+                                                    className={`py-2 px-1 text-xs rounded-lg transition-all text-center ${cls}`}
+                                                >
+                                                    {st}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {editAttForm.status === 'Overtime' && (
+                                        <div className="flex items-center gap-4 bg-purple-500/10 border border-purple-500/20 p-2.5 rounded-lg text-xs mt-1">
+                                            <span className="text-purple-300 font-semibold">Overtime Multiplier:</span>
+                                            {['1.5', '2'].map(mult => (
+                                                <label key={mult} className="flex items-center gap-1.5 cursor-pointer">
+                                                    <input
+                                                        type="radio"
+                                                        name="ot_mult_me"
+                                                        value={mult}
+                                                        checked={editAttForm.ot_mult === mult}
+                                                        onChange={() => setEditAttForm(prev => ({ ...prev, ot_mult: mult }))}
+                                                        className="accent-purple-400"
+                                                    />
+                                                    <span>{mult} Days</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Status (Papa) */}
+                            {(editAttForm.worked_for === 'Papa' || editAttForm.worked_for === 'Both') && (
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs text-blue-400 uppercase tracking-wider font-semibold">Attendance Status (Papa)</label>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {['Present', 'Half-Day', 'Absent', 'Overtime'].map(st => {
+                                            const isSelected = editAttForm.status_papa === st;
+                                            let cls = 'bg-white/5 text-gray-400 hover:bg-white/10';
+                                            if (isSelected) {
+                                                if (st === 'Present') cls = 'bg-green-500 text-black font-bold shadow-lg shadow-green-500/20';
+                                                if (st === 'Half-Day') cls = 'bg-yellow-500 text-black font-bold shadow-lg shadow-yellow-500/20';
+                                                if (st === 'Absent') cls = 'bg-red-500 text-black font-bold shadow-lg shadow-red-500/20';
+                                                if (st === 'Overtime') cls = 'bg-purple-500 text-black font-bold shadow-lg shadow-purple-500/20';
+                                            }
+                                            return (
+                                                <button
+                                                    key={st}
+                                                    type="button"
+                                                    onClick={() => setEditAttForm(prev => ({ ...prev, status_papa: st }))}
+                                                    className={`py-2 px-1 text-xs rounded-lg transition-all text-center ${cls}`}
+                                                >
+                                                    {st}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {editAttForm.status_papa === 'Overtime' && (
+                                        <div className="flex items-center gap-4 bg-purple-500/10 border border-purple-500/20 p-2.5 rounded-lg text-xs mt-1">
+                                            <span className="text-purple-300 font-semibold">Overtime Multiplier:</span>
+                                            {['1.5', '2'].map(mult => (
+                                                <label key={mult} className="flex items-center gap-1.5 cursor-pointer">
+                                                    <input
+                                                        type="radio"
+                                                        name="ot_mult_papa"
+                                                        value={mult}
+                                                        checked={editAttForm.ot_mult_papa === mult}
+                                                        onChange={() => setEditAttForm(prev => ({ ...prev, ot_mult_papa: mult }))}
+                                                        className="accent-purple-400"
+                                                    />
+                                                    <span>{mult} Days</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Clock In & Clock Out Fields */}
+                            <div className="flex flex-col gap-2.5 bg-white/5 p-3.5 rounded-xl border border-white/10">
+                                <label className="text-xs text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+                                    <Clock size={13} className="text-emerald-400" />
+                                    Clock In & Out Time
+                                </label>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {/* Clock In */}
+                                    <div className="flex flex-col gap-1.5">
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                                Clocked In
+                                            </span>
+                                            {editAttForm.punch_in_time && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditAttForm(prev => ({ ...prev, punch_in_time: '', punch_in_display: '', raw_punch_in: '' }))}
+                                                    className="text-[11px] text-gray-400 hover:text-red-400 hover:underline cursor-pointer"
+                                                >
+                                                    Clear
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2 bg-black/50 border border-white/10 rounded-xl px-3 py-2 focus-within:border-emerald-500/50">
+                                            <input
+                                                type="time"
+                                                value={editAttForm.punch_in_time}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    setEditAttForm(prev => ({
+                                                        ...prev,
+                                                        punch_in_time: val,
+                                                        punch_in_display: val ? formatPunchTime(`${editingAttendance.date}T${val}:00+05:30`) : ''
+                                                    }));
+                                                }}
+                                                className="w-full bg-transparent text-white font-mono text-sm focus:outline-none [color-scheme:dark] cursor-pointer"
+                                            />
+                                        </div>
+                                        {editAttForm.punch_in_display && (
+                                            <span className="text-[10px] text-gray-500 font-mono">
+                                                Recorded: {editAttForm.punch_in_display}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Clock Out */}
+                                    <div className="flex flex-col gap-1.5">
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-red-400 font-semibold flex items-center gap-1.5">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                                                Clocked Out
+                                            </span>
+                                            {editAttForm.punch_out_time && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditAttForm(prev => ({ ...prev, punch_out_time: '', punch_out_display: '', raw_punch_out: '' }))}
+                                                    className="text-[11px] text-gray-400 hover:text-red-400 hover:underline cursor-pointer"
+                                                >
+                                                    Clear
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2 bg-black/50 border border-white/10 rounded-xl px-3 py-2 focus-within:border-red-500/50">
+                                            <input
+                                                type="time"
+                                                value={editAttForm.punch_out_time}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    setEditAttForm(prev => ({
+                                                        ...prev,
+                                                        punch_out_time: val,
+                                                        punch_out_display: val ? formatPunchTime(`${editingAttendance.date}T${val}:00+05:30`) : ''
+                                                    }));
+                                                }}
+                                                className="w-full bg-transparent text-white font-mono text-sm focus:outline-none [color-scheme:dark] cursor-pointer"
+                                            />
+                                        </div>
+                                        {editAttForm.punch_out_display && (
+                                            <span className="text-[10px] text-gray-500 font-mono">
+                                                Recorded: {editAttForm.punch_out_display}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Work Done (Notes) */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Work Done (Notes)</label>
+                                <textarea
+                                    placeholder="What work was performed?"
+                                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 h-20 resize-none text-sm focus:outline-none focus:border-[var(--accent)] text-white"
+                                    value={editAttForm.work_done}
+                                    onChange={e => setEditAttForm(prev => ({ ...prev, work_done: e.target.value }))}
+                                />
+                            </div>
+
+                            {/* Modal Action Buttons */}
+                            <div className="flex gap-3 mt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setEditingAttendance(null)}
+                                    className="flex-1 py-3 text-gray-400 hover:text-white transition-colors text-sm font-semibold"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={editAttSubmitting}
+                                    className="flex-1 bg-[var(--accent)] text-black font-bold rounded-xl py-3 hover:opacity-90 transition-opacity text-sm shadow-lg shadow-[var(--accent)]/10"
+                                >
+                                    {editAttSubmitting ? 'Saving...' : 'Save Changes'}
                                 </button>
                             </div>
                         </form>

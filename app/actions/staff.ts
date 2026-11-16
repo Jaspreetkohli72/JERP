@@ -750,3 +750,61 @@ export async function deleteAttendanceAction(id: string | number) {
         return { success: false, error: e.message };
     }
 }
+
+export async function updateAttendanceRecordAction(
+    id: string | number,
+    updates: {
+        status: string;
+        worked_for: string;
+        work_done?: string;
+        status_papa?: string;
+        punch_in?: string | null;
+        punch_out?: string | null;
+    }
+) {
+    try {
+        const payload: any = {
+            status: updates.status,
+            worked_for: updates.worked_for,
+            work_done: (updates.work_done || '').replace(/🕒?\s*In:\s*\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*\|\s*Out:\s*\d{1,2}:\d{2}\s*(?:AM|PM)?)?/gi, '').trim(),
+            status_papa: updates.status_papa || 'Absent',
+            punch_in: updates.punch_in || null,
+            punch_out: updates.punch_out || null
+        };
+
+        const { data, error } = await supabase
+            .from('staff_attendance')
+            .update(payload)
+            .eq('id', id)
+            .select()
+            .maybeSingle();
+
+        if (error) throw error;
+
+        // Sync local backup
+        try {
+            const attPath = path.join(process.cwd(), 'backups', 'latest', 'staff_attendance.json');
+            if (fs.existsSync(attPath)) {
+                const localAtt = JSON.parse(fs.readFileSync(attPath, 'utf-8'));
+                const idx = localAtt.findIndex((a: any) => String(a.id) === String(id));
+                if (idx >= 0) {
+                    localAtt[idx] = { ...localAtt[idx], ...payload };
+                    fs.writeFileSync(attPath, JSON.stringify(localAtt, null, 2), 'utf-8');
+                }
+            }
+        } catch (backupErr) {
+            console.warn('[Update Attendance] Backup sync warning:', backupErr);
+        }
+
+        invalidateKioskCache();
+        revalidatePath('/staff');
+        revalidatePath('/staff/calendar');
+        revalidatePath('/staff/attendance');
+        revalidatePath('/staff/[id]', 'page');
+
+        return { success: true, data };
+    } catch (e: any) {
+        console.error('Error in updateAttendanceRecordAction:', e);
+        return { success: false, error: e.message || 'Failed to update attendance' };
+    }
+}
