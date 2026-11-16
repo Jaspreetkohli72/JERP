@@ -14,7 +14,10 @@ import {
     recordPunchEvent,
     syncStaffAttendanceOnPunch,
     updatePunchInCache,
+    updateStaffInCache,
+    addStaffToCache,
     invalidateKioskCache,
+    syncStaffPunchesFromAttendance,
     PunchRecord
 } from '@/lib/kiosk';
 
@@ -207,6 +210,20 @@ export async function addStaff(payload: any) {
             return { success: false, error: error.message };
         }
 
+        // Sync local backup
+        try {
+            const staffPath = path.join(process.cwd(), 'backups', 'latest', 'staff.json');
+            if (fs.existsSync(staffPath)) {
+                const localStaff = JSON.parse(fs.readFileSync(staffPath, 'utf-8'));
+                localStaff.push(data);
+                fs.writeFileSync(staffPath, JSON.stringify(localStaff, null, 2), 'utf-8');
+            }
+        } catch (backupErr) {
+            console.warn('[Add Staff] Backup sync warning:', backupErr);
+        }
+
+        addStaffToCache(data);
+        invalidateKioskCache();
         revalidatePath('/staff');
         return { success: true, data };
     } catch (error: any) {
@@ -261,6 +278,25 @@ export async function updateStaffAction(id: string | number, updates: any) {
         const targetId = !isNaN(Number(id)) ? Number(id) : id;
         const { error } = await supabase.from('staff').update(updates).eq('id', targetId);
         if (error) throw error;
+
+        // Sync local backup
+        try {
+            const staffPath = path.join(process.cwd(), 'backups', 'latest', 'staff.json');
+            if (fs.existsSync(staffPath)) {
+                const localStaff = JSON.parse(fs.readFileSync(staffPath, 'utf-8'));
+                const idx = localStaff.findIndex((s: any) => String(s.id) === String(targetId));
+                if (idx >= 0) {
+                    localStaff[idx] = { ...localStaff[idx], ...updates };
+                    fs.writeFileSync(staffPath, JSON.stringify(localStaff, null, 2), 'utf-8');
+                }
+            }
+        } catch (backupErr) {
+            console.warn('[Update Staff] Backup sync warning:', backupErr);
+        }
+
+        updateStaffInCache(Number(targetId), updates);
+        invalidateKioskCache();
+
         revalidatePath('/staff');
         revalidatePath('/staff/attendance');
         revalidatePath('/staff/calendar');
@@ -275,6 +311,20 @@ export async function deleteStaffAction(id: string | number) {
     try {
         const { error } = await supabase.from('staff').delete().eq('id', id);
         if (error) throw error;
+
+        // Sync local backup
+        try {
+            const staffPath = path.join(process.cwd(), 'backups', 'latest', 'staff.json');
+            if (fs.existsSync(staffPath)) {
+                const localStaff = JSON.parse(fs.readFileSync(staffPath, 'utf-8'));
+                const filtered = localStaff.filter((s: any) => String(s.id) !== String(id));
+                fs.writeFileSync(staffPath, JSON.stringify(filtered, null, 2), 'utf-8');
+            }
+        } catch (backupErr) {
+            console.warn('[Delete Staff] Backup sync warning:', backupErr);
+        }
+
+        invalidateKioskCache();
         revalidatePath('/staff');
         return { success: true };
     } catch (e: any) {
@@ -329,6 +379,16 @@ export async function submitDailyAttendanceAction(date: string, records: any[]) 
         } catch (backupErr) {
             console.warn('[Attendance Action] Backup write error:', backupErr);
         }
+
+        // Sync staff_punches table and in-memory kiosk cache for any edited punches
+        for (const item of upsertData) {
+            await syncStaffPunchesFromAttendance(item.staff_id, date, item.punch_in, item.punch_out);
+        }
+        invalidateKioskCache();
+        revalidatePath('/staff');
+        revalidatePath('/staff/attendance');
+        revalidatePath('/staff/calendar');
+        revalidatePath('/staff/[id]', 'page');
         
         return { success: true, data: data || upsertData };
     } catch (e: any) {
@@ -780,6 +840,16 @@ export async function updateAttendanceRecordAction(
             .maybeSingle();
 
         if (error) throw error;
+
+        // Synchronize staff_punches table and hot in-memory cache
+        if (data?.staff_id && data?.date) {
+            await syncStaffPunchesFromAttendance(
+                data.staff_id,
+                data.date,
+                updates.punch_in !== undefined ? updates.punch_in : data.punch_in,
+                updates.punch_out !== undefined ? updates.punch_out : data.punch_out
+            );
+        }
 
         // Sync local backup
         try {

@@ -222,29 +222,39 @@ async function refreshKioskStore(): Promise<void> {
                 const staffIdNum = Number(s.id);
                 const sPunches = punchesByStaff.get(staffIdNum) || [];
                 sPunches.sort((a, b) => new Date(a.punched_at).getTime() - new Date(b.punched_at).getTime());
+                const att = attendanceByStaff.get(staffIdNum);
 
                 let isClockedIn = false;
                 let sinceTime: string | null = null;
 
-                if (sPunches.length > 0) {
+                // 1. Authoritative check: daily attendance record (reflects manual edits and daily status)
+                if (att?.punch_in) {
+                    if (!att.punch_out) {
+                        isClockedIn = true;
+                        sinceTime = formatTimeIST(att.punch_in);
+                    } else {
+                        // Explicitly clocked out
+                        isClockedIn = false;
+                        sinceTime = null;
+                    }
+                } else if (sPunches.length > 0) {
+                    // 2. Fallback to raw punches table
                     const latestPunch = sPunches[sPunches.length - 1];
                     isClockedIn = latestPunch.punch_type === 'IN';
                     sinceTime = isClockedIn ? formatTimeIST(latestPunch.punched_at) : null;
-                } else {
-                    const att = attendanceByStaff.get(staffIdNum);
-                    if (att) {
-                        if (att.punch_in && !att.punch_out) {
-                            isClockedIn = true;
-                            sinceTime = formatTimeIST(att.punch_in);
-                        } else if (att.work_done && typeof att.work_done === 'string') {
-                            const inMatch = att.work_done.match(/In:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i);
-                            const hasOut = /Out:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i.test(att.work_done);
-                            if (inMatch && !hasOut) {
-                                isClockedIn = true;
-                                sinceTime = inMatch[1];
-                            }
-                        }
+                } else if (att?.work_done && typeof att.work_done === 'string') {
+                    // 3. Legacy string fallback
+                    const inMatch = att.work_done.match(/In:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i);
+                    const hasOut = /Out:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i.test(att.work_done);
+                    if (inMatch && !hasOut) {
+                        isClockedIn = true;
+                        sinceTime = inMatch[1];
                     }
+                }
+
+                let effectiveStatus = s.status || 'Available';
+                if (att?.work_done === 'On Leave' || att?.status === 'On Leave') {
+                    effectiveStatus = 'On Leave';
                 }
 
                 return {
@@ -253,7 +263,7 @@ async function refreshKioskStore(): Promise<void> {
                     role: s.role,
                     salary: s.salary !== undefined && s.salary !== null ? Number(s.salary) : 0,
                     phone: s.phone || '',
-                    status: s.status || 'Available',
+                    status: effectiveStatus,
                     clockedIn: isClockedIn,
                     since: sinceTime,
                 };
@@ -355,6 +365,95 @@ export function invalidateKioskCache(): void {
     }
     // Fire-and-forget sync in the background
     refreshKioskStore().catch(() => {});
+}
+
+/**
+ * Synchronizes staff_punches table when an attendance record is manually edited or saved.
+ */
+export async function syncStaffPunchesFromAttendance(
+    staffId: number,
+    dateStr: string,
+    punchIn?: string | null,
+    punchOut?: string | null
+): Promise<void> {
+    try {
+        const today = getTodayIST();
+
+        // 1. Sync IN punch
+        if (punchIn) {
+            const { data: existingIn } = await supabase
+                .from('staff_punches')
+                .select('*')
+                .eq('staff_id', staffId)
+                .eq('date', dateStr)
+                .eq('punch_type', 'IN')
+                .order('punched_at', { ascending: true })
+                .limit(1);
+
+            if (existingIn && existingIn.length > 0) {
+                await supabase
+                    .from('staff_punches')
+                    .update({ punched_at: punchIn })
+                    .eq('id', existingIn[0].id);
+            } else {
+                await supabase.from('staff_punches').insert([{
+                    staff_id: staffId,
+                    punch_type: 'IN',
+                    punched_at: punchIn,
+                    date: dateStr,
+                }]);
+            }
+        } else if (punchIn === null) {
+            await supabase
+                .from('staff_punches')
+                .delete()
+                .eq('staff_id', staffId)
+                .eq('date', dateStr)
+                .eq('punch_type', 'IN');
+        }
+
+        // 2. Sync OUT punch
+        if (punchOut) {
+            const { data: existingOut } = await supabase
+                .from('staff_punches')
+                .select('*')
+                .eq('staff_id', staffId)
+                .eq('date', dateStr)
+                .eq('punch_type', 'OUT')
+                .order('punched_at', { ascending: false })
+                .limit(1);
+
+            if (existingOut && existingOut.length > 0) {
+                await supabase
+                    .from('staff_punches')
+                    .update({ punched_at: punchOut })
+                    .eq('id', existingOut[0].id);
+            } else {
+                await supabase.from('staff_punches').insert([{
+                    staff_id: staffId,
+                    punch_type: 'OUT',
+                    punched_at: punchOut,
+                    date: dateStr,
+                }]);
+            }
+        } else if (punchOut === null) {
+            await supabase
+                .from('staff_punches')
+                .delete()
+                .eq('staff_id', staffId)
+                .eq('date', dateStr)
+                .eq('punch_type', 'OUT');
+        }
+
+        // 3. If today, instantly update live in-memory cache
+        if (dateStr === today) {
+            const isClockedIn = !!punchIn && !punchOut;
+            const sinceTime = isClockedIn ? formatTimeIST(punchIn!) : null;
+            updatePunchInCache(staffId, isClockedIn, sinceTime);
+        }
+    } catch (e) {
+        console.warn('[Kiosk] syncStaffPunchesFromAttendance warning:', e);
+    }
 }
 
 /**

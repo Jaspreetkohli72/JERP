@@ -720,11 +720,10 @@ export default function StaffDetailsPage() {
                                 type="button"
                                 onClick={() => handlePunch('IN')}
                                 disabled={isPunching || punchStatus.clockedIn || staff.status?.startsWith('Terminated') || staff.status?.startsWith('On Leave')}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                                    punchStatus.clockedIn || staff.status?.startsWith('Terminated') || staff.status?.startsWith('On Leave')
-                                        ? 'opacity-30 cursor-not-allowed bg-white/5 text-gray-500 border border-white/5'
-                                        : 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 cursor-pointer active:scale-95'
-                                }`}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${punchStatus.clockedIn || staff.status?.startsWith('Terminated') || staff.status?.startsWith('On Leave')
+                                    ? 'opacity-30 cursor-not-allowed bg-white/5 text-gray-500 border border-white/5'
+                                    : 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 cursor-pointer active:scale-95'
+                                    }`}
                                 title={punchStatus.clockedIn ? 'Staff is already clocked in' : 'Record Clock In'}
                             >
                                 <LogIn size={13} />
@@ -735,11 +734,10 @@ export default function StaffDetailsPage() {
                                 type="button"
                                 onClick={() => handlePunch('OUT')}
                                 disabled={isPunching || !punchStatus.clockedIn || staff.status?.startsWith('Terminated') || staff.status?.startsWith('On Leave')}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                                    !punchStatus.clockedIn || staff.status?.startsWith('Terminated') || staff.status?.startsWith('On Leave')
-                                        ? 'opacity-30 cursor-not-allowed bg-white/5 text-gray-500 border border-white/5'
-                                        : 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 cursor-pointer active:scale-95'
-                                }`}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${!punchStatus.clockedIn || staff.status?.startsWith('Terminated') || staff.status?.startsWith('On Leave')
+                                    ? 'opacity-30 cursor-not-allowed bg-white/5 text-gray-500 border border-white/5'
+                                    : 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 cursor-pointer active:scale-95'
+                                    }`}
                                 title={!punchStatus.clockedIn ? 'Staff is not clocked in' : 'Record Clock Out'}
                             >
                                 <LogOut size={13} />
