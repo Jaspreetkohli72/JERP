@@ -13,6 +13,8 @@ import {
     getPunchesForDate,
     recordPunchEvent,
     syncStaffAttendanceOnPunch,
+    updatePunchInCache,
+    invalidateKioskCache,
     PunchRecord
 } from '@/lib/kiosk';
 
@@ -591,6 +593,11 @@ export async function punchStaffAction(staffId: string | number, action: 'IN' | 
             message = `Clocked OUT (Total: ${totalHours.toFixed(1)} hrs: ${calculatedStatus})`;
         }
 
+        const isClockedInNow = action === 'IN';
+        const sinceTimeNow = isClockedInNow ? formatTimeIST(nowIso) : null;
+        updatePunchInCache(numStaffId, isClockedInNow, sinceTimeNow);
+        invalidateKioskCache();
+
         revalidatePath('/staff');
         revalidatePath('/staff/calendar');
         revalidatePath('/staff/attendance');
@@ -599,8 +606,8 @@ export async function punchStaffAction(staffId: string | number, action: 'IN' | 
         return {
             success: true,
             message,
-            clockedIn: action === 'IN',
-            since: action === 'IN' ? formatTimeIST(nowIso) : null
+            clockedIn: isClockedInNow,
+            since: sinceTimeNow
         };
     } catch (e: any) {
         console.error('Error in punchStaffAction:', e);

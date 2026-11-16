@@ -154,25 +154,214 @@ export async function recordPunchEvent(record: PunchRecord): Promise<void> {
     saveBackupJson('staff_punches.json', local);
 }
 
-interface KioskCache {
-    timestamp: number;
+interface KioskStore {
+    lastSyncedAt: number;
     today: string;
     allStaff: KioskStaffItem[];
     activeStaff: KioskStaffItem[];
 }
 
-let kioskCache: KioskCache | null = null;
-const CACHE_TTL_MS = 4000; // 4 seconds fast memory cache for instant API responses
+let kioskStore: KioskStore | null = null;
+let activeSyncPromise: Promise<void> | null = null;
 
-export function invalidateKioskCache(): void {
-    kioskCache = null;
+/**
+ * Triggers background refresh from database, deduplicating concurrent sync calls.
+ */
+async function refreshKioskStore(): Promise<void> {
+    if (activeSyncPromise) {
+        return activeSyncPromise;
+    }
+
+    activeSyncPromise = (async () => {
+        try {
+            const today = getTodayIST();
+            let staffList: any[] = [];
+            let todayPunches: PunchRecord[] = [];
+            let todayAttendance: any[] = [];
+
+            try {
+                const [staffRes, punchesRes, attRes] = await Promise.all([
+                    supabase.from('staff').select('*').order('name', { ascending: true }),
+                    supabase.from('staff_punches').select('*').eq('date', today).order('punched_at', { ascending: true }),
+                    supabase.from('staff_attendance').select('*').eq('date', today),
+                ]);
+
+                if (staffRes.data && staffRes.data.length > 0) staffList = staffRes.data;
+                if (punchesRes.data && punchesRes.data.length > 0) todayPunches = punchesRes.data;
+                if (attRes.data && attRes.data.length > 0) todayAttendance = attRes.data;
+            } catch (e) {
+                console.warn('[Kiosk] Parallel Supabase query warning:', e);
+            }
+
+            // Fallbacks to local files if database is empty/offline
+            if (staffList.length === 0) {
+                staffList = loadBackupJson<any[]>('staff.json', []);
+            }
+            if (todayPunches.length === 0) {
+                const local = loadBackupJson<PunchRecord[]>('staff_punches.json', []);
+                todayPunches = local.filter((p) => p.date === today);
+            }
+            if (todayAttendance.length === 0) {
+                const localAtt = loadBackupJson<any[]>('staff_attendance.json', []);
+                todayAttendance = localAtt.filter((a) => a.date === today);
+            }
+
+            const punchesByStaff = new Map<number, PunchRecord[]>();
+            for (const p of todayPunches) {
+                const list = punchesByStaff.get(p.staff_id) || [];
+                list.push(p);
+                punchesByStaff.set(p.staff_id, list);
+            }
+
+            const attendanceByStaff = new Map<number, any>();
+            for (const a of todayAttendance) {
+                attendanceByStaff.set(Number(a.staff_id), a);
+            }
+
+            const allStaff: KioskStaffItem[] = staffList.map((s: any) => {
+                const staffIdNum = Number(s.id);
+                const sPunches = punchesByStaff.get(staffIdNum) || [];
+                sPunches.sort((a, b) => new Date(a.punched_at).getTime() - new Date(b.punched_at).getTime());
+
+                let isClockedIn = false;
+                let sinceTime: string | null = null;
+
+                if (sPunches.length > 0) {
+                    const latestPunch = sPunches[sPunches.length - 1];
+                    isClockedIn = latestPunch.punch_type === 'IN';
+                    sinceTime = isClockedIn ? formatTimeIST(latestPunch.punched_at) : null;
+                } else {
+                    const att = attendanceByStaff.get(staffIdNum);
+                    if (att) {
+                        if (att.punch_in && !att.punch_out) {
+                            isClockedIn = true;
+                            sinceTime = formatTimeIST(att.punch_in);
+                        } else if (att.work_done && typeof att.work_done === 'string') {
+                            const inMatch = att.work_done.match(/In:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i);
+                            const hasOut = /Out:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i.test(att.work_done);
+                            if (inMatch && !hasOut) {
+                                isClockedIn = true;
+                                sinceTime = inMatch[1];
+                            }
+                        }
+                    }
+                }
+
+                return {
+                    id: String(s.id),
+                    name: s.name,
+                    role: s.role,
+                    salary: s.salary !== undefined && s.salary !== null ? Number(s.salary) : 0,
+                    phone: s.phone || '',
+                    status: s.status || 'Available',
+                    clockedIn: isClockedIn,
+                    since: sinceTime,
+                };
+            });
+
+            allStaff.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+            const activeStaff = allStaff.filter(
+                (s) => !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave')
+            );
+
+            kioskStore = {
+                lastSyncedAt: Date.now(),
+                today,
+                allStaff,
+                activeStaff,
+            };
+        } finally {
+            activeSyncPromise = null;
+        }
+    })();
+
+    return activeSyncPromise;
 }
 
 /**
- * Resolves the list of staff members with their live clock-in status for todayIST.
- * By default, returns only active staff (not terminated, not on leave).
- * Pass { includeAll: true } to return all staff irrespective of status.
- * Uses high-speed parallel database queries and in-memory caching.
+ * Instantly updates live punch status in memory (0ms latency, zero DB delay).
+ */
+export function updatePunchInCache(staffId: number, isClockedIn: boolean, sinceTime: string | null): void {
+    if (!kioskStore) return;
+    const strId = String(staffId);
+    for (const s of kioskStore.allStaff) {
+        if (s.id === strId) {
+            s.clockedIn = isClockedIn;
+            s.since = sinceTime;
+            break;
+        }
+    }
+    for (const s of kioskStore.activeStaff) {
+        if (s.id === strId) {
+            s.clockedIn = isClockedIn;
+            s.since = sinceTime;
+            break;
+        }
+    }
+    kioskStore.lastSyncedAt = Date.now();
+}
+
+/**
+ * Instantly updates staff details in memory (0ms latency).
+ */
+export function updateStaffInCache(staffId: number, updates: Partial<KioskStaffItem>): void {
+    if (!kioskStore) return;
+    const strId = String(staffId);
+    for (const s of kioskStore.allStaff) {
+        if (s.id === strId) {
+            if (updates.name !== undefined) s.name = updates.name;
+            if (updates.role !== undefined) s.role = updates.role;
+            if (updates.salary !== undefined) s.salary = updates.salary;
+            if (updates.phone !== undefined) s.phone = updates.phone;
+            if (updates.status !== undefined) s.status = updates.status;
+            break;
+        }
+    }
+    kioskStore.allStaff.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    kioskStore.activeStaff = kioskStore.allStaff.filter(
+        (s) => !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave')
+    );
+    kioskStore.lastSyncedAt = Date.now();
+}
+
+/**
+ * Instantly adds a newly created staff member to memory (0ms latency).
+ */
+export function addStaffToCache(newStaff: any): void {
+    if (!kioskStore) return;
+    const item: KioskStaffItem = {
+        id: String(newStaff.id),
+        name: newStaff.name,
+        role: newStaff.role || 'Helper',
+        salary: Number(newStaff.salary) || 0,
+        phone: newStaff.phone || '',
+        status: newStaff.status || 'Available',
+        clockedIn: false,
+        since: null,
+    };
+    kioskStore.allStaff.push(item);
+    kioskStore.allStaff.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    kioskStore.activeStaff = kioskStore.allStaff.filter(
+        (s) => !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave')
+    );
+    kioskStore.lastSyncedAt = Date.now();
+}
+
+export function invalidateKioskCache(): void {
+    if (kioskStore) {
+        // Mark stale so next request triggers background sync without blowing away memory
+        kioskStore.lastSyncedAt = 0;
+    }
+    // Fire-and-forget sync in the background
+    refreshKioskStore().catch(() => {});
+}
+
+/**
+ * Resolves the list of staff members with live clock-in status.
+ * - Returns from hot memory in <5ms on 99% of requests.
+ * - Triggers non-blocking background refresh if data is older than 1,000ms.
+ * - Single-flight deduplication ensures only 1 DB query runs at a time even with 100+ req/s.
  */
 export async function getActiveStaffKioskList(options?: {
     includeAll?: boolean;
@@ -183,113 +372,21 @@ export async function getActiveStaffKioskList(options?: {
     const today = getTodayIST();
     const now = Date.now();
 
-    // 1. Instant Cache Hit (<5ms)
-    if (!bypassCache && kioskCache && kioskCache.today === today && (now - kioskCache.timestamp) < CACHE_TTL_MS) {
-        return includeAll ? kioskCache.allStaff : kioskCache.activeStaff;
+    // Cold start, day rollover, or explicit bypass: wait for initial load
+    if (!kioskStore || kioskStore.today !== today || bypassCache) {
+        await refreshKioskStore();
+        return includeAll ? (kioskStore?.allStaff || []) : (kioskStore?.activeStaff || []);
     }
 
-    let staffList: any[] = [];
-    let todayPunches: PunchRecord[] = [];
-    let todayAttendance: any[] = [];
+    // Hot memory hit (<5ms)
+    const result = includeAll ? kioskStore.allStaff : kioskStore.activeStaff;
 
-    // 2. High-speed Parallel Database Queries (1 round trip instead of 3 serial hops)
-    try {
-        const [staffRes, punchesRes, attRes] = await Promise.all([
-            supabase.from('staff').select('*').order('name', { ascending: true }),
-            supabase.from('staff_punches').select('*').eq('date', today).order('punched_at', { ascending: true }),
-            supabase.from('staff_attendance').select('*').eq('date', today),
-        ]);
-
-        if (staffRes.data && staffRes.data.length > 0) staffList = staffRes.data;
-        if (punchesRes.data && punchesRes.data.length > 0) todayPunches = punchesRes.data;
-        if (attRes.data && attRes.data.length > 0) todayAttendance = attRes.data;
-    } catch (e) {
-        console.warn('[Kiosk] Parallel Supabase query warning:', e);
+    // Background sync if data is older than 1000ms (1 second), without blocking caller
+    if (now - kioskStore.lastSyncedAt > 1000 && !activeSyncPromise) {
+        refreshKioskStore().catch((err) => console.warn('[Kiosk] Background sync error:', err));
     }
 
-    // Fallbacks to local files if database empty or paused
-    if (staffList.length === 0) {
-        staffList = loadBackupJson<any[]>('staff.json', []);
-    }
-    if (todayPunches.length === 0) {
-        const local = loadBackupJson<PunchRecord[]>('staff_punches.json', []);
-        todayPunches = local.filter((p) => p.date === today);
-    }
-    if (todayAttendance.length === 0) {
-        const localAtt = loadBackupJson<any[]>('staff_attendance.json', []);
-        todayAttendance = localAtt.filter((a) => a.date === today);
-    }
-
-    // Index punches by staff_id
-    const punchesByStaff = new Map<number, PunchRecord[]>();
-    for (const p of todayPunches) {
-        const list = punchesByStaff.get(p.staff_id) || [];
-        list.push(p);
-        punchesByStaff.set(p.staff_id, list);
-    }
-
-    // Index attendance by staff_id
-    const attendanceByStaff = new Map<number, any>();
-    for (const a of todayAttendance) {
-        attendanceByStaff.set(Number(a.staff_id), a);
-    }
-
-    const allStaff: KioskStaffItem[] = staffList.map((s: any) => {
-        const staffIdNum = Number(s.id);
-        const sPunches = punchesByStaff.get(staffIdNum) || [];
-        sPunches.sort((a, b) => new Date(a.punched_at).getTime() - new Date(b.punched_at).getTime());
-
-        let isClockedIn = false;
-        let sinceTime: string | null = null;
-
-        if (sPunches.length > 0) {
-            const latestPunch = sPunches[sPunches.length - 1];
-            isClockedIn = latestPunch.punch_type === 'IN';
-            sinceTime = isClockedIn ? formatTimeIST(latestPunch.punched_at) : null;
-        } else {
-            const att = attendanceByStaff.get(staffIdNum);
-            if (att) {
-                if (att.punch_in && !att.punch_out) {
-                    isClockedIn = true;
-                    sinceTime = formatTimeIST(att.punch_in);
-                } else if (att.work_done && typeof att.work_done === 'string') {
-                    const inMatch = att.work_done.match(/In:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i);
-                    const hasOut = /Out:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i.test(att.work_done);
-                    if (inMatch && !hasOut) {
-                        isClockedIn = true;
-                        sinceTime = inMatch[1];
-                    }
-                }
-            }
-        }
-
-        return {
-            id: String(s.id),
-            name: s.name,
-            role: s.role,
-            salary: s.salary !== undefined && s.salary !== null ? Number(s.salary) : 0,
-            phone: s.phone || '',
-            status: s.status || 'Available',
-            clockedIn: isClockedIn,
-            since: sinceTime,
-        };
-    });
-
-    allStaff.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-
-    const activeStaff = allStaff.filter(
-        (s) => !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave')
-    );
-
-    // Update in-memory cache
-    kioskCache = {
-        timestamp: Date.now(),
-        today,
-        allStaff,
-        activeStaff,
-    };
-
-    return includeAll ? allStaff : activeStaff;
+    return result;
 }
 
 /**

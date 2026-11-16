@@ -10,6 +10,7 @@ import {
     syncStaffAttendanceOnPunch,
     getActiveStaffKioskList,
     invalidateKioskCache,
+    updatePunchInCache,
     loadBackupJson,
     PunchRecord
 } from '@/lib/kiosk';
@@ -121,8 +122,10 @@ export async function POST(request: Request) {
                 punched_at: nowIso,
                 date: today,
             };
-            await recordPunchEvent(newPunch);
-            await syncStaffAttendanceOnPunch(numStaffId, 'IN', nowIso, undefined, undefined, existingAtt);
+            await Promise.all([
+                recordPunchEvent(newPunch),
+                syncStaffAttendanceOnPunch(numStaffId, 'IN', nowIso, undefined, undefined, existingAtt)
+            ]);
             message = `Punched IN successfully at ${formatTimeIST(nowIso)}`;
         } else {
             // action === 'OUT'
@@ -132,8 +135,6 @@ export async function POST(request: Request) {
                 punched_at: nowIso,
                 date: today,
             };
-            await recordPunchEvent(newPunch);
-
             // Calculate total cumulative worked hours across all completed IN/OUT pairs today
             let totalHours = 0;
             if (workerPunches.length > 0) {
@@ -146,19 +147,24 @@ export async function POST(request: Request) {
             }
 
             const calculatedStatus = calculateAttendanceStatus(totalHours);
-
             const inPunches = workerPunches.filter((p) => p.punch_type === 'IN');
             const earliestInIso = inPunches.length > 0 ? inPunches[0].punched_at : (existingAtt?.punch_in || undefined);
 
-            await syncStaffAttendanceOnPunch(numStaffId, 'OUT', nowIso, calculatedStatus, earliestInIso, existingAtt);
+            await Promise.all([
+                recordPunchEvent(newPunch),
+                syncStaffAttendanceOnPunch(numStaffId, 'OUT', nowIso, calculatedStatus, earliestInIso, existingAtt)
+            ]);
 
             const hoursDisplay = totalHours.toFixed(1);
             message = `Punched OUT successfully (Total: ${hoursDisplay} hrs, Status: ${calculatedStatus})`;
         }
 
-        // 3. Invalidate cache and return refreshed active staff list
+        // 3. Instantly update live in-memory status (0ms delay) and trigger background sync
+        const isClockedInNow = action === 'IN';
+        const sinceTimeNow = isClockedInNow ? formatTimeIST(nowIso) : null;
+        updatePunchInCache(numStaffId, isClockedInNow, sinceTimeNow);
         invalidateKioskCache();
-        const updatedStaff = await getActiveStaffKioskList({ bypassCache: true });
+        const updatedStaff = await getActiveStaffKioskList();
 
         return NextResponse.json(
             {

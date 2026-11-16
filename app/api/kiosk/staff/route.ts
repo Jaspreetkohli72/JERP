@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { revalidatePath } from 'next/cache';
-import { getActiveStaffKioskList, loadBackupJson, saveBackupJson, getTodayIST, invalidateKioskCache } from '@/lib/kiosk';
+import {
+    getActiveStaffKioskList,
+    loadBackupJson,
+    saveBackupJson,
+    getTodayIST,
+    invalidateKioskCache,
+    addStaffToCache,
+    updateStaffInCache
+} from '@/lib/kiosk';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,6 +112,7 @@ export async function POST(request: NextRequest) {
         revalidatePath('/staff');
         revalidatePath('/staff/calendar');
         revalidatePath('/staff/attendance');
+        addStaffToCache(createdMember);
         invalidateKioskCache();
 
         return NextResponse.json(
@@ -240,6 +249,7 @@ async function handleUpdateStaff(request: NextRequest) {
         revalidatePath('/staff/calendar');
         revalidatePath('/staff/attendance');
         revalidatePath(`/staff/${staffId}`);
+        updateStaffInCache(numStaffId, updates);
         invalidateKioskCache();
 
         return NextResponse.json(
