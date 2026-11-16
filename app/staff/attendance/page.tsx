@@ -307,7 +307,9 @@ export default function AttendancePage() {
                     status: 'Absent',
                     worked_for: settings?.default_attendance_worked_for || 'Me',
                     work_done: 'On Leave',
-                    status_papa: 'Absent'
+                    status_papa: 'Absent',
+                    punch_in: undefined,
+                    punch_out: undefined
                 });
             }
         });

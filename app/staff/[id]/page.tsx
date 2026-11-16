@@ -20,7 +20,7 @@ export default function StaffDetailsPage() {
     const [punchStatus, setPunchStatus] = useState<{ clockedIn: boolean; since: string | null }>({ clockedIn: false, since: null });
     const [month, setMonth] = useState(new Date().getMonth());
     const [year, setYear] = useState(new Date().getFullYear());
-    const [data, setData] = useState({ attendance: [], advances: [] });
+    const [data, setData] = useState<{ attendance: any[]; advances: any[] }>({ attendance: [], advances: [] });
     const [loading, setLoading] = useState(true);
 
     // Modal State
