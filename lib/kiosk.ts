@@ -245,30 +245,6 @@ function buildKioskStaffItems(
 }
 
 /**
- * Instantly seeds kioskStore from local disk backup in <1ms to eliminate cold-start DB delays.
- */
-function initKioskStoreFromBackup(today: string): boolean {
-    try {
-        const staffList = loadBackupJson<any[]>('staff.json', []);
-        if (!staffList || staffList.length === 0) return false;
-
-        const punches = loadBackupJson<PunchRecord[]>('staff_punches.json', []).filter((p) => p.date === today);
-        const attendance = loadBackupJson<any[]>('staff_attendance.json', []).filter((a) => a.date === today);
-
-        const { allStaff, activeStaff } = buildKioskStaffItems(staffList, punches, attendance);
-        kioskStore = {
-            lastSyncedAt: 0, // Forces non-blocking background sync on next cycle
-            today,
-            allStaff,
-            activeStaff,
-        };
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-/**
  * Triggers background refresh from database, deduplicating concurrent sync calls.
  */
 async function refreshKioskStore(): Promise<void> {
@@ -290,9 +266,9 @@ async function refreshKioskStore(): Promise<void> {
                     supabase.from('staff_attendance').select('*').eq('date', today),
                 ]);
 
-                // 450ms race guarantee: never block caller beyond 450ms under heavy DB load
+                // 3500ms race timeout: gives Supabase ample time to connect, while preventing hanging lambdas
                 const timeoutPromise = new Promise<never>((_, reject) =>
-                    setTimeout(() => reject(new Error('Supabase query timeout')), 450)
+                    setTimeout(() => reject(new Error('Supabase query timeout')), 3500)
                 );
 
                 const [staffRes, punchesRes, attRes] = await Promise.race([
@@ -300,9 +276,16 @@ async function refreshKioskStore(): Promise<void> {
                     timeoutPromise
                 ]);
 
-                if (staffRes?.data && staffRes.data.length > 0) staffList = staffRes.data;
-                if (punchesRes?.data && punchesRes.data.length > 0) todayPunches = punchesRes.data;
-                if (attRes?.data && attRes.data.length > 0) todayAttendance = attRes.data;
+                if (staffRes?.data && staffRes.data.length > 0) {
+                    staffList = staffRes.data;
+                    saveBackupJson('staff.json', staffList);
+                }
+                if (punchesRes?.data && punchesRes.data.length > 0) {
+                    todayPunches = punchesRes.data;
+                }
+                if (attRes?.data && attRes.data.length > 0) {
+                    todayAttendance = attRes.data;
+                }
             } catch (e) {
                 console.warn('[Kiosk] Supabase query notice (serving fast fallback):', e);
             }
@@ -518,26 +501,15 @@ export async function getActiveStaffKioskList(options?: {
     const today = getTodayIST();
     const now = Date.now();
 
-    // 1. Instant local seeding on cold start (<1ms) to eliminate DB wait
-    if (!kioskStore || kioskStore.today !== today) {
-        initKioskStoreFromBackup(today);
-    }
-
-    // 2. Cold start fallback (only if no backup files exist) or explicit bypass
-    if (!kioskStore || bypassCache) {
+    // Fetch live from Supabase:
+    // - Cold start, day rollover, or explicit bypass
+    // - Or if last fetch was > 1000ms ago (1s coalescing prevents database overload under concurrent spikes)
+    // Always awaits Supabase so callers receive fresh, authoritative live data.
+    if (!kioskStore || kioskStore.today !== today || bypassCache || (now - kioskStore.lastSyncedAt > 1000)) {
         await refreshKioskStore();
-        return includeAll ? (kioskStore?.allStaff || []) : (kioskStore?.activeStaff || []);
     }
 
-    // 3. Hot memory hit (<1ms, guarantees P99 under 50ms)
-    const result = includeAll ? kioskStore.allStaff : kioskStore.activeStaff;
-
-    // 4. Non-blocking background sync if data is older than 30 seconds
-    if (now - kioskStore.lastSyncedAt > 30000 && !activeSyncPromise) {
-        refreshKioskStore().catch((err) => console.warn('[Kiosk] Background sync error:', err));
-    }
-
-    return result;
+    return includeAll ? (kioskStore?.allStaff || []) : (kioskStore?.activeStaff || []);
 }
 
 /**

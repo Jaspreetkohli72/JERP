@@ -29,13 +29,13 @@ export async function GET(
             return NextResponse.json({ error: 'Staff member not found' }, { status: 404 });
         }
 
-        const cdnHeaders = {
-            'Cache-Control': 'public, s-maxage=1, stale-while-revalidate=5',
-            'CDN-Cache-Control': 'public, s-maxage=1, stale-while-revalidate=5',
-            'Vercel-CDN-Cache-Control': 'public, s-maxage=1, stale-while-revalidate=5',
+        const liveHeaders = {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
         };
 
-        return NextResponse.json(member, { status: 200, headers: cdnHeaders });
+        return NextResponse.json(member, { status: 200, headers: liveHeaders });
     } catch (e: any) {
         console.error('[Kiosk API] GET /api/kiosk/staff/[id] error:', e);
         return NextResponse.json({ error: 'Failed to fetch staff member' }, { status: 500 });

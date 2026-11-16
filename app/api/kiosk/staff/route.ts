@@ -25,10 +25,10 @@ export async function GET(request: NextRequest) {
 
         const staffList = await getActiveStaffKioskList({ includeAll });
 
-        const cdnHeaders = {
-            'Cache-Control': 'public, s-maxage=1, stale-while-revalidate=5',
-            'CDN-Cache-Control': 'public, s-maxage=1, stale-while-revalidate=5',
-            'Vercel-CDN-Cache-Control': 'public, s-maxage=1, stale-while-revalidate=5',
+        const liveHeaders = {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
         };
 
         if (idParam) {
@@ -36,10 +36,10 @@ export async function GET(request: NextRequest) {
             if (!member) {
                 return NextResponse.json({ error: 'Staff member not found' }, { status: 404 });
             }
-            return NextResponse.json(member, { status: 200, headers: cdnHeaders });
+            return NextResponse.json(member, { status: 200, headers: liveHeaders });
         }
 
-        return NextResponse.json(staffList, { status: 200, headers: cdnHeaders });
+        return NextResponse.json(staffList, { status: 200, headers: liveHeaders });
     } catch (e: any) {
         console.error('[Kiosk API] GET /api/kiosk/staff error:', e);
         return NextResponse.json({ error: 'Failed to fetch staff' }, { status: 500 });
