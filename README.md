@@ -53,11 +53,14 @@
 - Estimates, Bills, Projects, Measurements management
 - Full CRUD with status tracking (Draft → Sent → Paid)
 
-### 6. 👷 Staff Management
+### 6. 👷 Staff Management & Workshop Kiosk
 - Staff profiles with daily attendance (Present / Half-Day / Overtime / Absent)
-- Salary accrual and advance tracking
+- **Tenths Rounding Attendance Rules**: Automatically evaluates punch hours against the $4\text{h } (\pm 1\text{h})$ condition ($2.5\text{h} \rightarrow \text{Absent}$, $2.6\text{h} \rightarrow \text{Half-Day}$, $7-10\text{h} \rightarrow \text{Present}$, $>10\text{h} \rightarrow \text{Overtime}$)
+- **Recipient Routing (`worked_for`)**: Configurable global attribution (`Papa`, `Me`, `Both`) with dual-ledger support (`status` vs `status_papa`)
+- **Factory Kiosk REST APIs**: Public, high-speed tablet endpoints for Clock IN/OUT, cash advances, staff rosters, and hardware health/battery telemetry
+- Salary accrual and advance tracking with manager tags (`Jaspreet`, `Harjeet`, `Sandeep`, `Jaskaran`)
 - Net payable calculation per staff member
-- Staff calendar view
+- Staff calendar and daily attendance review views
 
 ### 7. 🛒 Marketing / Inventory
 - Supplier management

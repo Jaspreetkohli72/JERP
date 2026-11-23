@@ -119,6 +119,40 @@ Base URL is configurable in the app settings (e.g., `http://192.168.1.100:3000` 
 
 ---
 
+### Endpoint 4: Report Kiosk Battery & Health Telemetry
+- **URL**: `POST /api/kiosk/health`
+- **Headers**: `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "device_id": "tablet-main",
+  "battery_percentage": 85,
+  "is_charging": true,
+  "charging_state": "charging",
+  "app_version": "1.0.0"
+}
+```
+- **Response `200 OK`**:
+```json
+{
+  "success": true,
+  "db_synced": true,
+  "health": {
+    "device_id": "tablet-main",
+    "battery_percentage": 85,
+    "is_charging": true,
+    "charging_state": "charging",
+    "last_seen": "23 Nov 2026, 03:20:00 PM",
+    "last_seen_time": "03:20:00 PM",
+    "is_online": true,
+    "last_seen_minutes_ago": 0
+  }
+}
+```
+*(Send this heartbeat periodically every 5–15 minutes using WorkManager or background coroutine).*
+
+---
+
 ## 3. Technology Stack & Dependencies
 
 For maximum compatibility with Android 6.0 (API 23) and high UI responsiveness:

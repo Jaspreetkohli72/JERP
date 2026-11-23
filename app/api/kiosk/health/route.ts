@@ -54,12 +54,15 @@ function formatTimeOnlyIST(ts?: string | Date | null): string | null {
     }
 }
 
+const ONLINE_TIMEOUT_MS = 90 * 1000; // 90 seconds threshold for Uptime Kuma monitoring
+
 function enrichHealthRecord(rec: any, now: number) {
     const rawLastSeen = rec.last_seen;
     const lastSeenTime = rawLastSeen ? new Date(rawLastSeen).getTime() : 0;
     const diffMs = Math.max(0, now - lastSeenTime);
+    const diffSeconds = Math.floor(diffMs / 1000);
     const diffMinutes = Math.floor(diffMs / 60000);
-    const isOnline = diffMs <= 5 * 60 * 1000;
+    const isOnline = diffMs <= ONLINE_TIMEOUT_MS;
 
     return {
         ...rec,
@@ -71,6 +74,7 @@ function enrichHealthRecord(rec: any, now: number) {
         updated_at: formatTimestampIST(rec.updated_at),
         updated_at_iso: rec.updated_at || null,
         is_online: isOnline,
+        last_seen_seconds_ago: diffSeconds,
         last_seen_minutes_ago: diffMinutes
     };
 }
@@ -120,9 +124,15 @@ export async function GET(request: NextRequest) {
         const enriched = records.map(rec => enrichHealthRecord(rec, now));
 
         if (deviceId && enriched.length > 0) {
-            return NextResponse.json(enriched[0], { status: 200, headers: NO_CACHE_HEADERS });
+            const deviceRecord = enriched[0];
+            const httpStatus = deviceRecord.is_online ? 200 : 503;
+            return NextResponse.json(deviceRecord, { status: httpStatus, headers: NO_CACHE_HEADERS });
         } else if (deviceId && enriched.length === 0) {
-            return NextResponse.json({ error: `Kiosk device '${deviceId}' not found` }, { status: 404, headers: NO_CACHE_HEADERS });
+            return NextResponse.json({
+                error: `Kiosk device '${deviceId}' not found`,
+                device_id: deviceId,
+                is_online: false
+            }, { status: 503, headers: NO_CACHE_HEADERS });
         }
 
         return NextResponse.json(enriched, { status: 200, headers: NO_CACHE_HEADERS });

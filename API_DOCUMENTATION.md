@@ -418,41 +418,59 @@ Sends tablet telemetry including battery percentage, charging state, app version
 
 ---
 
-### Endpoint 8: `GET /api/kiosk/health` — Read Kiosk Device Telemetry
+### Endpoint 8: `GET /api/kiosk/health` — Read Kiosk Device Telemetry & Uptime Kuma Monitoring
 
-Fetches current battery status, charging state, and online/offline calculation for all registered tablets or a specific device.
+Fetches current battery status, charging state, and online/offline calculation for all registered tablets or a specific device. Designed for direct integration with **Uptime Kuma** HTTP monitors.
 
 - **Method**: `GET`
 - **URL**: `/api/kiosk/health`
 - **Query Parameters**:
   - `device_id` *(optional, string)*: Filter to a single kiosk device (e.g. `?device_id=tablet-main`).
-- **Online Calculation Rule**:
-  - `is_online: true` if the device reported a heartbeat within the last **5 minutes** ($\le 300\text{s}$).
-  - `is_online: false` if no heartbeat has arrived for $> 5$ minutes.
+- **Online Calculation & HTTP Status Rules**:
+  - **Offline Threshold**: **90 seconds** ($\le 90\text{s}$ based on `last_seen`).
+  - **Filtered by `device_id`**:
+    - Returns **`200 OK`** if the device is online (`is_online: true`, heartbeat within last 90 seconds).
+    - Returns **`503 Service Unavailable`** if the device is offline (`is_online: false`, heartbeat $> 90\text{s}$) or not found, while returning the full JSON telemetry payload in the response body. This allows Uptime Kuma to immediately detect a downed tablet without custom JSON keyword parsing.
+  - **No `device_id` (List All)**:
+    - Returns **`200 OK`** with an array of all known devices and their individual `is_online` flags.
+- **Cache Policy**: Emits `Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate` with dynamic server rendering to guarantee Vercel edge CDN never caches health states.
 
-#### Response (`200 OK`) — Multi-device list:
+#### Response (`200 OK`) — When device is online:
 ```json
-[
-  {
-    "id": "18f949c8-d8f9-436f-9988-d45855018619",
-    "device_id": "tablet-main",
-    "battery_percentage": 78,
-    "is_charging": true,
-    "charging_state": "charging",
-    "ip_address": "192.168.1.105",
-    "app_version": "1.2.0",
-    "metadata": {
-      "screen_on": true
-    },
-    "last_seen": "23 Nov 2026, 03:03:48 PM",
-    "last_seen_time": "03:03:48 PM",
-    "last_seen_iso": "2026-11-23T09:33:48.005Z",
-    "created_at": "23 Nov 2026, 02:59:59 PM",
-    "updated_at": "23 Nov 2026, 03:03:48 PM",
-    "is_online": true,
-    "last_seen_minutes_ago": 0
-  }
-]
+{
+  "id": "18f949c8-d8f9-436f-9988-d45855018619",
+  "device_id": "tablet-main",
+  "battery_percentage": 78,
+  "is_charging": true,
+  "charging_state": "charging",
+  "ip_address": "192.168.1.105",
+  "app_version": "1.2.0",
+  "last_seen": "23 Nov 2026, 03:03:48 PM",
+  "last_seen_time": "03:03:48 PM",
+  "last_seen_iso": "2026-11-23T09:33:48.005Z",
+  "is_online": true,
+  "last_seen_seconds_ago": 25,
+  "last_seen_minutes_ago": 0
+}
+```
+
+#### Response (`503 Service Unavailable`) — When device is offline or heartbeat is stale (> 90s):
+```json
+{
+  "id": "18f949c8-d8f9-436f-9988-d45855018619",
+  "device_id": "tablet-main",
+  "battery_percentage": 78,
+  "is_charging": false,
+  "charging_state": "discharging",
+  "ip_address": "192.168.1.105",
+  "app_version": "1.2.0",
+  "last_seen": "23 Nov 2026, 02:45:00 PM",
+  "last_seen_time": "02:45:00 PM",
+  "last_seen_iso": "2026-11-23T09:15:00.000Z",
+  "is_online": false,
+  "last_seen_seconds_ago": 1128,
+  "last_seen_minutes_ago": 18
+}
 ```
 
 ---

@@ -37,7 +37,8 @@ JERP/
 │   │   ├── staff/route.ts      # GET /api/kiosk/staff, POST /api/kiosk/staff
 │   │   ├── staff/[id]/route.ts # GET/PUT/PATCH /api/kiosk/staff/[id]
 │   │   ├── punch/route.ts      # POST /api/kiosk/punch (clock IN/OUT)
-│   │   └── advance/route.ts    # POST /api/kiosk/advance (cash advance)
+│   │   ├── advance/route.ts    # POST /api/kiosk/advance (cash advance)
+│   │   └── health/route.ts     # POST/GET /api/kiosk/health (heartbeat & battery)
 │   ├── contracting/            # Estimates, Bills, Projects, Measurements
 │   ├── marketing/              # Purchases, Inventory
 │   ├── operations/             # Work logs, sticky notes
@@ -346,12 +347,25 @@ The following are stored in browser localStorage — they are **configuration**,
 
 ### Kiosk API & Attendance Engine Architecture
 - **Dedicated Punch Timestamp Columns**: Added dedicated `punch_in` and `punch_out` columns in `staff_attendance` with graceful fallback to `work_done` if columns are absent.
-- **Real-Time Automatic Status Determination**:
-  - `< 4 hrs`: `Absent`
-  - `4 - 6 hrs`: `Half-Day`
-  - `6 - 10 hrs`: `Present`
-  - `> 10 hrs`: `Overtime`
-  - Still clocked in: `Present`
+- **Tenths Rounding & 4h (±1h) Status Determination**:
+  - Raw elapsed hours are rounded based on tenths: $2.5\text{ hrs} \rightarrow 2\text{ hrs}$ (round down), $2.6\text{ hrs} \rightarrow 3\text{ hrs}$ (round up).
+  - Evaluated against base 4h (±1h) condition:
+    - $< 3\text{ hrs}$ (raw $< 2.6\text{ hrs}$): `Absent`
+    - $3 - 6\text{ hrs}$ (raw $2.6 - 6.5\text{ hrs}$): `Half-Day` (e.g. 09:08 AM – 01:00 PM = 3.87 hrs $\rightarrow 4$ hrs $\rightarrow$ `Half-Day`)
+    - $7 - 10\text{ hrs}$ (raw $6.6 - 10.5\text{ hrs}$): `Present`
+    - $> 10\text{ hrs}$ (raw $\ge 10.6\text{ hrs}$): `Overtime`
+    - Still clocked in: `Present`
+- **Attendance Recipient Routing (`worked_for`)**:
+  - Supports `"Me"`, `"Papa"`, or `"Both"`.
+  - Configurable globally in Contracting Settings (`default_attendance_worked_for`).
+  - Correctly routes status to `status` (Me) vs `status_papa` (Papa) and preserves `Overtime` and multipliers when toggling recipient.
+- **Kiosk Hardware Health & Telemetry API (`/api/kiosk/health`)**:
+  - `POST /api/kiosk/health`: Accepts tablet heartbeat, battery percentage, charging state, app version, and IP.
+  - `GET /api/kiosk/health`: Returns live telemetry with human-readable AM/PM IST timestamps (`last_seen`, `created_at`, `updated_at`) and automatic online/offline detection ($\le 5\text{ min}$).
+  - Supported by `public.kiosk_health` in Supabase with disk backup fallback.
+- **Strict Zero-Client-Caching Policy**:
+  - Completely purged `jerp_settings` from `localStorage` in `FinanceContext.jsx`.
+  - Added `revalidatePath` on settings updates so all devices and dashboards reflect 100% live Supabase records.
 - **Two-Way Synchronization**: Manually editing attendance timestamps in the web UI automatically syncs with `staff_punches` table and recalculates status in real time.
 - **Two-Tier Sorting**: Staff list displays all active staff first (sorted alphabetically A-Z), followed by inactive staff (`On Leave` and `Terminated`, sorted A-Z).
 - **100% Live Supabase Queries with Single-Flight Coalescing**:
