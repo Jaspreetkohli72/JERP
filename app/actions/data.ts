@@ -90,6 +90,15 @@ export async function fetchAllDataAction() {
     }
     if (!data.settings || (Array.isArray(data.settings) && data.settings.length === 0)) {
         data.settings = loadBackupJson('settings.json', [{}]);
+    } else {
+        const backupArr = loadBackupJson<any[]>('settings.json', [{}]);
+        const backupObj = Array.isArray(backupArr) ? backupArr[0] : (backupArr || {});
+        const sObj = Array.isArray(data.settings) ? data.settings[0] : data.settings;
+        const merged = { ...backupObj, ...sObj };
+        if (!merged.default_attendance_worked_for && backupObj.default_attendance_worked_for) {
+            merged.default_attendance_worked_for = backupObj.default_attendance_worked_for;
+        }
+        data.settings = [merged];
     }
 
     return data;

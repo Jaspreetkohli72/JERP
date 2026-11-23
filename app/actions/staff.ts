@@ -40,19 +40,24 @@ export async function getStaffStats() {
     let allStaffAdvances: any[] = [];
     let settings: any = {};
 
+    let todayPunches: PunchRecord[] = [];
+    const today = getTodayIST();
+
     try {
-        // 1. Fetch Staff, Attendance, Advances, Settings
-        const [staffRes, attendanceRes, advancesRes, settingsRes] = await Promise.all([
+        // 1. Fetch Staff, Attendance, Advances, Settings, and Today's Punches in a SINGLE parallel batch
+        const [staffRes, attendanceRes, advancesRes, settingsRes, punchesRes] = await Promise.all([
             supabase.from('staff').select('*').order('created_at', { ascending: false }),
             supabase.from('staff_attendance').select('*'),
             supabase.from('staff_advances').select('*'),
-            supabase.from('settings').select('*').limit(1)
+            supabase.from('settings').select('*').limit(1),
+            supabase.from('staff_punches').select('*').eq('date', today).order('punched_at', { ascending: true })
         ]);
 
         if (staffRes.data && staffRes.data.length > 0) staffList = staffRes.data;
         if (attendanceRes.data && attendanceRes.data.length > 0) attendance = attendanceRes.data;
         if (advancesRes.data && advancesRes.data.length > 0) allStaffAdvances = advancesRes.data;
         if (settingsRes.data && settingsRes.data.length > 0) settings = settingsRes.data[0];
+        if (punchesRes.data && punchesRes.data.length > 0) todayPunches = punchesRes.data;
     } catch (e: any) {
         console.warn("getStaffStats Supabase query warning:", e?.message || e);
     }
@@ -72,13 +77,46 @@ export async function getStaffStats() {
         settings = Array.isArray(settingsArr) ? settingsArr[0] : settingsArr;
     }
 
-    // Fetch live Kiosk punch state for today
+    // Compute live Kiosk punch state for today without firing duplicate queries
     const kioskStatusMap = new Map<string, { clockedIn: boolean; since: string | null }>();
-    try {
-        const kioskList = await getActiveStaffKioskList();
-        kioskList.forEach(k => kioskStatusMap.set(String(k.id), { clockedIn: k.clockedIn, since: k.since }));
-    } catch (kErr) {
-        console.warn('getActiveStaffKioskList error in getStaffStats:', kErr);
+    const punchesByStaff = new Map<number, PunchRecord[]>();
+    for (const p of todayPunches) {
+        const list = punchesByStaff.get(p.staff_id) || [];
+        list.push(p);
+        punchesByStaff.set(p.staff_id, list);
+    }
+
+    const todayAttByStaff = new Map<number, any>();
+    for (const a of attendance) {
+        if (a.date === today) {
+            todayAttByStaff.set(Number(a.staff_id), a);
+        }
+    }
+
+    for (const s of staffList) {
+        const staffIdNum = Number(s.id);
+        const sPunches = punchesByStaff.get(staffIdNum) || [];
+        sPunches.sort((a, b) => new Date(a.punched_at).getTime() - new Date(b.punched_at).getTime());
+        const att = todayAttByStaff.get(staffIdNum);
+
+        let isClockedIn = false;
+        let sinceTime: string | null = null;
+
+        if (att?.punch_in) {
+            if (!att.punch_out) {
+                isClockedIn = true;
+                sinceTime = formatTimeIST(att.punch_in);
+            } else {
+                isClockedIn = false;
+                sinceTime = null;
+            }
+        } else if (sPunches.length > 0) {
+            const latestPunch = sPunches[sPunches.length - 1];
+            isClockedIn = latestPunch.punch_type === 'IN';
+            sinceTime = isClockedIn ? formatTimeIST(latestPunch.punched_at) : null;
+        }
+
+        kioskStatusMap.set(String(s.id), { clockedIn: isClockedIn, since: sinceTime });
     }
 
     try {

@@ -1,14 +1,15 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useFinance } from '@/context/FinanceContext';
-import { Save, ArrowLeft, Settings as SettingsIcon } from 'lucide-react';
+import { Save, ArrowLeft, Settings as SettingsIcon, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { getSettingsAction, saveSettingsAction } from '@/app/actions/settings';
 
 export default function ContractingSettingsPage() {
     // @ts-ignore
     const { settings, updateSettings } = useFinance();
     const [loading, setLoading] = useState(false);
+    const [savedNotice, setSavedNotice] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         welder_rate: 0,
         helper_rate: 0,
@@ -17,46 +18,52 @@ export default function ContractingSettingsPage() {
         default_attendance_worked_for: 'Me'
     });
 
+    // 1. Initial authoritative load from server action
     useEffect(() => {
-        if (settings) {
-            setFormData({
-                welder_rate: settings.welder_rate || 0,
-                helper_rate: settings.helper_rate || 0,
-                profit_margin: settings.profit_margin || 0,
-                advance_required: settings.advance_required || 0,
-                default_attendance_worked_for: settings.default_attendance_worked_for || 'Me'
-            });
+        getSettingsAction().then(s => {
+            if (s) {
+                setFormData({
+                    welder_rate: s.welder_rate || 0,
+                    helper_rate: s.helper_rate || 0,
+                    profit_margin: s.profit_margin || 0,
+                    advance_required: s.advance_required ?? s.advance_percentage ?? 0,
+                    default_attendance_worked_for: s.default_attendance_worked_for || 'Me'
+                });
+            }
+        });
+    }, []);
+
+    // 2. Keep in sync if settings context updates
+    useEffect(() => {
+        if (settings && Object.keys(settings).length > 0) {
+            setFormData(prev => ({
+                ...prev,
+                welder_rate: settings.welder_rate ?? prev.welder_rate,
+                helper_rate: settings.helper_rate ?? prev.helper_rate,
+                profit_margin: settings.profit_margin ?? prev.profit_margin,
+                advance_required: settings.advance_required ?? settings.advance_percentage ?? prev.advance_required,
+                default_attendance_worked_for: settings.default_attendance_worked_for || prev.default_attendance_worked_for || 'Me'
+            }));
         }
     }, [settings]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
-        // Save to settings table (assuming single row for global config or distinct keys)
-        // We will assume a 'contracting_config' key or just specific columns in a single row settings table
-        // For simplicity, we'll try to update a row where id=1 or similar, but FinanceContext abstract this?
-        // Actually, FinanceContext doesn't have updateSettings yet, so I'll implement valid logic here or update context first.
+        setSavedNotice(null);
 
-        // Let's implement direct update here for now if context is missing it, but ideally context handles it.
-        // We often store keys in a 'settings' table: { key: 'welder_rate', value: 500 } or columns.
-        // Let's go with columns in a single row for 'contracting_settings' or just 'settings' table.
-        // If settings table is generic { key, value }, we upsert.
-        // If it's a specific table, we update row.
-
-        // Let's try upserting by key for flexibility, or assuming a single row with columns if inspection worked.
-        // Since inspection failed/was inconclusive, I'll assume we might need to create the table or it uses keys.
-        // Let's assume keys: 'contracting_welder_rate', 'contracting_helper_rate', etc.
-
-        // BETTER: Create a strictly typed object update via Context.
-        if (updateSettings) {
-            await updateSettings(formData);
-        } else {
-            // Fallback: Upsert to 'settings' table assuming id=1
-            const { error } = await supabase.from('settings').upsert({ id: 1, ...formData });
-            if (error) alert('Error saving settings');
+        try {
+            const res = await saveSettingsAction(formData);
+            if (updateSettings) {
+                await updateSettings(res.settings || formData);
+            }
+            setSavedNotice('Configuration saved successfully! Future punches will be attributed to ' + formData.default_attendance_worked_for + '.');
+            setTimeout(() => setSavedNotice(null), 5000);
+        } catch (err: any) {
+            alert('Failed to save settings: ' + (err?.message || err));
+        } finally {
+            setLoading(false);
         }
-
-        setLoading(false);
     };
 
     return (
@@ -154,10 +161,17 @@ export default function ContractingSettingsPage() {
                     </div>
                 </div>
 
+                {savedNotice && (
+                    <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 rounded-xl text-sm font-medium">
+                        <CheckCircle2 size={18} className="shrink-0" />
+                        <span>{savedNotice}</span>
+                    </div>
+                )}
+
                 <button
                     type="submit"
                     disabled={loading}
-                    className="bg-[var(--accent)] text-black font-bold py-4 rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 mt-4"
+                    className="bg-[var(--accent)] text-black font-bold py-4 rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 mt-2"
                 >
                     <Save size={20} />
                     {loading ? 'Saving...' : 'Save Configuration'}

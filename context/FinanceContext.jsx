@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { fetchAllDataAction } from "../app/actions/data";
+import { saveSettingsAction } from "../app/actions/settings";
 
 const FinanceContext = createContext();
 
@@ -198,28 +199,8 @@ export function FinanceProvider({ children }) {
 
 
 
-    // Load from LocalStorage on mount
+    // Always fetch fresh live data on mount
     useEffect(() => {
-        // const cached = typeof window !== 'undefined' ? localStorage.getItem('jasper_data') : null;
-        // if (cached) {
-        //     try {
-        //         const data = JSON.parse(cached);
-        //         setTransactions(data.transactions || []);
-        //         setCategories(data.categories || []);
-        //         setContacts(data.contacts || []);
-        //         setAllGlobalBudgets(data.allGlobalBudgets || []);
-        //         setAllCategoryBudgets(data.allCategoryBudgets || []);
-        //         setWallets(data.wallets || []);
-        //         setStaffList(data.staffList || []);
-        //         setSettings(data.settings || {});
-        //         // setLoading(false); // Valid cache found, show immediately
-        //     } catch (e) {
-        //         console.error("Cache parse error", e);
-        //     }
-        // }
-
-        // Always fetch fresh data
-
         fetchData();
     }, []);
 
@@ -1690,9 +1671,9 @@ export function FinanceProvider({ children }) {
                 updateSale,
                 updateSettings: async (newSettings) => {
                     try {
-                        await supabase.from(TABLES.SETTINGS).upsert({ id: 1, ...newSettings });
+                        await saveSettingsAction(newSettings);
                     } catch (e) {
-                        console.warn("Supabase settings update warning:", e);
+                        console.warn("Settings update warning:", e);
                     }
                     setSettings(prev => {
                         const updated = { ...prev, ...newSettings };

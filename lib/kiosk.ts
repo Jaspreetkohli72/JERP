@@ -552,6 +552,29 @@ export async function syncStaffAttendanceOnPunch(
         }
     }
 
+    // Resolve configured default recipient from settings
+    let configuredWorkedFor = 'Me';
+    try {
+        const { data: setRes } = await supabase.from('settings').select('*').limit(1);
+        if (setRes && setRes.length > 0 && setRes[0].default_attendance_worked_for) {
+            configuredWorkedFor = setRes[0].default_attendance_worked_for;
+        } else {
+            const backupSettings = loadBackupJson<any[]>('settings.json', [{}]);
+            const bObj = Array.isArray(backupSettings) ? backupSettings[0] : (backupSettings || {});
+            if (bObj.default_attendance_worked_for) {
+                configuredWorkedFor = bObj.default_attendance_worked_for;
+            }
+        }
+    } catch {
+        const backupSettings = loadBackupJson<any[]>('settings.json', [{}]);
+        const bObj = Array.isArray(backupSettings) ? backupSettings[0] : (backupSettings || {});
+        if (bObj.default_attendance_worked_for) {
+            configuredWorkedFor = bObj.default_attendance_worked_for;
+        }
+    }
+
+    const effectiveWorkedFor = existingRecord?.worked_for || configuredWorkedFor;
+
     const existingWorkDone = existingRecord?.work_done || '';
     const cleanWorkDone = existingWorkDone
         .replace(/🕒?\s*In:\s*\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*\|\s*Out:\s*\d{1,2}:\d{2}\s*(?:AM|PM)?)?/gi, '')
@@ -560,13 +583,16 @@ export async function syncStaffAttendanceOnPunch(
     const payloadWithColumns: any = {
         staff_id: staffId,
         date: today,
-        worked_for: existingRecord?.worked_for || null,
+        worked_for: effectiveWorkedFor,
         status_papa: existingRecord?.status_papa || null,
         work_done: cleanWorkDone || null,
     };
 
+    let basePunchStatus = 'Present';
     if (action === 'IN') {
-        payloadWithColumns.status = existingRecord?.status === 'Half-Day' || existingRecord?.status === 'Overtime' ? existingRecord.status : 'Present';
+        basePunchStatus = existingRecord?.status === 'Half-Day' || existingRecord?.status === 'Overtime' 
+            ? existingRecord.status 
+            : (existingRecord?.status_papa === 'Half-Day' || existingRecord?.status_papa === 'Overtime' ? existingRecord.status_papa : 'Present');
         // Preserve earliest punch_in if already present
         payloadWithColumns.punch_in = existingRecord?.punch_in || explicitPunchIn || nowIso;
         // Staff is currently clocked in, so punch_out MUST be null
@@ -595,7 +621,19 @@ export async function syncStaffAttendanceOnPunch(
 
         payloadWithColumns.punch_in = resolvedPunchIn;
         payloadWithColumns.punch_out = nowIso;
-        payloadWithColumns.status = calculatedStatus || 'Present';
+        basePunchStatus = calculatedStatus || 'Present';
+    }
+
+    // Correctly attribute attendance status based on worked_for recipient
+    if (effectiveWorkedFor === 'Papa') {
+        payloadWithColumns.status = 'Absent';
+        payloadWithColumns.status_papa = basePunchStatus;
+    } else if (effectiveWorkedFor === 'Both') {
+        payloadWithColumns.status = basePunchStatus;
+        payloadWithColumns.status_papa = basePunchStatus;
+    } else {
+        payloadWithColumns.status = basePunchStatus;
+        payloadWithColumns.status_papa = existingRecord?.status_papa || null;
     }
 
     // 2. Persist to Supabase: first try with punch columns, fallback to standard schema if columns not yet added
@@ -619,8 +657,8 @@ export async function syncStaffAttendanceOnPunch(
                 staff_id: staffId,
                 date: today,
                 status: payloadWithColumns.status,
-                worked_for: null,
-                status_papa: null,
+                worked_for: payloadWithColumns.worked_for,
+                status_papa: payloadWithColumns.status_papa,
                 work_done: payloadWithColumns.work_done,
             };
             const { error: fbErr } = await supabase
