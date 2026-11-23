@@ -11,6 +11,71 @@ const NO_CACHE_HEADERS = {
 };
 
 /**
+ * Formats a timestamp into "DD Mon YYYY, hh:mm:ss AM/PM" in Asia/Kolkata timezone
+ */
+function formatTimestampIST(ts?: string | Date | null): string | null {
+    if (!ts) return null;
+    try {
+        const d = typeof ts === 'string' ? new Date(ts) : ts;
+        if (isNaN(d.getTime())) return String(ts);
+        const day = d.toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata', day: '2-digit' });
+        const month = d.toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata', month: 'short' });
+        const year = d.toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata', year: 'numeric' });
+        const time = d.toLocaleTimeString('en-US', {
+            timeZone: 'Asia/Kolkata',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+        return `${day} ${month} ${year}, ${time}`;
+    } catch {
+        return String(ts);
+    }
+}
+
+/**
+ * Formats time only into "hh:mm:ss AM/PM" in Asia/Kolkata timezone
+ */
+function formatTimeOnlyIST(ts?: string | Date | null): string | null {
+    if (!ts) return null;
+    try {
+        const d = typeof ts === 'string' ? new Date(ts) : ts;
+        if (isNaN(d.getTime())) return null;
+        return d.toLocaleTimeString('en-US', {
+            timeZone: 'Asia/Kolkata',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+    } catch {
+        return null;
+    }
+}
+
+function enrichHealthRecord(rec: any, now: number) {
+    const rawLastSeen = rec.last_seen;
+    const lastSeenTime = rawLastSeen ? new Date(rawLastSeen).getTime() : 0;
+    const diffMs = Math.max(0, now - lastSeenTime);
+    const diffMinutes = Math.floor(diffMs / 60000);
+    const isOnline = diffMs <= 5 * 60 * 1000;
+
+    return {
+        ...rec,
+        last_seen: formatTimestampIST(rawLastSeen),
+        last_seen_time: formatTimeOnlyIST(rawLastSeen),
+        last_seen_iso: rawLastSeen || null,
+        created_at: formatTimestampIST(rec.created_at),
+        created_at_iso: rec.created_at || null,
+        updated_at: formatTimestampIST(rec.updated_at),
+        updated_at_iso: rec.updated_at || null,
+        is_online: isOnline,
+        last_seen_minutes_ago: diffMinutes
+    };
+}
+
+/**
  * GET /api/kiosk/health
  * Fetch latest telemetry / health state for all kiosks or a specific device (?device_id=...)
  */
@@ -52,20 +117,7 @@ export async function GET(request: NextRequest) {
         }
 
         const now = Date.now();
-        const enriched = records.map(rec => {
-            const lastSeenTime = rec.last_seen ? new Date(rec.last_seen).getTime() : 0;
-            const diffMs = Math.max(0, now - lastSeenTime);
-            const diffMinutes = Math.floor(diffMs / 60000);
-
-            // Device is considered online if seen within last 5 minutes (300,000 ms)
-            const isOnline = diffMs <= 5 * 60 * 1000;
-
-            return {
-                ...rec,
-                is_online: isOnline,
-                last_seen_minutes_ago: diffMinutes
-            };
-        });
+        const enriched = records.map(rec => enrichHealthRecord(rec, now));
 
         if (deviceId && enriched.length > 0) {
             return NextResponse.json(enriched[0], { status: 200, headers: NO_CACHE_HEADERS });
@@ -174,6 +226,7 @@ export async function POST(request: NextRequest) {
         // 2. Persist to Supabase kiosk_health table
         let dbSuccess = false;
         let dbErrorMsg = '';
+        let dbData: any = null;
 
         try {
             const { data, error } = await supabase
@@ -183,6 +236,7 @@ export async function POST(request: NextRequest) {
 
             if (!error && data) {
                 dbSuccess = true;
+                dbData = data;
             } else if (error) {
                 dbErrorMsg = error.message;
                 console.warn('[Kiosk Health] Supabase upsert error:', error.message);
@@ -192,15 +246,14 @@ export async function POST(request: NextRequest) {
             console.warn('[Kiosk Health] Supabase exception:', dbErr);
         }
 
+        const savedRecord = (dbSuccess && dbData && dbData.length > 0) ? dbData[0] : payload;
+        const enriched = enrichHealthRecord(savedRecord, Date.now());
+
         return NextResponse.json({
             success: true,
             db_synced: dbSuccess,
             db_error: dbErrorMsg || null,
-            health: {
-                ...payload,
-                is_online: true,
-                last_seen_minutes_ago: 0
-            }
+            health: enriched
         }, { status: 200, headers: NO_CACHE_HEADERS });
 
     } catch (e: any) {

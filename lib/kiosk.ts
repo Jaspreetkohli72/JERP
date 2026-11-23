@@ -536,7 +536,8 @@ export async function syncStaffAttendanceOnPunch(
     nowIso: string,
     calculatedStatus?: string,
     explicitPunchIn?: string,
-    existingAttendanceRecord?: any
+    existingAttendanceRecord?: any,
+    overrideWorkedFor?: string
 ): Promise<void> {
     const today = getTodayIST();
 
@@ -585,7 +586,9 @@ export async function syncStaffAttendanceOnPunch(
         }
     }
 
-    const effectiveWorkedFor = existingRecord?.worked_for || configuredWorkedFor;
+    const effectiveWorkedFor = (overrideWorkedFor && ['Me', 'Papa', 'Both'].includes(overrideWorkedFor))
+        ? overrideWorkedFor
+        : (existingRecord?.worked_for || configuredWorkedFor);
 
     const existingWorkDone = existingRecord?.work_done || '';
     const cleanWorkDone = existingWorkDone

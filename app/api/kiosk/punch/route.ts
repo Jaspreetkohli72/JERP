@@ -113,6 +113,10 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Not clocked in' }, { status: 400 });
         }
 
+        const bodyWorkedFor = ['Me', 'Papa', 'Both'].includes(body.worked_for || body.workedFor)
+            ? (body.worked_for || body.workedFor)
+            : undefined;
+
         let message = '';
 
         if (action === 'IN') {
@@ -124,7 +128,7 @@ export async function POST(request: Request) {
             };
             await Promise.all([
                 recordPunchEvent(newPunch),
-                syncStaffAttendanceOnPunch(numStaffId, 'IN', nowIso, undefined, undefined, existingAtt)
+                syncStaffAttendanceOnPunch(numStaffId, 'IN', nowIso, undefined, undefined, existingAtt, bodyWorkedFor)
             ]);
             message = `Punched IN successfully at ${formatTimeIST(nowIso)}`;
         } else {
@@ -152,7 +156,7 @@ export async function POST(request: Request) {
 
             await Promise.all([
                 recordPunchEvent(newPunch),
-                syncStaffAttendanceOnPunch(numStaffId, 'OUT', nowIso, calculatedStatus, earliestInIso, existingAtt)
+                syncStaffAttendanceOnPunch(numStaffId, 'OUT', nowIso, calculatedStatus, earliestInIso, existingAtt, bodyWorkedFor)
             ]);
 
             const hoursDisplay = totalHours.toFixed(1);

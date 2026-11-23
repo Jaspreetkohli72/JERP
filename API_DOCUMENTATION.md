@@ -272,17 +272,29 @@ Records a clock punch for today. The backend automatically calculates total accu
   ```json
   {
     "staffId": "47",
-    "action": "IN"
+    "action": "IN",
+    "worked_for": "Papa"
   }
   ```
 
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `staffId` | `string` / `number` | **Required** | Numeric ID of the staff member. |
+| `action` | `string` | **Required** | `"IN"` to clock in, `"OUT"` to clock out. |
+| `worked_for` | `string` | Optional | Attendance recipient: `"Me"`, `"Papa"`, or `"Both"`. If omitted, automatically defaults to the active global recipient configured in **Contracting Settings** (`default_attendance_worked_for`). |
+
+#### Attendance Recipient Attribution (`worked_for`)
+- **`"Me"`**: Attributes attendance status to `status` (Me). `status_papa` remains `Absent` / null.
+- **`"Papa"`**: Attributes attendance status to `status_papa` (Papa). `status` is set to `Absent`.
+- **`"Both"`**: Attributes attendance status to both `status` (Me) and `status_papa` (Papa).
+
 #### Automatic Status Calculation Rules
-Whenever a punch or time edit occurs, the attendance status is automatically determined from elapsed daily working hours:
+Whenever a punch or time edit occurs, elapsed working hours are rounded to the nearest integer based on tenths ($2.6 \rightarrow 3\text{ hrs}$, $2.5 \rightarrow 2\text{ hrs}$) and compared against the **$4\text{ hours } (\pm 1\text{ hr})$ rule**:
 - **Still Clocked In**: Automatically marked as `Present`.
-- **`< 4 hours`**: `Absent`
-- **`4 – 6 hours`**: `Half-Day`
-- **`6 – 10 hours`**: `Present`
-- **`> 10 hours`**: `Overtime`
+- **$< 3\text{ hours}$** *(raw $< 2.6\text{ hrs}$, e.g. $2.5\text{ hrs} \rightarrow 2$)*: `Absent`
+- **$3 – 6\text{ hours}$** *(raw $2.6 – 6.5\text{ hrs}$, e.g. $09{:}08\text{ AM} – 01{:}00\text{ PM} = 3.87\text{ hrs} \rightarrow 4$)*: `Half-Day`
+- **$7 – 10\text{ hours}$** *(raw $6.6 – 10.5\text{ hrs}$, standard $8\text{h} \pm 1\text{h}$ workday)*: `Present`
+- **$> 10\text{ hours}$** *(raw $\ge 10.6\text{ hrs}$)*: `Overtime`
 
 #### Two-Way Synchronization
 - Clocking **IN** saves `punch_in` timestamp and resets `punch_out = null`.
@@ -391,8 +403,13 @@ Sends tablet telemetry including battery percentage, charging state, app version
       "screen_on": true,
       "wifi_rssi": -55
     },
-    "last_seen": "2026-11-23T09:12:00.000Z",
-    "updated_at": "2026-11-23T09:12:00.000Z",
+    "last_seen": "23 Nov 2026, 03:03:48 PM",
+    "last_seen_time": "03:03:48 PM",
+    "last_seen_iso": "2026-11-23T09:33:48.005Z",
+    "created_at": "23 Nov 2026, 02:59:59 PM",
+    "created_at_iso": "2026-11-23T09:29:59.948Z",
+    "updated_at": "23 Nov 2026, 03:03:48 PM",
+    "updated_at_iso": "2026-11-23T09:33:48.005Z",
     "is_online": true,
     "last_seen_minutes_ago": 0
   }
@@ -427,9 +444,13 @@ Fetches current battery status, charging state, and online/offline calculation f
     "metadata": {
       "screen_on": true
     },
-    "last_seen": "2026-11-23T09:12:00.000Z",
+    "last_seen": "23 Nov 2026, 03:03:48 PM",
+    "last_seen_time": "03:03:48 PM",
+    "last_seen_iso": "2026-11-23T09:33:48.005Z",
+    "created_at": "23 Nov 2026, 02:59:59 PM",
+    "updated_at": "23 Nov 2026, 03:03:48 PM",
     "is_online": true,
-    "last_seen_minutes_ago": 1
+    "last_seen_minutes_ago": 0
   }
 ]
 ```
@@ -517,7 +538,8 @@ data class UpdateStaffResponse(
  */
 data class PunchRequest(
     @SerializedName("staffId") val staffId: String,
-    @SerializedName("action") val action: String // "IN" or "OUT"
+    @SerializedName("action") val action: String, // "IN" or "OUT"
+    @SerializedName("worked_for") val workedFor: String? = null // Optional override: "Me", "Papa", "Both"
 )
 
 data class PunchResponse(
