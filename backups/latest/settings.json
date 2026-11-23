@@ -1,7 +1,11 @@
 [
   {
     "id": 1,
+    "profit_margin": 100,
     "advance_percentage": 80,
-    "profit_margin": 100
+    "advance_required": 80,
+    "welder_rate": 0,
+    "helper_rate": 0,
+    "default_attendance_worked_for": "Papa"
   }
 ]

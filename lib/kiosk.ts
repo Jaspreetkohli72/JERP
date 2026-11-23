@@ -48,16 +48,28 @@ export function formatTimeIST(dateInput: Date | string): string {
 }
 
 /**
+ * Rounds hours based on tenth position (> 0.5 rounds up, <= 0.5 rounds down):
+ * e.g. 2.6 -> 3, 2.5 -> 2
+ */
+export function roundHoursForAttendance(hours: number): number {
+    const floor = Math.floor(hours);
+    const decimal = Math.round((hours - floor) * 10) / 10;
+    return decimal > 0.5 ? floor + 1 : floor;
+}
+
+/**
  * Maps cumulative working hours to attendance status:
- * - < 4.0 hrs: 'Absent'
- * - 4.0 to < 6.0 hrs: 'Half-Day'
- * - 6.0 to 10.0 hrs: 'Present'
- * - > 10.0 hrs: 'Overtime' (1.5 day credit)
+ * Rule: Hours rounded based on tenths (2.6 -> 3, 2.5 -> 2), then compared to 4hr (+/- 1 hr) rule:
+ * - < 3 hrs: 'Absent' (0, 1, 2)
+ * - 3 to 6 hrs: 'Half-Day' (covers 4h +/- 1h)
+ * - 7 to 10 hrs: 'Present' (covers 8h +/- 1h standard full day)
+ * - > 10 hrs: 'Overtime' (11+ hrs)
  */
 export function calculateAttendanceStatus(totalHours: number): 'Absent' | 'Half-Day' | 'Present' | 'Overtime' {
-    if (totalHours < 4.0) return 'Absent';
-    if (totalHours < 6.0) return 'Half-Day';
-    if (totalHours <= 10.0) return 'Present';
+    const rounded = roundHoursForAttendance(totalHours);
+    if (rounded < 3) return 'Absent';
+    if (rounded < 7) return 'Half-Day';
+    if (rounded <= 10) return 'Present';
     return 'Overtime';
 }
 

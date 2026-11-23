@@ -78,8 +78,7 @@ export function FinanceProvider({ children }) {
             let loadedSettings = settingsData && settingsData.length > 0 ? settingsData[0] : {};
             if (typeof window !== 'undefined') {
                 try {
-                    const local = localStorage.getItem('jerp_settings');
-                    if (local) loadedSettings = { ...loadedSettings, ...JSON.parse(local) };
+                    localStorage.removeItem('jerp_settings');
                 } catch(e) {}
             }
             setSettings(loadedSettings);
@@ -1678,7 +1677,7 @@ export function FinanceProvider({ children }) {
                     setSettings(prev => {
                         const updated = { ...prev, ...newSettings };
                         if (typeof window !== 'undefined') {
-                            try { localStorage.setItem('jerp_settings', JSON.stringify(updated)); } catch(e){}
+                            try { localStorage.removeItem('jerp_settings'); } catch(e){}
                         }
                         return updated;
                     });

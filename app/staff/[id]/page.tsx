@@ -155,6 +155,12 @@ export default function StaffDetailsPage() {
         return `${dateStr}T${pad(hours)}:${pad(minutes)}:00+05:30`;
     };
 
+    const roundHoursForAttendance = (hours: number): number => {
+        const floor = Math.floor(hours);
+        const decimal = Math.round((hours - floor) * 10) / 10;
+        return decimal > 0.5 ? floor + 1 : floor;
+    };
+
     const calculateAttendanceFromTimes = (inTime: string, outTime: string, currentStatus?: string): string => {
         if (!inTime) return currentStatus || 'Absent';
         if (!outTime) {
@@ -166,10 +172,11 @@ export default function StaffDetailsPage() {
         let diffMinutes = (outH * 60 + outM) - (inH * 60 + inM);
         if (diffMinutes < 0) diffMinutes += 24 * 60;
         const hours = diffMinutes / 60;
+        const rounded = roundHoursForAttendance(hours);
 
-        if (hours < 4.0) return 'Absent';
-        if (hours < 6.0) return 'Half-Day';
-        if (hours <= 10.0) return 'Present';
+        if (rounded < 3) return 'Absent';
+        if (rounded < 7) return 'Half-Day';
+        if (rounded <= 10) return 'Present';
         return 'Overtime';
     };
 
@@ -1299,13 +1306,45 @@ export default function StaffDetailsPage() {
                                                     setEditAttForm(prev => {
                                                         let newSt = prev.status;
                                                         let newStPapa = prev.status_papa;
-                                                        if (newW === 'Papa' && newStPapa === 'Absent') newStPapa = 'Present';
-                                                        if (newW === 'Me' && newSt === 'Absent') newSt = 'Present';
-                                                        if (newW === 'Both') {
-                                                            if (newSt === 'Absent') newSt = 'Present';
-                                                            if (newStPapa === 'Absent') newStPapa = 'Present';
+                                                        let newOtMult = prev.ot_mult;
+                                                        let newOtMultPapa = prev.ot_mult_papa;
+
+                                                        // Resolve current active status & multiplier before switching
+                                                        const activeStatus = prev.worked_for === 'Papa' ? prev.status_papa : prev.status;
+                                                        const activeMult = prev.worked_for === 'Papa' ? prev.ot_mult_papa : prev.ot_mult;
+
+                                                        // If punch times are entered, calculate status from hours; otherwise preserve active status
+                                                        const autoFromTime = (prev.punch_in_time && prev.punch_out_time)
+                                                            ? calculateAttendanceFromTimes(prev.punch_in_time, prev.punch_out_time, activeStatus)
+                                                            : null;
+
+                                                        const resolvedStatus = autoFromTime || (activeStatus && activeStatus !== 'Absent' ? activeStatus : 'Present');
+
+                                                        if (newW === 'Papa') {
+                                                            if (newStPapa === 'Absent' || !newStPapa || prev.worked_for === 'Me') {
+                                                                 newStPapa = resolvedStatus;
+                                                                 newOtMultPapa = activeMult;
+                                                            }
+                                                        } else if (newW === 'Me') {
+                                                            if (newSt === 'Absent' || !newSt || prev.worked_for === 'Papa') {
+                                                                 newSt = resolvedStatus;
+                                                                 newOtMult = activeMult;
+                                                            }
+                                                        } else if (newW === 'Both') {
+                                                            if (newSt === 'Absent' || !newSt) newSt = resolvedStatus;
+                                                            if (newStPapa === 'Absent' || !newStPapa) newStPapa = resolvedStatus;
+                                                            newOtMult = activeMult;
+                                                            newOtMultPapa = activeMult;
                                                         }
-                                                        return { ...prev, worked_for: newW, status: newSt, status_papa: newStPapa };
+
+                                                        return {
+                                                            ...prev,
+                                                            worked_for: newW,
+                                                            status: newSt,
+                                                            status_papa: newStPapa,
+                                                            ot_mult: newOtMult,
+                                                            ot_mult_papa: newOtMultPapa
+                                                        };
                                                     });
                                                 }}
                                                 className="accent-[var(--accent)] h-4 w-4 cursor-pointer"

@@ -1,5 +1,6 @@
 'use server';
 import { supabase } from '@/lib/supabase';
+import { revalidatePath } from 'next/cache';
 import fs from 'fs';
 import path from 'path';
 
@@ -100,6 +101,14 @@ export async function saveSettingsAction(newSettings: any) {
         }
     } catch (e: any) {
         dbErrorMsg = e?.message || String(e);
+    }
+
+    try {
+        revalidatePath('/contracting/settings');
+        revalidatePath('/staff');
+        revalidatePath('/staff/attendance');
+    } catch (rErr) {
+        // ignore in non-request contexts
     }
 
     return {

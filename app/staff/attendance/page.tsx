@@ -108,6 +108,12 @@ export default function AttendancePage() {
         return `${dateStr}T${pad(hours)}:${pad(minutes)}:00+05:30`;
     };
 
+    const roundHoursForAttendance = (hours: number): number => {
+        const floor = Math.floor(hours);
+        const decimal = Math.round((hours - floor) * 10) / 10;
+        return decimal > 0.5 ? floor + 1 : floor;
+    };
+
     const calculateAttendanceFromTimes = (inTime: string, outTime: string, currentStatus?: string): string => {
         if (!inTime) return currentStatus || 'Absent';
         if (!outTime) {
@@ -119,10 +125,11 @@ export default function AttendancePage() {
         let diffMinutes = (outH * 60 + outM) - (inH * 60 + inM);
         if (diffMinutes < 0) diffMinutes += 24 * 60;
         const hours = diffMinutes / 60;
+        const rounded = roundHoursForAttendance(hours);
 
-        if (hours < 4.0) return 'Absent';
-        if (hours < 6.0) return 'Half-Day';
-        if (hours <= 10.0) return 'Present';
+        if (rounded < 3) return 'Absent';
+        if (rounded < 7) return 'Half-Day';
+        if (rounded <= 10) return 'Present';
         return 'Overtime';
     };
 
@@ -666,27 +673,37 @@ export default function AttendancePage() {
                                                 setModalData(prev => {
                                                     let newStatus = prev.status;
                                                     let newStatusPapa = prev.status_papa;
+                                                    let newOtMult = prev.ot_mult;
+                                                    let newOtMultPapa = prev.ot_mult_papa;
+
+                                                    const activeStatus = prev.worked_for === 'Papa' ? prev.status_papa : prev.status;
+                                                    const activeMult = prev.worked_for === 'Papa' ? prev.ot_mult_papa : prev.ot_mult;
+                                                    const fallback = activeStatus && activeStatus !== 'Absent' ? activeStatus : 'Present';
 
                                                     if (newWorkedFor === 'Papa') {
                                                         if (newStatusPapa === 'Absent' || !newStatusPapa || prev.worked_for === 'Me') {
-                                                            newStatusPapa = prev.status !== 'Absent' ? prev.status : 'Present';
+                                                            newStatusPapa = fallback;
+                                                            newOtMultPapa = activeMult;
                                                         }
                                                     } else if (newWorkedFor === 'Me') {
                                                         if (newStatus === 'Absent' || !newStatus || prev.worked_for === 'Papa') {
-                                                            newStatus = prev.status_papa !== 'Absent' ? prev.status_papa : 'Present';
+                                                            newStatus = fallback;
+                                                            newOtMult = activeMult;
                                                         }
                                                     } else if (newWorkedFor === 'Both') {
-                                                        const activeStatus = prev.worked_for === 'Papa' ? prev.status_papa : prev.status;
-                                                        const fallback = activeStatus !== 'Absent' ? activeStatus : 'Present';
                                                         if (newStatus === 'Absent' || !newStatus) newStatus = fallback;
                                                         if (newStatusPapa === 'Absent' || !newStatusPapa) newStatusPapa = fallback;
+                                                        newOtMult = activeMult;
+                                                        newOtMultPapa = activeMult;
                                                     }
 
                                                     return {
                                                         ...prev,
                                                         worked_for: newWorkedFor,
                                                         status: newStatus,
-                                                        status_papa: newStatusPapa
+                                                        status_papa: newStatusPapa,
+                                                        ot_mult: newOtMult,
+                                                        ot_mult_papa: newOtMultPapa
                                                     };
                                                 });
                                             }}

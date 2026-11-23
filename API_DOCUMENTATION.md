@@ -35,6 +35,8 @@ The API is served over standard HTTPS (or HTTP in local network development):
 | `PUT` | `/api/kiosk/staff/{id}` | Update an existing staff member (role, salary, status, etc.). |
 | `POST` | `/api/kiosk/punch` | Record Clock IN / OUT with automatic hours & status computation. |
 | `POST` | `/api/kiosk/advance` | Record a cash advance with manager name (`Jaspreet`, `Harjeet`, etc.). |
+| `POST` | `/api/kiosk/health` | Report kiosk heartbeat, battery level, charging state & device status. |
+| `GET` | `/api/kiosk/health` | Read live device health, online/offline status, battery & last seen timestamp. |
 
 > [!IMPORTANT]
 > **Staff Deletion Policy**: Staff members **cannot be deleted via the API**. Attempting to send a `DELETE` request returns `403 Forbidden`. Employee deletions must be performed directly by administrators within the web dashboard. To deactivate an employee via API, update their status to `"On Leave"` or `"Terminated"` using `PUT /api/kiosk/staff/{id}`.
@@ -335,6 +337,105 @@ Whenever a punch or time edit occurs, the attendance status is automatically det
 
 ---
 
+### Endpoint 7: `POST /api/kiosk/health` — Report Kiosk Health & Heartbeat
+
+Sends tablet telemetry including battery percentage, charging state, app version, and timestamp to Supabase (`public.kiosk_health`).
+
+- **Method**: `POST`
+- **URL**: `/api/kiosk/health`
+- **Headers**:
+  ```http
+  Content-Type: application/json
+  Accept: application/json
+  ```
+- **Request Body Parameters**:
+  | Field | Type | Required | Description |
+  | :--- | :--- | :--- | :--- |
+  | `device_id` | `string` | Optional | Device identifier (e.g. `"tablet-floor-1"`, `"tablet-welding"`). Defaults to `"default"`. |
+  | `battery_percentage` | `number` | **Required** | Battery percentage ($0 - 100$). Supports integer `85`, decimal `85.5`, or Android level float `0.85` (auto-scaled to 85). |
+  | `is_charging` | `boolean` | Optional | `true` if connected to charger, `false` otherwise. |
+  | `charging_state` | `string` | Optional | Detailed state: `"charging"`, `"discharging"`, `"full"`, `"not_charging"`. Defaults based on `is_charging`. |
+  | `app_version` | `string` | Optional | Installed kiosk app version (e.g. `"1.0.4"`). |
+  | `ip_address` | `string` | Optional | Explicit IP, or automatically detected from HTTP headers. |
+  | `metadata` | `object` | Optional | Custom telemetry (e.g. `{"wifi_ssid": "Galaxy_Factory", "storage_free_mb": 4200}`). |
+
+- **Sample Request**:
+  ```json
+  {
+    "device_id": "tablet-main",
+    "battery_percentage": 78,
+    "is_charging": true,
+    "charging_state": "charging",
+    "app_version": "1.2.0",
+    "metadata": {
+      "screen_on": true,
+      "wifi_rssi": -55
+    }
+  }
+  ```
+
+#### Response (`200 OK`)
+```json
+{
+  "success": true,
+  "db_synced": true,
+  "db_error": null,
+  "health": {
+    "device_id": "tablet-main",
+    "battery_percentage": 78,
+    "is_charging": true,
+    "charging_state": "charging",
+    "ip_address": "192.168.1.105",
+    "app_version": "1.2.0",
+    "metadata": {
+      "screen_on": true,
+      "wifi_rssi": -55
+    },
+    "last_seen": "2026-11-23T09:12:00.000Z",
+    "updated_at": "2026-11-23T09:12:00.000Z",
+    "is_online": true,
+    "last_seen_minutes_ago": 0
+  }
+}
+```
+
+---
+
+### Endpoint 8: `GET /api/kiosk/health` — Read Kiosk Device Telemetry
+
+Fetches current battery status, charging state, and online/offline calculation for all registered tablets or a specific device.
+
+- **Method**: `GET`
+- **URL**: `/api/kiosk/health`
+- **Query Parameters**:
+  - `device_id` *(optional, string)*: Filter to a single kiosk device (e.g. `?device_id=tablet-main`).
+- **Online Calculation Rule**:
+  - `is_online: true` if the device reported a heartbeat within the last **5 minutes** ($\le 300\text{s}$).
+  - `is_online: false` if no heartbeat has arrived for $> 5$ minutes.
+
+#### Response (`200 OK`) — Multi-device list:
+```json
+[
+  {
+    "id": "18f949c8-d8f9-436f-9988-d45855018619",
+    "device_id": "tablet-main",
+    "battery_percentage": 78,
+    "is_charging": true,
+    "charging_state": "charging",
+    "ip_address": "192.168.1.105",
+    "app_version": "1.2.0",
+    "metadata": {
+      "screen_on": true
+    },
+    "last_seen": "2026-11-23T09:12:00.000Z",
+    "is_online": true,
+    "last_seen_minutes_ago": 1
+  }
+]
+```
+
+---
+
 ## 3. Production-Ready Android (Kotlin & Retrofit) Implementation
 
 The code below has been verified against the live API specifications.
@@ -439,6 +540,36 @@ data class ApiResponse(
     @SerializedName("message") val message: String? = null,
     @SerializedName("error") val error: String? = null
 )
+
+/**
+ * Health telemetry request (POST /api/kiosk/health)
+ */
+data class KioskHealthRequest(
+    @SerializedName("device_id") val deviceId: String = "default",
+    @SerializedName("battery_percentage") val batteryPercentage: Double,
+    @SerializedName("is_charging") val isCharging: Boolean = false,
+    @SerializedName("charging_state") val chargingState: String = "discharging",
+    @SerializedName("app_version") val appVersion: String? = null,
+    @SerializedName("metadata") val metadata: Map<String, Any>? = null
+)
+
+data class KioskDeviceHealth(
+    @SerializedName("device_id") val deviceId: String,
+    @SerializedName("battery_percentage") val batteryPercentage: Double?,
+    @SerializedName("is_charging") val isCharging: Boolean,
+    @SerializedName("charging_state") val chargingState: String?,
+    @SerializedName("ip_address") val ipAddress: String?,
+    @SerializedName("app_version") val appVersion: String?,
+    @SerializedName("last_seen") val lastSeen: String?,
+    @SerializedName("is_online") val isOnline: Boolean,
+    @SerializedName("last_seen_minutes_ago") val lastSeenMinutesAgo: Long
+)
+
+data class KioskHealthResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("db_synced") val dbSynced: Boolean,
+    @SerializedName("health") val health: KioskDeviceHealth?
+)
 ```
 
 ---
@@ -494,6 +625,18 @@ interface KioskApiService {
     suspend fun recordAdvance(
         @Body request: AdvanceRequest
     ): Response<ApiResponse>
+
+    // 7. Report kiosk battery & health telemetry
+    @POST("api/kiosk/health")
+    suspend fun sendHealthHeartbeat(
+        @Body request: KioskHealthRequest
+    ): Response<KioskHealthResponse>
+
+    // 8. Read kiosk health status
+    @GET("api/kiosk/health")
+    suspend fun getHealthStatus(
+        @Query("device_id") deviceId: String? = null
+    ): Response<List<KioskDeviceHealth>>
 }
 ```
 
@@ -656,6 +799,53 @@ fun recordAdvance(staffId: String, amount: Double, selectedManager: String) {
             }
         } catch (e: Exception) {
             Toast.makeText(context, "Error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+        }
+    }
+}
+```
+
+#### 6. Reporting Battery & Kiosk Health Heartbeat (Periodic / Background)
+```kotlin
+fun sendKioskBatteryHealth(context: Context, deviceId: String = "tablet-main") {
+    // 1. Read Android BatteryManager intent
+    val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { filter ->
+        context.registerReceiver(null, filter)
+    }
+
+    val level: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+    val scale: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+    val batteryPct: Double = if (level >= 0 && scale > 0) (level * 100 / scale.toDouble()) else 100.0
+
+    val status: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+    val isCharging: Boolean = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                              status == BatteryManager.BATTERY_STATUS_FULL
+
+    val chargePlug: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) ?: -1
+    val chargingState = when {
+        status == BatteryManager.BATTERY_STATUS_FULL -> "full"
+        chargePlug == BatteryManager.BATTERY_PLUGGED_USB -> "usb"
+        chargePlug == BatteryManager.BATTERY_PLUGGED_AC -> "ac"
+        isCharging -> "charging"
+        else -> "discharging"
+    }
+
+    // 2. Post telemetry to Galaxy ERP
+    lifecycleScope.launch {
+        try {
+            val response = ApiClient.api.sendHealthHeartbeat(
+                KioskHealthRequest(
+                    deviceId = deviceId,
+                    batteryPercentage = batteryPct,
+                    isCharging = isCharging,
+                    chargingState = chargingState,
+                    appVersion = BuildConfig.VERSION_NAME
+                )
+            )
+            if (response.isSuccessful) {
+                Log.d("KioskHealth", "Heartbeat synced: ${response.body()?.health?.batteryPercentage}%")
+            }
+        } catch (e: Exception) {
+            Log.w("KioskHealth", "Telemetry send failed: ${e.message}")
         }
     }
 }
