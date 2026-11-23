@@ -135,7 +135,11 @@ export async function GET(request: NextRequest) {
             }, { status: 503, headers: NO_CACHE_HEADERS });
         }
 
-        return NextResponse.json(enriched, { status: 200, headers: NO_CACHE_HEADERS });
+        // Fleet / All-devices view: return 200 OK only if at least one device exists and ALL devices are online
+        const allOnline = enriched.length > 0 && enriched.every(d => d.is_online);
+        const fleetStatus = allOnline ? 200 : 503;
+
+        return NextResponse.json(enriched, { status: fleetStatus, headers: NO_CACHE_HEADERS });
     } catch (e: any) {
         console.error('[Kiosk Health] GET error:', e);
         return NextResponse.json({ error: e.message || 'Failed to fetch kiosk health' }, { status: 500, headers: NO_CACHE_HEADERS });

@@ -426,13 +426,14 @@ Fetches current battery status, charging state, and online/offline calculation f
 - **URL**: `/api/kiosk/health`
 - **Query Parameters**:
   - `device_id` *(optional, string)*: Filter to a single kiosk device (e.g. `?device_id=tablet-main`).
-- **Online Calculation & HTTP Status Rules**:
+- **Online Calculation & HTTP Status Rules (Uptime Kuma Ready in All Cases)**:
   - **Offline Threshold**: **90 seconds** ($\le 90\text{s}$ based on `last_seen`).
-  - **Filtered by `device_id`**:
+  - **Filtered by `device_id`** (e.g. `?device_id=tablet-main`):
     - Returns **`200 OK`** if the device is online (`is_online: true`, heartbeat within last 90 seconds).
-    - Returns **`503 Service Unavailable`** if the device is offline (`is_online: false`, heartbeat $> 90\text{s}$) or not found, while returning the full JSON telemetry payload in the response body. This allows Uptime Kuma to immediately detect a downed tablet without custom JSON keyword parsing.
-  - **No `device_id` (List All)**:
-    - Returns **`200 OK`** with an array of all known devices and their individual `is_online` flags.
+    - Returns **`503 Service Unavailable`** if the device is offline (`is_online: false`, heartbeat $> 90\text{s}$) or not found, while returning the full JSON telemetry payload in the response body.
+  - **No `device_id` (Fleet / All-Devices View)**:
+    - Returns **`200 OK`** only if at least one device exists and **all** registered devices are online.
+    - Returns **`503 Service Unavailable`** if any device is offline ($> 90\text{s}$) or if no devices have reported heartbeats yet. This allows Uptime Kuma to monitor the whole fleet on the base endpoint `/api/kiosk/health` without parameters.
 - **Cache Policy**: Emits `Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate` with dynamic server rendering to guarantee Vercel edge CDN never caches health states.
 
 #### Response (`200 OK`) — When device is online:
