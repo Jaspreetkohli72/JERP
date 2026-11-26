@@ -184,34 +184,34 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
     };
 
     return (
-        <div className="flex flex-col gap-6 p-4 md:p-8 text-white w-full mb-20 animate-in fade-in duration-500">
+        <div className="flex flex-col gap-4 sm:gap-6 p-2 sm:p-6 md:p-8 text-white w-full mb-24 animate-in fade-in duration-500 overflow-hidden">
             {/* Header */}
-            <div className="flex flex-wrap items-center justify-between w-full gap-4">
-                <div className="flex items-center gap-4">
-                    <Link href="/staff" className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
-                        <ArrowLeft size={20} />
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between w-full gap-3">
+                <div className="flex items-center gap-3">
+                    <Link href="/staff" className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors shrink-0">
+                        <ArrowLeft size={18} />
                     </Link>
-                    <h1 className="text-2xl font-bold">Attendance Calendar</h1>
+                    <h1 className="text-xl sm:text-2xl font-bold">Attendance Calendar</h1>
                 </div>
 
-                <div className="flex items-center gap-4 bg-white/5 p-1 rounded-xl">
+                <div className="flex items-center justify-between sm:justify-end gap-2 bg-white/5 p-1 rounded-xl">
                     <button onClick={handlePrevMonth} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                        <ChevronLeft size={20} />
+                        <ChevronLeft size={18} />
                     </button>
-                    <span className="text-xl font-bold min-w-[160px] text-center">{monthName} {year}</span>
+                    <span className="text-sm sm:text-xl font-bold min-w-[130px] sm:min-w-[160px] text-center">{monthName} {year}</span>
                     <button onClick={handleNextMonth} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                        <ChevronRight size={20} />
+                        <ChevronRight size={18} />
                     </button>
                 </div>
             </div>
 
             {/* Calendar Grid */}
-            <div className="glass rounded-2xl border border-white/5 overflow-hidden p-6">
+            <div className="glass rounded-2xl border border-white/5 overflow-hidden p-2 sm:p-6">
                 <div className="overflow-x-auto pb-2 custom-scrollbar">
                     <table className="w-full border-collapse min-w-[max-content]">
                         <thead>
                             <tr>
-                                <th className="p-4 text-left border-b border-white/10 bg-[#0a0a0a] sticky left-0 z-20 min-w-[200px] border-r border-white/10 shadow-[4px_0_10px_rgba(0,0,0,0.5)]">
+                                <th className="p-2.5 sm:p-4 text-left border-b border-white/10 bg-[#0a0a0a] sticky left-0 z-20 min-w-[130px] sm:min-w-[200px] border-r border-white/10 shadow-[4px_0_10px_rgba(0,0,0,0.5)] text-xs sm:text-sm">
                                     Staff Name
                                 </th>
                                 {daysArray.map(day => (
@@ -224,9 +224,9 @@ export default function AttendanceCalendar({ staffList, attendance, currentMonth
                         <tbody>
                             {staffList.filter((staff: any) => !staff.status?.startsWith('Terminated') && !staff.status?.startsWith('On Leave')).map((staff: any) => (
                                 <tr key={staff.id} className="hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 group">
-                                    <td className="p-4 border-r border-white/10 sticky left-0 z-10 bg-[#0a0a0a] group-hover:bg-[#111] transition-colors shadow-[4px_0_10px_rgba(0,0,0,0.5)]">
-                                        <div className="font-bold whitespace-nowrap text-gray-200">{staff.name}</div>
-                                        <div className="text-xs text-gray-500">{staff.role}</div>
+                                    <td className="p-2.5 sm:p-4 border-r border-white/10 sticky left-0 z-10 bg-[#0a0a0a] group-hover:bg-[#111] transition-colors shadow-[4px_0_10px_rgba(0,0,0,0.5)]">
+                                        <div className="font-bold whitespace-nowrap text-gray-200 text-xs sm:text-sm">{staff.name}</div>
+                                        <div className="text-[11px] text-gray-500">{staff.role}</div>
                                     </td>
                                     {daysArray.map(day => {
                                         const record = getAttendanceRecord(staff.id, day);

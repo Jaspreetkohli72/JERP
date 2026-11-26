@@ -85,22 +85,22 @@ export default function StaffList({ staffList, staffWithPay, settings }: any) {
     };
 
     return (
-        <div className="flex flex-col gap-6 p-4 md:p-8 text-white w-full mb-20">
+        <div className="flex flex-col gap-4 sm:gap-6 p-2 sm:p-6 md:p-8 text-white w-full mb-24 overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-[var(--accent)] to-[var(--accent-3)] bg-clip-text text-transparent">Staff & HR</h1>
-                    <p className="text-muted text-sm mt-1">Manage team, attendance, and payouts.</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[var(--accent)] to-[var(--accent-3)] bg-clip-text text-transparent">Staff & HR</h1>
+                    <p className="text-muted text-xs sm:text-sm mt-0.5">Manage team, attendance, and payouts.</p>
                 </div>
-                <button onClick={() => setIsAddModalOpen(true)} className="bg-[var(--accent)] text-black px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity flex items-center gap-2">
+                <button onClick={() => setIsAddModalOpen(true)} className="bg-[var(--accent)] text-black px-4 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 text-sm self-start sm:self-auto cursor-pointer">
                     <Plus size={18} /> Add Staff
                 </button>
             </div>
 
             {/* Modules Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 {/* Attendance Card */}
-                <Link href="/staff/attendance" className="glass p-6 rounded-2xl border border-white/5 hover:border-[var(--accent)]/50 transition-colors group">
+                <Link href="/staff/attendance" className="glass p-4 sm:p-6 rounded-2xl border border-white/5 hover:border-[var(--accent)]/50 transition-colors group">
                     <div className="flex items-start justify-between">
                         <div className="p-3 bg-blue-500/20 rounded-xl text-blue-400">
                             <Calendar size={32} />

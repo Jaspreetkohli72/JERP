@@ -39,9 +39,9 @@ export default function RootLayout({
           <div className="bg-orb orb-2" />
           <div className="bg-orb orb-3" />
 
-          <div className="min-h-screen flex gap-[18px] max-w-[1400px] mx-auto md:p-5 lg:p-6">
+          <div className="min-h-screen flex gap-[18px] max-w-[1400px] mx-auto md:p-5 lg:p-6 overflow-x-hidden">
             <Sidebar />
-            <main className="flex-1 min-w-0 flex flex-col gap-4 px-4 pb-28 pt-0 md:p-0">{children}</main>
+            <main className="flex-1 min-w-0 max-w-full flex flex-col gap-4 px-2 sm:px-4 pb-28 pt-0 md:p-0 overflow-x-hidden">{children}</main>
           </div>
 
           <MobileNav />

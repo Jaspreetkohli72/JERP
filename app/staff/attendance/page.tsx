@@ -500,34 +500,34 @@ export default function AttendancePage() {
     );
 
     return (
-        <div className="flex flex-col gap-6 p-4 md:p-8 text-white max-w-[800px] mx-auto mb-20">
+        <div className="flex flex-col gap-4 sm:gap-6 p-2 sm:p-6 md:p-8 text-white max-w-[800px] mx-auto mb-28 w-full">
             {/* Header */}
-            <div className="flex items-center gap-4">
-                <Link href="/staff" className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
-                    <ArrowLeft size={20} />
-                </Link>
-                <div className="flex-1">
-                    <h1 className="text-2xl font-bold">Mark Attendance</h1>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                    <Link href="/staff" className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors shrink-0">
+                        <ArrowLeft size={18} />
+                    </Link>
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Mark Attendance</h1>
                 </div>
-                <div className="flex items-center gap-1 bg-black/30 border border-white/10 rounded-lg p-1">
+                <div className="flex items-center justify-between sm:justify-end gap-1 bg-black/40 border border-white/10 rounded-xl p-1 shrink-0">
                     <button
                         type="button"
                         onClick={handlePrevDay}
-                        className="p-1.5 hover:bg-white/5 rounded transition-colors text-gray-400 hover:text-white"
+                        className="p-1.5 hover:bg-white/5 rounded-lg transition-colors text-gray-400 hover:text-white"
                         title="Previous Day"
                     >
                         <ChevronLeft size={16} />
                     </button>
                     <input
                         type="date"
-                        className="bg-transparent border-0 text-sm focus:outline-none [color-scheme:dark] px-2 py-1 cursor-pointer"
+                        className="bg-transparent border-0 text-xs sm:text-sm focus:outline-none [color-scheme:dark] px-2 py-1 cursor-pointer font-medium"
                         value={date}
                         onChange={e => setDate(e.target.value)}
                     />
                     <button
                         type="button"
                         onClick={handleNextDay}
-                        className="p-1.5 hover:bg-white/5 rounded transition-colors text-gray-400 hover:text-white"
+                        className="p-1.5 hover:bg-white/5 rounded-lg transition-colors text-gray-400 hover:text-white"
                         title="Next Day"
                     >
                         <ChevronRight size={16} />
@@ -541,12 +541,12 @@ export default function AttendancePage() {
                     <div className="p-10 text-center text-gray-500">Loading...</div>
                 ) : (
                     <div>
-                        <div className="grid grid-cols-[1fr_repeat(4,60px)] gap-2 p-4 border-b border-white/10 bg-white/5 text-xs text-gray-400 font-bold uppercase tracking-wider text-center items-center">
-                            <div className="text-left">Staff Member</div>
-                            <div>Pres</div>
-                            <div>Half</div>
-                            <div>Abs</div>
-                            <div>Over</div>
+                        <div className="grid grid-cols-[1fr_repeat(4,38px)] sm:grid-cols-[1fr_repeat(4,52px)] md:grid-cols-[1fr_repeat(4,60px)] gap-1 sm:gap-2 p-2.5 sm:p-4 border-b border-white/10 bg-white/5 text-[11px] sm:text-xs text-gray-400 font-bold uppercase tracking-wider text-center items-center">
+                            <div className="text-left truncate">Staff Member</div>
+                            <div title="Present"><span className="hidden sm:inline">Pres</span><span className="sm:hidden">P</span></div>
+                            <div title="Half-Day"><span className="hidden sm:inline">Half</span><span className="sm:hidden">H</span></div>
+                            <div title="Absent"><span className="hidden sm:inline">Abs</span><span className="sm:hidden">A</span></div>
+                            <div title="Overtime"><span className="hidden sm:inline">Over</span><span className="sm:hidden">OT</span></div>
                         </div>
 
                         {staffList.filter((s: any) => !s.status?.startsWith('Terminated') && !s.status?.startsWith('On Leave')).map((staff: any) => {
@@ -557,28 +557,26 @@ export default function AttendancePage() {
                             const isPapaOnly = rec?.worked_for === 'Papa';
 
                             return (
-                                <div key={staff.id} className="grid grid-cols-[1fr_repeat(4,60px)] gap-2 p-4 border-b border-white/5 items-center hover:bg-white/5 transition-colors">
-                                    <div onClick={() => handleOpenModal(staff)} className="cursor-pointer group flex-1">
-                                        <div className="font-bold flex items-center gap-2 group-hover:text-[var(--accent)] transition-colors">
-                                            {staff.name}
-                                            <Pencil size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400" />
+                                <div key={staff.id} className="grid grid-cols-[1fr_repeat(4,38px)] sm:grid-cols-[1fr_repeat(4,52px)] md:grid-cols-[1fr_repeat(4,60px)] gap-1 sm:gap-2 p-2 sm:p-4 border-b border-white/5 items-center hover:bg-white/5 transition-colors">
+                                    <div onClick={() => handleOpenModal(staff)} className="cursor-pointer group min-w-0 pr-1">
+                                        <div className="font-bold text-sm sm:text-base flex items-center gap-1.5 group-hover:text-[var(--accent)] transition-colors truncate">
+                                            <span className="truncate">{staff.name}</span>
+                                            <Pencil size={11} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 shrink-0" />
                                         </div>
-                                        <div className="text-xs text-gray-500">{staff.role}</div>
+                                        <div className="text-[11px] sm:text-xs text-gray-500 truncate">{staff.role}</div>
                                         {(() => {
                                             const inDisplay = formatPunchTime(rec?.punch_in) || (rec?.work_done?.match(/In:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i)?.[1]);
                                             const outDisplay = formatPunchTime(rec?.punch_out) || (rec?.work_done?.match(/Out:\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i)?.[1]);
                                             if (!inDisplay && !outDisplay) return null;
                                             return (
-                                                <div className="flex items-center gap-1.5 mt-1 text-[11px] font-mono font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md w-fit">
-                                                    <Clock size={11} className="text-emerald-400 shrink-0" />
-                                                    <span>In: {inDisplay || '--'}</span>
-                                                    <span className="text-white/30">•</span>
-                                                    <span>Out: {outDisplay || 'Working'}</span>
+                                                <div className="flex items-center gap-1 mt-1 text-[10px] sm:text-[11px] font-mono font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-md w-fit max-w-full truncate">
+                                                    <Clock size={10} className="text-emerald-400 shrink-0" />
+                                                    <span className="truncate">In: {inDisplay || '--'} • Out: {outDisplay || 'Working'}</span>
                                                 </div>
                                             );
                                         })()}
                                         {rec && (
-                                            <div className="text-xs text-[var(--accent)] mt-1 font-medium max-w-[400px] truncate" title={getAttendanceSummary(rec) || ""}>
+                                            <div className="text-[11px] sm:text-xs text-[var(--accent)] mt-0.5 font-medium truncate max-w-full" title={getAttendanceSummary(rec) || ""}>
                                                 {getAttendanceSummary(rec)}
                                             </div>
                                         )}
@@ -587,53 +585,53 @@ export default function AttendancePage() {
                                     {/* Present */}
                                     <button
                                         onClick={() => handleOpenModal(staff, 'Present')}
-                                        className={`flex items-center justify-center p-2 rounded-lg transition-all ${
+                                        className={`w-full h-9 sm:h-10 p-1 sm:p-2 rounded-lg flex items-center justify-center transition-all ${
                                             displayStatus === 'Present' 
-                                                ? `bg-emerald-500 text-black scale-110 shadow-lg shadow-emerald-500/20 font-bold ${isPapaOnly ? 'ring-2 ring-blue-400 ring-offset-1 ring-offset-black' : ''}`
+                                                ? `bg-emerald-500 text-black scale-105 sm:scale-110 shadow-lg shadow-emerald-500/20 font-bold ${isPapaOnly ? 'ring-2 ring-blue-400 ring-offset-1 ring-offset-black' : ''}`
                                                 : 'bg-white/5 text-gray-600 hover:bg-white/10'
                                         }`}
                                         title="Present"
                                     >
-                                        <CheckCircle size={20} />
+                                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
                                     </button>
 
                                     {/* Half Day */}
                                     <button
                                         onClick={() => handleOpenModal(staff, 'Half-Day')}
-                                        className={`flex items-center justify-center p-2 rounded-lg transition-all ${
+                                        className={`w-full h-9 sm:h-10 p-1 sm:p-2 rounded-lg flex items-center justify-center transition-all ${
                                             displayStatus === 'Half-Day'
-                                                ? `bg-amber-500 text-black scale-110 shadow-lg shadow-amber-500/20 font-bold ${isPapaOnly ? 'ring-2 ring-blue-400 ring-offset-1 ring-offset-black' : ''}`
+                                                ? `bg-amber-500 text-black scale-105 sm:scale-110 shadow-lg shadow-amber-500/20 font-bold ${isPapaOnly ? 'ring-2 ring-blue-400 ring-offset-1 ring-offset-black' : ''}`
                                                 : 'bg-white/5 text-gray-600 hover:bg-white/10'
                                         }`}
                                         title="Half-Day"
                                     >
-                                        <Clock size={20} />
+                                        <Clock className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
                                     </button>
 
                                     {/* Absent */}
                                     <button
                                         onClick={() => handleQuickStatus(staff, 'Absent')}
-                                        className={`flex items-center justify-center p-2 rounded-lg transition-all ${
+                                        className={`w-full h-9 sm:h-10 p-1 sm:p-2 rounded-lg flex items-center justify-center transition-all ${
                                             displayStatus === 'Absent'
-                                                ? `bg-red-500 text-white scale-110 shadow-lg shadow-red-500/20 font-bold ${isPapaOnly ? 'ring-2 ring-blue-400 ring-offset-1 ring-offset-black' : ''}`
+                                                ? `bg-red-500 text-white scale-105 sm:scale-110 shadow-lg shadow-red-500/20 font-bold ${isPapaOnly ? 'ring-2 ring-blue-400 ring-offset-1 ring-offset-black' : ''}`
                                                 : 'bg-white/5 text-gray-600 hover:bg-white/10'
                                         }`}
                                         title="Absent"
                                     >
-                                        <XCircle size={20} />
+                                        <XCircle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
                                     </button>
 
                                     {/* Overtime */}
                                     <button
                                         onClick={() => handleOpenModal(staff, 'Overtime')}
-                                        className={`flex items-center justify-center p-2 rounded-lg transition-all ${
+                                        className={`w-full h-9 sm:h-10 p-1 sm:p-2 rounded-lg flex items-center justify-center transition-all ${
                                             displayStatus?.startsWith('Overtime')
-                                                ? `bg-purple-500 text-black scale-110 shadow-lg shadow-purple-500/20 font-bold ${isPapaOnly ? 'ring-2 ring-blue-400 ring-offset-1 ring-offset-black' : ''}`
+                                                ? `bg-purple-500 text-black scale-105 sm:scale-110 shadow-lg shadow-purple-500/20 font-bold ${isPapaOnly ? 'ring-2 ring-blue-400 ring-offset-1 ring-offset-black' : ''}`
                                                 : 'bg-white/5 text-gray-600 hover:bg-white/10'
                                         }`}
                                         title="Overtime"
                                     >
-                                        <Zap size={20} />
+                                        <Zap className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
                                     </button>
                                 </div>
                             );
@@ -642,19 +640,19 @@ export default function AttendancePage() {
                 )}
             </div>
 
-            <div className="flex items-center justify-between sticky bottom-6 bg-black/40 backdrop-blur-md p-2.5 rounded-xl border border-white/10 gap-3">
-                <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between sticky bottom-[82px] md:bottom-6 bg-black/85 backdrop-blur-xl p-3 sm:p-4 rounded-2xl border border-white/15 gap-2.5 shadow-2xl z-40">
+                <div className="flex items-center justify-between sm:justify-start gap-2">
                     <button
                         type="button"
                         onClick={handleClearAll}
                         disabled={loading}
-                        className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 hover:border-red-500/40 px-4 py-3 rounded-xl font-semibold transition-all flex items-center gap-2 text-sm disabled:opacity-50 cursor-pointer"
+                        className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 hover:border-red-500/40 px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 text-xs sm:text-sm disabled:opacity-50 cursor-pointer flex-1 sm:flex-initial"
                         title="Clear all attendance for this date"
                     >
-                        <Trash2 size={18} /> Clear Attendance
+                        <Trash2 size={16} /> Clear Attendance
                     </button>
                     {saveMessage && (
-                        <div className={`px-4 py-2 rounded-lg text-sm font-semibold animate-in fade-in duration-300 ${
+                        <div className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold animate-in fade-in duration-300 ${
                             saveMessage.type === 'success' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'
                         }`}>
                             {saveMessage.text}
@@ -664,19 +662,19 @@ export default function AttendancePage() {
                 <button
                     onClick={handleSave}
                     disabled={loading}
-                    className="bg-[var(--accent)] text-black px-8 py-3 rounded-xl font-bold hover:opacity-90 transition-opacity flex items-center gap-2 shadow-xl shadow-[var(--accent)]/10 cursor-pointer"
+                    className="bg-[var(--accent)] text-black px-6 sm:px-8 py-3 rounded-xl font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-xl shadow-[var(--accent)]/10 cursor-pointer text-sm sm:text-base w-full sm:w-auto"
                 >
-                    {loading ? 'Saving...' : <><Save size={20} /> Save Attendance</>}
+                    {loading ? 'Saving...' : <><Save size={18} /> Save Attendance</>}
                 </button>
             </div>
 
             {/* Attendance Details Modal */}
             {modalStaff && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-[#0a0a0a] border border-white/10 p-6 rounded-2xl w-full max-w-md shadow-2xl flex flex-col gap-4">
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+                    <div className="bg-[#0a0a0a] border border-white/10 p-4 sm:p-6 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col gap-4">
                         <div>
-                            <h2 className="text-xl font-bold">Mark Attendance</h2>
-                            <p className="text-sm text-gray-400">{modalStaff.name} ({modalStaff.role})</p>
+                            <h2 className="text-lg sm:text-xl font-bold">Mark Attendance</h2>
+                            <p className="text-xs sm:text-sm text-gray-400">{modalStaff.name} ({modalStaff.role})</p>
                         </div>
 
                         {/* Worked For Radio Group */}
