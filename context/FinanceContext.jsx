@@ -1174,15 +1174,37 @@ export function FinanceProvider({ children }) {
         }
     };
 
-    const syncAttendance = (records, date) => {
+    const syncAttendance = (records = [], targetDate) => {
+        if (!records || !Array.isArray(records) || records.length === 0) return;
         setAttendance(prev => {
-            const otherDates = prev.filter(a => a.date && !a.date.startsWith(date));
-            const formatted = (records || []).map(r => ({
-                ...r,
-                date: r.date || date,
-                staff_id: parseInt(r.staff_id)
-            }));
-            return [...otherDates, ...formatted];
+            const updatedMap = new Map();
+            records.forEach(r => {
+                const sId = parseInt(r.staff_id);
+                const d = r.date || targetDate;
+                if (!isNaN(sId) && d) {
+                    updatedMap.set(`${sId}_${d}`, {
+                        ...r,
+                        date: d,
+                        staff_id: sId
+                    });
+                }
+            });
+
+            const updated = (prev || []).map(a => {
+                const key = `${parseInt(a.staff_id)}_${a.date}`;
+                if (updatedMap.has(key)) {
+                    const rec = updatedMap.get(key);
+                    updatedMap.delete(key);
+                    return { ...a, ...rec };
+                }
+                return a;
+            });
+
+            for (const newRec of updatedMap.values()) {
+                updated.push(newRec);
+            }
+
+            return updated;
         });
     };
 

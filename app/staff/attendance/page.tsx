@@ -170,17 +170,21 @@ export default function AttendancePage() {
     const handleQuickStatus = (staff: any, clickedStatus: string) => {
         const existing = attendance[staff.id];
         const workedFor = existing?.worked_for || defaultWorkedFor;
+        const newRecord: AttendanceRecord = {
+            status: (workedFor === 'Papa' || clickedStatus === 'Absent') ? 'Absent' : clickedStatus,
+            worked_for: workedFor,
+            work_done: existing?.work_done || '',
+            status_papa: (workedFor === 'Me' || clickedStatus === 'Absent') ? 'Absent' : clickedStatus,
+            punch_in: existing?.punch_in,
+            punch_out: existing?.punch_out
+        };
         setAttendance(prev => ({
             ...prev,
-            [staff.id]: {
-                status: (workedFor === 'Papa' || clickedStatus === 'Absent') ? 'Absent' : clickedStatus,
-                worked_for: workedFor,
-                work_done: existing?.work_done || '',
-                status_papa: (workedFor === 'Me' || clickedStatus === 'Absent') ? 'Absent' : clickedStatus,
-                punch_in: existing?.punch_in,
-                punch_out: existing?.punch_out
-            }
+            [staff.id]: newRecord
         }));
+        if (syncAttendance) {
+            syncAttendance([{ staff_id: staff.id, date, ...newRecord }], date);
+        }
     };
 
     const handleOpenModal = (staff: any, clickedStatus?: string) => {
@@ -265,6 +269,8 @@ export default function AttendancePage() {
         }
 
         const updatedRecord = {
+            staff_id: String(modalStaff.id),
+            date: date,
             status: finalStatus,
             worked_for: modalData.worked_for,
             work_done: finalWorkDone,
@@ -279,13 +285,15 @@ export default function AttendancePage() {
         }));
         setModalStaff(null);
 
+        // Optimistically sync FinanceContext immediately so router revalidation never flashes old data
+        if (syncAttendance) {
+            syncAttendance([updatedRecord], date);
+        }
+
         // Instantly persist the confirmed attendance record to Supabase and sync punches
-        submitDailyAttendanceAction(date, [{
-            staff_id: modalStaff.id,
-            ...updatedRecord
-        }]).then((res) => {
-            if (res.success && syncAttendance) {
-                syncAttendance();
+        submitDailyAttendanceAction(date, [updatedRecord]).then((res) => {
+            if (res.success && syncAttendance && res.data) {
+                syncAttendance(res.data, date);
             }
         }).catch(err => {
             console.warn('[Attendance Modal] Auto-save error:', err);
@@ -297,6 +305,7 @@ export default function AttendancePage() {
         setSaveMessage(null);
         const records = Object.keys(attendance).map(staffId => ({
             staff_id: staffId,
+            date: date,
             status: attendance[staffId].status,
             worked_for: attendance[staffId].worked_for,
             work_done: attendance[staffId].work_done,
@@ -311,6 +320,7 @@ export default function AttendancePage() {
             if (!records.some(r => String(r.staff_id) === String(s.id))) {
                 records.push({
                     staff_id: String(s.id),
+                    date: date,
                     status: 'Absent',
                     worked_for: settings?.default_attendance_worked_for || 'Me',
                     work_done: 'On Leave',
@@ -321,10 +331,18 @@ export default function AttendancePage() {
             }
         });
 
+        // Optimistically sync FinanceContext immediately so router revalidation never flashes old data
+        if (syncAttendance) {
+            syncAttendance(records, date);
+        }
+
         const { success, data, error } = await submitDailyAttendanceAction(date, records);
         if (success) {
             if (syncAttendance) {
                 syncAttendance(data || records.map(r => ({ ...r, date })), date);
+            }
+            if (refreshData) {
+                refreshData();
             }
             setSaveMessage({ type: 'success', text: 'Attendance saved successfully!' });
             setTimeout(() => setSaveMessage(null), 4000);
@@ -571,9 +589,10 @@ export default function AttendancePage() {
                                         onClick={() => handleOpenModal(staff, 'Present')}
                                         className={`flex items-center justify-center p-2 rounded-lg transition-all ${
                                             displayStatus === 'Present' 
-                                                ? (isPapaOnly ? 'bg-blue-500/30 text-blue-400 border border-blue-500/50 scale-105' : 'bg-green-500 text-black scale-110 shadow-lg shadow-green-500/20')
+                                                ? `bg-emerald-500 text-black scale-110 shadow-lg shadow-emerald-500/20 font-bold ${isPapaOnly ? 'ring-2 ring-blue-400 ring-offset-1 ring-offset-black' : ''}`
                                                 : 'bg-white/5 text-gray-600 hover:bg-white/10'
                                         }`}
+                                        title="Present"
                                     >
                                         <CheckCircle size={20} />
                                     </button>
@@ -583,9 +602,10 @@ export default function AttendancePage() {
                                         onClick={() => handleOpenModal(staff, 'Half-Day')}
                                         className={`flex items-center justify-center p-2 rounded-lg transition-all ${
                                             displayStatus === 'Half-Day'
-                                                ? (isPapaOnly ? 'bg-blue-500/30 text-blue-400 border border-blue-500/50 scale-105' : 'bg-yellow-500 text-black scale-110 shadow-lg shadow-yellow-500/20')
+                                                ? `bg-amber-500 text-black scale-110 shadow-lg shadow-amber-500/20 font-bold ${isPapaOnly ? 'ring-2 ring-blue-400 ring-offset-1 ring-offset-black' : ''}`
                                                 : 'bg-white/5 text-gray-600 hover:bg-white/10'
                                         }`}
+                                        title="Half-Day"
                                     >
                                         <Clock size={20} />
                                     </button>
@@ -595,9 +615,10 @@ export default function AttendancePage() {
                                         onClick={() => handleQuickStatus(staff, 'Absent')}
                                         className={`flex items-center justify-center p-2 rounded-lg transition-all ${
                                             displayStatus === 'Absent'
-                                                ? (isPapaOnly ? 'bg-blue-500/30 text-blue-400 border border-blue-500/50 scale-105' : 'bg-red-500 text-black scale-110 shadow-lg shadow-red-500/20')
+                                                ? `bg-red-500 text-white scale-110 shadow-lg shadow-red-500/20 font-bold ${isPapaOnly ? 'ring-2 ring-blue-400 ring-offset-1 ring-offset-black' : ''}`
                                                 : 'bg-white/5 text-gray-600 hover:bg-white/10'
                                         }`}
+                                        title="Absent"
                                     >
                                         <XCircle size={20} />
                                     </button>
@@ -607,9 +628,10 @@ export default function AttendancePage() {
                                         onClick={() => handleOpenModal(staff, 'Overtime')}
                                         className={`flex items-center justify-center p-2 rounded-lg transition-all ${
                                             displayStatus?.startsWith('Overtime')
-                                                ? (isPapaOnly ? 'bg-blue-500/30 text-blue-400 border border-blue-500/50 scale-105' : 'bg-purple-500 text-black scale-110 shadow-lg shadow-purple-500/20')
+                                                ? `bg-purple-500 text-black scale-110 shadow-lg shadow-purple-500/20 font-bold ${isPapaOnly ? 'ring-2 ring-blue-400 ring-offset-1 ring-offset-black' : ''}`
                                                 : 'bg-white/5 text-gray-600 hover:bg-white/10'
                                         }`}
+                                        title="Overtime"
                                     >
                                         <Zap size={20} />
                                     </button>
